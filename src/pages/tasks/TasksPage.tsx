@@ -54,6 +54,27 @@ const priorityOptions: Array<{ value: TaskPriority; label: string }> = [
   { value: 'urgent', label: 'Срочно' },
 ];
 
+const priorityCardClasses: Record<TaskPriority, string> = {
+  low: 'border-l-slate-300',
+  medium: 'border-l-primary-400',
+  high: 'border-l-warning-500',
+  urgent: 'border-l-danger-500',
+};
+
+const priorityTextClasses: Record<TaskPriority, string> = {
+  low: 'text-slate-500',
+  medium: 'text-primary-700',
+  high: 'text-warning-700',
+  urgent: 'text-danger-700',
+};
+
+const labelDotClasses: Record<string, string> = {
+  red: 'bg-danger-500',
+  amber: 'bg-warning-500',
+  sky: 'bg-sky-500',
+  rose: 'bg-rose-500',
+};
+
 function toDateInput(iso?: string) {
   return iso ? new Date(iso).toISOString().slice(0, 10) : '';
 }
@@ -91,59 +112,87 @@ function TaskCard({
   };
 
   const checklistDone = task.checklist.filter((item) => item.done).length;
+  const visibleLabels = task.labelIds
+    .map((labelId) => labelsById.get(labelId))
+    .filter((label): label is Label => Boolean(label));
+  const assignees = task.assigneeIds
+    .map((userId) => usersById.get(userId))
+    .filter((user): user is User => Boolean(user))
+    .slice(0, 3);
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: draggable.transform ? `translate3d(${draggable.transform.x}px, ${draggable.transform.y}px, 0)` : undefined }}
       className={cn(
-        'rounded-lg border border-slate-200 bg-surface p-3 shadow-card transition-colors',
+        'group relative overflow-hidden rounded-lg border border-l-4 bg-surface shadow-card transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-popover',
+        priorityCardClasses[task.priority],
         draggable.isDragging && 'opacity-40',
         droppable.isOver && 'border-primary-300 bg-primary-50/60',
       )}
     >
-      <div className="flex items-start gap-2">
-        <button
-          type="button"
-          {...draggable.attributes}
-          {...draggable.listeners}
-          className="mt-0.5 cursor-grab rounded p-0.5 text-slate-300 hover:bg-slate-100 hover:text-slate-500"
-          aria-label="Перетащить задачу"
-        >
-          <GripVertical className="size-4" />
-        </button>
-        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-          <p className="line-clamp-2 text-sm font-medium text-slate-900">{task.title}</p>
+      <div className="p-3 pb-2">
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+            <p className="line-clamp-2 text-sm font-semibold leading-5 text-slate-950">
+              {task.title}
+            </p>
+          </button>
+          <button
+            type="button"
+            {...draggable.attributes}
+            {...draggable.listeners}
+            className="cursor-grab rounded p-0.5 text-slate-300 opacity-70 transition-opacity hover:bg-slate-100 hover:text-slate-500 group-hover:opacity-100"
+            aria-label="Перетащить задачу"
+          >
+            <GripVertical className="size-4" />
+          </button>
+        </div>
+
+        <button type="button" onClick={onOpen} className="block w-full text-left">
           {task.description && (
-            <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+            <p className="line-clamp-2 text-xs leading-5 text-slate-500">
               {richTextToPlainText(task.description)}
             </p>
           )}
         </button>
-      </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge variant={priorityVariants[task.priority]}>{priorityLabels[task.priority]}</Badge>
-        {task.labelIds.map((labelId) => {
-          const label = labelsById.get(labelId);
-          return label ? (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span
+            className={cn(
+              'text-[11px] font-semibold tracking-wide uppercase',
+              priorityTextClasses[task.priority],
+            )}
+          >
+            {priorityLabels[task.priority]}
+          </span>
+          {visibleLabels.map((label) => (
             <span
-              key={labelId}
-              className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+              key={label.id}
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500"
             >
+              <span
+                className={cn('size-1.5 rounded-full', labelDotClasses[label.color] ?? 'bg-slate-400')}
+              />
               {label.name}
             </span>
-          ) : null;
-        })}
-        {task.dueDate && (
-          <Badge variant={isOverdue(task) ? 'danger' : 'neutral'}>
-            {formatRelativeDate(task.dueDate)}
-          </Badge>
-        )}
+          ))}
+        </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/70 px-3 py-2 text-xs text-slate-500">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {task.dueDate && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 whitespace-nowrap',
+                isOverdue(task) && 'font-medium text-danger-600',
+              )}
+            >
+              <CalendarDays className="size-3.5" />
+              {formatRelativeDate(task.dueDate)}
+            </span>
+          )}
           {task.checklist.length > 0 && (
             <span className="inline-flex items-center gap-1">
               <CheckSquare className="size-3.5" />
@@ -163,20 +212,19 @@ function TaskCard({
             </span>
           )}
         </div>
-        <div className="flex -space-x-1">
-          {task.assigneeIds.slice(0, 3).map((userId) => {
-            const user = usersById.get(userId);
-            return user ? (
-              <Avatar
-                key={userId}
-                name={fullName(user)}
-                src={user.avatarUrl}
-                size="xs"
-                className="ring-2 ring-white"
-              />
-            ) : null;
-          })}
-        </div>
+        {assignees.length > 0 && (
+          <div className="flex shrink-0 -space-x-1">
+            {assignees.map((user) => (
+                <Avatar
+                  key={user.id}
+                  name={fullName(user)}
+                  src={user.avatarUrl}
+                  size="xs"
+                  className="ring-2 ring-white"
+                />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

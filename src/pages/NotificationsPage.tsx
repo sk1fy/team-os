@@ -1,9 +1,12 @@
+import { BellOff } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatRelativeDate } from '@/lib/format';
 import { notificationsApi } from '@/api';
 import { toast } from '@/stores/toast';
 import { Badge, Button } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { cn } from '@/lib/cn';
 
 export function NotificationsPage() {
@@ -50,16 +53,15 @@ export function NotificationsPage() {
           ))}
 
         {isError && (
-          <div className="rounded-lg border border-danger-100 bg-danger-50 p-4 text-center">
-            <p className="text-sm text-danger-700">Не удалось загрузить уведомления.</p>
-            <Button variant="secondary" size="sm" className="mt-3" onClick={() => refetch()}>
-              Повторить
-            </Button>
-          </div>
+          <ErrorState title="Не удалось загрузить уведомления" onRetry={() => refetch()} />
         )}
 
         {notifications?.length === 0 && (
-          <p className="py-16 text-center text-sm text-slate-500">Уведомлений пока нет.</p>
+          <EmptyState
+            icon={BellOff}
+            title="Уведомлений пока нет"
+            description="Когда появятся задачи, комментарии или назначения, они будут собираться здесь."
+          />
         )}
 
         {notifications?.map((notification) => (

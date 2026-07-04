@@ -1,13 +1,38 @@
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, LogOut, Menu, Search, Settings, UserRound } from 'lucide-react';
-import { authApi, notificationsApi } from '@/api';
+import {
+  Bell,
+  BookOpen,
+  CheckSquare,
+  GraduationCap,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  UserRound,
+} from 'lucide-react';
+import { academyApi, authApi, kbApi, notificationsApi, orgApi, tasksApi } from '@/api';
 import { useUiStore } from '@/stores/ui';
 import { Avatar, Dropdown } from '@/components/ui';
+import { fullName as formatFullName } from '@/lib/labels';
+import { richTextToPlainText } from '@/lib/richText';
+import { cn } from '@/lib/cn';
+
+type SearchResult = {
+  id: string;
+  title: string;
+  subtitle: string;
+  to: string;
+  group: 'Сотрудники' | 'Статьи' | 'Задачи' | 'Курсы';
+  icon: typeof UserRound;
+};
 
 export function Topbar() {
   const navigate = useNavigate();
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
+  const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -20,7 +45,85 @@ export function Topbar() {
     refetchInterval: 60_000,
   });
 
+  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const articlesQuery = useQuery({ queryKey: ['kb', 'articles'], queryFn: () => kbApi.getArticles() });
+  const tasksQuery = useQuery({ queryKey: ['tasks', 'global'], queryFn: () => tasksApi.getTasks() });
+  const coursesQuery = useQuery({ queryKey: ['academy', 'courses'], queryFn: academyApi.getCourses });
+
   const fullName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '';
+  const query = search.trim().toLowerCase();
+
+  const searchResults = useMemo(() => {
+    if (!query) return [];
+
+    const results: SearchResult[] = [];
+    for (const user of usersQuery.data ?? []) {
+      const haystack = `${formatFullName(user)} ${user.email}`.toLowerCase();
+      if (haystack.includes(query)) {
+        results.push({
+          id: user.id,
+          title: formatFullName(user),
+          subtitle: user.email,
+          to: `/employees/${user.id}`,
+          group: 'Сотрудники',
+          icon: UserRound,
+        });
+      }
+    }
+
+    for (const article of articlesQuery.data ?? []) {
+      const haystack = `${article.title} ${richTextToPlainText(article.content)}`.toLowerCase();
+      if (haystack.includes(query)) {
+        results.push({
+          id: article.id,
+          title: article.title,
+          subtitle: article.status === 'published' ? 'Опубликована' : 'Черновик',
+          to: '/knowledge',
+          group: 'Статьи',
+          icon: BookOpen,
+        });
+      }
+    }
+
+    for (const task of tasksQuery.data ?? []) {
+      const haystack = `${task.title} ${richTextToPlainText(task.description)}`.toLowerCase();
+      if (haystack.includes(query)) {
+        results.push({
+          id: task.id,
+          title: task.title,
+          subtitle: task.completedAt ? 'Завершена' : 'Открыта',
+          to: '/tasks',
+          group: 'Задачи',
+          icon: CheckSquare,
+        });
+      }
+    }
+
+    for (const course of coursesQuery.data ?? []) {
+      const haystack = `${course.title} ${course.description ?? ''}`.toLowerCase();
+      if (haystack.includes(query)) {
+        results.push({
+          id: course.id,
+          title: course.title,
+          subtitle: course.status === 'published' ? 'Опубликован' : 'Черновик',
+          to: '/academy',
+          group: 'Курсы',
+          icon: GraduationCap,
+        });
+      }
+    }
+
+    return results.slice(0, 10);
+  }, [articlesQuery.data, coursesQuery.data, query, tasksQuery.data, usersQuery.data]);
+
+  const openResult = (result: SearchResult) => {
+    navigate(result.to);
+    setSearch('');
+    setSearchOpen(false);
+  };
+
+  const isSearching =
+    usersQuery.isPending || articlesQuery.isPending || tasksQuery.isPending || coursesQuery.isPending;
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-surface px-4">
@@ -32,14 +135,71 @@ export function Topbar() {
         <Menu className="size-5" />
       </button>
 
-      {/* Глобальный поиск (полная реализация — этап 5) */}
-      <div className="relative max-w-md flex-1">
+      <div className="relative min-w-0 max-w-md flex-1">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
         <input
           type="search"
           placeholder="Поиск по компании…"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setSearchOpen(true);
+          }}
+          onFocus={() => setSearchOpen(true)}
+          onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && searchResults[0]) openResult(searchResults[0]);
+            if (event.key === 'Escape') setSearchOpen(false);
+          }}
           className="h-9 w-full rounded-md border border-slate-200 bg-surface-muted pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary-400 focus:bg-surface"
         />
+        {searchOpen && query && (
+          <div className="animate-popover-in absolute top-full left-0 z-40 mt-2 w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-popover">
+            <div className="max-h-96 overflow-y-auto p-1">
+              {isSearching && searchResults.length === 0 && (
+                <div className="space-y-2 p-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="h-10 animate-pulse rounded bg-slate-100" />
+                  ))}
+                </div>
+              )}
+              {!isSearching && searchResults.length === 0 && (
+                <p className="px-3 py-4 text-sm text-slate-500">Ничего не найдено.</p>
+              )}
+              {searchResults.map((result, index) => {
+                const Icon = result.icon;
+                const showGroup = index === 0 || searchResults[index - 1]?.group !== result.group;
+                return (
+                  <div key={`${result.group}-${result.id}`}>
+                    {showGroup && (
+                      <div className="px-3 pt-3 pb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                        {result.group}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => openResult(result)}
+                      className={cn(
+                        'flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-slate-50',
+                      )}
+                    >
+                      <Icon className="mt-0.5 size-4 shrink-0 text-slate-400" />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-slate-900">
+                          {result.title}
+                        </span>
+                        <span className="block truncate text-xs text-slate-500">
+                          {result.subtitle}
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="ml-auto flex items-center gap-1">
