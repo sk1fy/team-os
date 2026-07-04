@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTitle } from 'react-use';
+import { useTitle } from '@reactuses/core';
 import { Check } from 'lucide-react';
 import { Button, Input, Select } from '@/components/ui';
 import { toast } from '@/stores/toast';

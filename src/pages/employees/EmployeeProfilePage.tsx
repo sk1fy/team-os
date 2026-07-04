@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTitle } from 'react-use';
+import { useTitle } from '@reactuses/core';
 import { ArrowLeft, Briefcase, CalendarDays, GraduationCap, KanbanSquare, Mail, Phone } from 'lucide-react';
 import { academyApi, orgApi, tasksApi } from '@/api';
 import type { CourseProgressStatus } from '@/types';

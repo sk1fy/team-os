@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTitle } from 'react-use';
+import { useTitle } from '@reactuses/core';
 import { Search, UserPlus } from 'lucide-react';
 import { orgApi } from '@/api';
 import {

@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useCopyToClipboard } from 'react-use';
+import { useCopyToClipboard } from '@reactuses/core';
 import { Check, Copy, Link2 } from 'lucide-react';
 import { orgApi } from '@/api';
 import type { UserRole } from '@/types';
@@ -23,7 +23,7 @@ export function InviteModal({ open, onClose }: InviteModalProps) {
   const [role, setRole] = useState<string>('employee');
   const [positionId, setPositionId] = useState<string>('none');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
-  const [{ value: copied }, copyToClipboard] = useCopyToClipboard();
+  const [copied, copyToClipboard] = useCopyToClipboard();
 
   const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
   const { data: departments } = useQuery({

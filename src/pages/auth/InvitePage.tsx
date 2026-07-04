@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTitle } from 'react-use';
+import { useTitle } from '@reactuses/core';
 import { authApi } from '@/api';
 import { Button, Input } from '@/components/ui';
 import { toast } from '@/stores/toast';

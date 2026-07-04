@@ -10,7 +10,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { useTitle } from 'react-use';
+import { useTitle } from '@reactuses/core';
 import { Briefcase, Building2, Plus } from 'lucide-react';
 import { orgApi } from '@/api';
 import type { Department, ID, Position, User } from '@/types';

@@ -2,7 +2,7 @@
 
 Бэкенда пока нет, поэтому весь план строится на **мок-данных через слой API-клиента**: интерфейсы данных и функции запросов описываются сразу, но возвращают фикстуры. Когда появится бэкенд, меняется только реализация этого слоя — компоненты не трогаем.
 
-**Стек:** React + TypeScript + Vite, Tailwind CSS, TanStack Query (поверх мок-API), Zustand (UI-состояние), ReactUse (полезные хуки), React Router, TipTap (редактор), dnd-kit (drag-and-drop).
+**Стек:** React + TypeScript + Vite, Tailwind CSS, TanStack Query (поверх мок-API), Zustand (UI-состояние), ReactUse (@reactuses/core), React Router, TipTap (редактор), dnd-kit (drag-and-drop).
 
 ---
 

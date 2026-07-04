@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { useTitle } from 'react-use';
+import { useTitle } from '@reactuses/core';
 import { Badge } from '@/components/ui';
 import { PageHeader } from './PageHeader';
 
