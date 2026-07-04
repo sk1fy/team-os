@@ -153,3 +153,88 @@
     animation: drawer-in 200ms ease-out;
   }
 }
+
+@layer components {
+  .rich-text {
+    @apply max-w-none text-sm leading-6 text-slate-700;
+  }
+
+  .rich-text :where(h1, h2, h3) {
+    @apply mt-6 mb-2 text-slate-950;
+  }
+
+  .rich-text h1 {
+    @apply text-2xl font-bold;
+  }
+
+  .rich-text h2 {
+    @apply text-xl font-semibold;
+  }
+
+  .rich-text h3 {
+    @apply text-base font-semibold;
+  }
+
+  .rich-text p {
+    @apply my-3;
+  }
+
+  .rich-text ul,
+  .rich-text ol {
+    @apply my-3 pl-6;
+  }
+
+  .rich-text ul {
+    @apply list-disc;
+  }
+
+  .rich-text ol {
+    @apply list-decimal;
+  }
+
+  .rich-text a {
+    @apply text-primary-700 underline underline-offset-2;
+  }
+
+  .rich-text code {
+    @apply rounded bg-slate-100 px-1 py-0.5 text-xs text-slate-800;
+  }
+
+  .rich-text pre {
+    @apply my-4 overflow-x-auto rounded-md bg-slate-950 p-4 text-sm text-slate-50;
+  }
+
+  .rich-text pre code {
+    @apply bg-transparent p-0 text-slate-50;
+  }
+
+  .rich-text table {
+    @apply my-4 w-full border-collapse overflow-hidden rounded-md text-sm;
+  }
+
+  .rich-text th,
+  .rich-text td {
+    @apply border border-slate-200 px-3 py-2 align-top;
+  }
+
+  .rich-text th {
+    @apply bg-slate-50 font-semibold text-slate-900;
+  }
+
+  .rich-text img {
+    @apply my-4 max-h-96 rounded-md border border-slate-200 object-contain;
+  }
+
+  .rich-text iframe {
+    @apply my-4 aspect-video w-full rounded-md border border-slate-200;
+  }
+
+  .rich-text-editor {
+    @apply rounded-md;
+  }
+
+  .rich-text-editor .is-editor-empty:first-child::before {
+    @apply pointer-events-none float-left h-0 text-slate-400;
+    content: attr(data-placeholder);
+  }
+}

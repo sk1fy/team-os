@@ -4,7 +4,11 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { AcademyPage, KnowledgePage, SettingsPage, TasksPage } from '@/pages/modules';
+import { SettingsPage } from '@/pages/modules';
+import { AcademyPage } from '@/pages/academy/AcademyPage';
+import { LearnPage } from '@/pages/academy/LearnPage';
+import { KnowledgePage } from '@/pages/knowledge/KnowledgePage';
+import { TasksPage } from '@/pages/tasks/TasksPage';
 import { StructurePage } from '@/pages/structure/StructurePage';
 import { EmployeesPage } from '@/pages/employees/EmployeesPage';
 import { EmployeeProfilePage } from '@/pages/employees/EmployeeProfilePage';
@@ -37,6 +41,8 @@ export function App() {
         <Route path="create-company" element={<CreateCompanyPage />} />
         <Route path="invite/:token" element={<InvitePage />} />
       </Route>
+
+      <Route path="/learn/:courseId" element={<LearnPage />} />
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

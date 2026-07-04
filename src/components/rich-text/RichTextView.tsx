@@ -1,0 +1,44 @@
+import { useEffect } from 'react';
+import { EditorContent, useEditor, type JSONContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
+import { Table } from '@tiptap/extension-table';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
+import TableRow from '@tiptap/extension-table-row';
+import Youtube from '@tiptap/extension-youtube';
+import type { RichTextContent } from '@/types';
+import { cn } from '@/lib/cn';
+
+const extensions = [
+  StarterKit,
+  Link.configure({ openOnClick: true }),
+  Image.configure({ allowBase64: true }),
+  Youtube.configure({ controls: true, nocookie: true }),
+  Table.configure({ resizable: true }),
+  TableRow,
+  TableHeader,
+  TableCell,
+];
+
+export function RichTextView({
+  content,
+  className,
+}: {
+  content?: RichTextContent;
+  className?: string;
+}) {
+  const editor = useEditor({
+    extensions,
+    content: content as JSONContent | undefined,
+    editable: false,
+    immediatelyRender: false,
+  });
+
+  useEffect(() => {
+    if (editor && content) editor.commands.setContent(content as JSONContent);
+  }, [content, editor]);
+
+  return <EditorContent editor={editor} className={cn('rich-text', className)} />;
+}

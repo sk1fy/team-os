@@ -10,3 +10,5 @@ export { Tooltip, TooltipProvider, type TooltipProps } from './Tooltip';
 export { Toaster } from './Toast';
 export { Drawer, type DrawerProps } from './Drawer';
 export { Textarea, type TextareaProps } from './Textarea';
+export { RichTextEditor } from '../rich-text/RichTextEditor';
+export { RichTextView } from '../rich-text/RichTextView';
