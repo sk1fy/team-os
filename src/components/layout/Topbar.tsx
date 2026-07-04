@@ -15,7 +15,7 @@ import {
 import { academyApi, authApi, kbApi, notificationsApi, orgApi, tasksApi } from '@/api';
 import { useUiStore } from '@/stores/ui';
 import { Avatar, Dropdown } from '@/components/ui';
-import { fullName as formatFullName } from '@/lib/labels';
+import { fullName as formatFullName, roleLabels } from '@/lib/labels';
 import { richTextToPlainText } from '@/lib/richText';
 import { cn } from '@/lib/cn';
 
@@ -126,7 +126,7 @@ export function Topbar() {
     usersQuery.isPending || articlesQuery.isPending || tasksQuery.isPending || coursesQuery.isPending;
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-surface px-4">
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-surface px-4">
       <button
         onClick={() => setMobileSidebarOpen(true)}
         className="rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
@@ -151,7 +151,7 @@ export function Topbar() {
             if (event.key === 'Enter' && searchResults[0]) openResult(searchResults[0]);
             if (event.key === 'Escape') setSearchOpen(false);
           }}
-          className="h-9 w-full rounded-md border border-slate-200 bg-surface-muted pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary-400 focus:bg-surface"
+          className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
         />
         {searchOpen && query && (
           <div className="animate-popover-in absolute top-full left-0 z-40 mt-2 w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-popover">
@@ -202,19 +202,26 @@ export function Topbar() {
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-3">
         <button
           onClick={() => navigate('/notifications')}
-          className="relative rounded-md p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className="relative flex size-9.5 items-center justify-center rounded-md border border-slate-200 bg-surface text-slate-500 transition-colors hover:border-primary-200 hover:text-primary-600"
           aria-label="Уведомления"
         >
-          <Bell className="size-5" />
+          <Bell className="size-4.5" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-danger-500 text-[10px] font-semibold text-white">
+            <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border-2 border-surface bg-danger-600 px-1 text-[10px] font-bold text-white">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </button>
+
+        {currentUser && (
+          <div className="hidden items-center gap-2 rounded-md bg-primary-50 px-3 py-2 text-[13px] font-medium text-slate-700 md:flex">
+            <span className="size-[7px] rounded-full bg-primary-600" />
+            {roleLabels[currentUser.role]}
+          </div>
+        )}
 
         {currentUser && (
           <Dropdown

@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { preventDismissOnPopoverClick } from './dismissGuard';
 
 export interface DrawerProps {
   open: boolean;
@@ -10,12 +11,13 @@ export interface DrawerProps {
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'md' | 'lg';
+  size?: 'md' | 'lg' | 'xl';
 }
 
 const sizeClasses = {
   md: 'max-w-md',
   lg: 'max-w-xl',
+  xl: 'max-w-3xl',
 };
 
 /** Выдвижная панель справа — для карточек сущностей с длинным контентом. */
@@ -31,10 +33,12 @@ export function Drawer({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="animate-overlay-in fixed inset-0 z-40 bg-slate-950/40" />
+        <Dialog.Overlay className="animate-overlay-in fixed inset-0 z-40 bg-ink/35" />
         <Dialog.Content
+          onPointerDownOutside={preventDismissOnPopoverClick}
+          onInteractOutside={preventDismissOnPopoverClick}
           className={cn(
-            'animate-drawer-in fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-surface shadow-popover',
+            'animate-drawer-in fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-surface shadow-[-8px_0_40px_rgba(10,19,20,0.18)]',
             sizeClasses[size],
           )}
         >

@@ -18,15 +18,18 @@ const sizeClasses: Record<AvatarSize, string> = {
   xl: 'size-16 text-xl',
 };
 
-/** Детерминированный цвет фона по имени, чтобы аватар не «мигал» между рендерами. */
+/** Детерминированный цвет фона по имени, чтобы аватар не «мигал» между рендерами.
+ *  Палитра из дизайн-системы «Ракурс». */
 const bgClasses = [
-  'bg-primary-500',
-  'bg-success-500',
-  'bg-warning-500',
-  'bg-rose-500',
-  'bg-sky-500',
-  'bg-violet-500',
-  'bg-teal-500',
+  'bg-[#EF4444]',
+  'bg-[#F59E0B]',
+  'bg-[#7C3AED]',
+  'bg-[#2F7E78]',
+  'bg-[#2563EB]',
+  'bg-[#DB2777]',
+  'bg-[#0891B2]',
+  'bg-[#65A30D]',
+  'bg-[#EA580C]',
 ];
 
 function initials(name: string) {
@@ -51,7 +54,7 @@ export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-medium text-white select-none',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-bold text-white select-none',
         sizeClasses[size],
         !showImage && colorFor(name),
         className,

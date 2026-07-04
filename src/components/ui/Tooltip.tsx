@@ -19,10 +19,10 @@ export function Tooltip({ content, children, side = 'top', delayDuration = 300 }
         <TooltipPrimitive.Content
           side={side}
           sideOffset={6}
-          className="animate-popover-in z-50 max-w-xs rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-popover"
+          className="animate-popover-in z-50 max-w-xs rounded-sm bg-ink px-2.5 py-1.5 text-xs text-white shadow-popover"
         >
           {content}
-          <TooltipPrimitive.Arrow className="fill-slate-900" />
+          <TooltipPrimitive.Arrow className="fill-ink" />
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
     </TooltipPrimitive.Root>

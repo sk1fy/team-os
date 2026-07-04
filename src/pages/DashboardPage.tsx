@@ -29,17 +29,17 @@ function StatCard({
   loading: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-50">
-        <Icon className="size-5 text-primary-600" />
+    <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
+      <div className="flex size-13 shrink-0 items-center justify-center rounded-[14px] bg-primary-50">
+        <Icon className="size-5.5 text-primary-600" />
       </div>
       <div>
         {loading ? (
-          <div className="h-7 w-12 animate-pulse rounded bg-slate-200" />
+          <div className="h-8 w-12 animate-pulse rounded bg-slate-200" />
         ) : (
-          <p className="text-2xl font-bold text-slate-900">{value ?? '—'}</p>
+          <p className="text-3xl font-extrabold tracking-[-1px] text-ink">{value ?? '—'}</p>
         )}
-        <p className="text-sm text-slate-500">{title}</p>
+        <p className="text-[13px] text-slate-500">{title}</p>
       </div>
     </div>
   );

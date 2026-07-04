@@ -29,11 +29,11 @@ export function Select({
 }: SelectProps) {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      {label && <span className="text-sm font-medium text-slate-700">{label}</span>}
+      {label && <span className="text-xs font-semibold text-slate-700">{label}</span>}
       <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled}>
         <SelectPrimitive.Trigger
           className={cn(
-            'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-slate-300 bg-surface px-3 text-sm',
+            'flex h-9.5 w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-surface px-3 text-sm',
             'focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600',
             'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400',
             'data-[placeholder]:text-slate-400',

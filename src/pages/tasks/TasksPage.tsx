@@ -4,6 +4,7 @@ import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, us
 import { useTitle } from '@reactuses/core';
 import {
   CalendarDays,
+  CheckCircle2,
   CheckSquare,
   CircleDot,
   Eye,
@@ -15,9 +16,12 @@ import {
   Paperclip,
   Plus,
   Repeat,
+  RotateCcw,
   Search,
+  Send,
   UserRound,
   UsersRound,
+  X,
 } from 'lucide-react';
 import { kbApi, orgApi, tasksApi } from '@/api';
 import type { Board, ChecklistItem, ID, Label, RichTextContent, Task, TaskColumn, TaskPriority, User } from '@/types';
@@ -125,7 +129,7 @@ function TaskCard({
       ref={setNodeRef}
       style={{ transform: draggable.transform ? `translate3d(${draggable.transform.x}px, ${draggable.transform.y}px, 0)` : undefined }}
       className={cn(
-        'group relative overflow-hidden rounded-lg border border-l-4 bg-surface shadow-card transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-popover',
+        'group relative overflow-hidden rounded-lg border border-l-4 bg-surface shadow-card transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-popover',
         priorityCardClasses[task.priority],
         draggable.isDragging && 'opacity-40',
         droppable.isOver && 'border-primary-300 bg-primary-50/60',
@@ -293,6 +297,42 @@ function KanbanColumn({
   );
 }
 
+/** Заголовок секции карточки задачи в стиле panel-sub дизайн-системы. */
+function SectionLabel({ icon: Icon, children }: { icon: typeof FileText; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.5px] text-slate-400 uppercase">
+      <Icon className="size-3.5" />
+      {children}
+    </div>
+  );
+}
+
+/** Чип-переключатель для мультивыбора (исполнители, метки, статьи). */
+function ToggleChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex cursor-pointer items-center gap-1.5 rounded-sm border px-2 py-1 text-[13px] font-medium transition-colors',
+        active
+          ? 'border-primary-200 bg-primary-50 text-primary-700'
+          : 'border-slate-200 bg-surface text-slate-600 hover:border-primary-200 hover:text-primary-600',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 function TaskDrawer({
   task,
   open,
@@ -318,6 +358,7 @@ function TaskDrawer({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState<RichTextContent>(emptyDoc);
   const [priority, setPriority] = useState<TaskPriority>('medium');
+  const [columnId, setColumnId] = useState<ID>('');
   const [dueDate, setDueDate] = useState('');
   const [assigneeIds, setAssigneeIds] = useState<ID[]>([]);
   const [assigneePositionId, setAssigneePositionId] = useState<ID>('');
@@ -334,6 +375,7 @@ function TaskDrawer({
     setTitle(task.title);
     setDescription(task.description ?? emptyDoc);
     setPriority(task.priority);
+    setColumnId(task.columnId);
     setDueDate(toDateInput(task.dueDate));
     setAssigneeIds(task.assigneeIds);
     setAssigneePositionId(task.assigneePositionId ?? '');
@@ -350,6 +392,11 @@ function TaskDrawer({
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.success('Задача сохранена');
     },
+  });
+
+  const moveTask = useMutation({
+    mutationFn: tasksApi.moveTask,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   });
 
   const addComment = useMutation({
@@ -370,6 +417,9 @@ function TaskDrawer({
 
   const save = () => {
     if (!task || !title.trim()) return;
+    if (columnId && columnId !== task.columnId) {
+      moveTask.mutate({ taskId: task.id, columnId, order: 0 });
+    }
     updateTask.mutate({
       id: task.id,
       title: title.trim(),
@@ -393,17 +443,50 @@ function TaskDrawer({
     });
   };
 
-  const linkedArticles = (articlesQuery.data ?? []).filter((article) => linkedArticleIds.includes(article.id));
+  const toggleComplete = () => {
+    if (!task) return;
+    updateTask.mutate({ id: task.id, completedAt: task.completedAt ? '' : new Date().toISOString() });
+  };
+
+  const checklistDone = checklist.filter((item) => item.done).length;
+  const overdue =
+    Boolean(dueDate) && !task?.completedAt && new Date(`${dueDate}T23:59:59`).getTime() < Date.now();
+  const comments = commentsQuery.data ?? [];
+
+  const submitComment = () => {
+    if (!task || !comment.trim()) return;
+    addComment.mutate({ taskId: task.id, content: plainTextToRichText(comment.trim()) });
+  };
 
   return (
     <Drawer
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      title={task?.title ?? 'Задача'}
-      description={task ? columns.find((column) => column.id === task.columnId)?.name : undefined}
-      size="lg"
+      title="Задача"
+      description={
+        task ? `Создана ${formatDate(task.createdAt)} · обновлена ${formatRelativeDate(task.updatedAt)}` : undefined
+      }
+      size="xl"
       footer={
         <>
+          <Button
+            variant="ghost"
+            onClick={toggleComplete}
+            className={task?.completedAt ? undefined : 'text-success-600 hover:bg-success-50'}
+          >
+            {task?.completedAt ? (
+              <>
+                <RotateCcw className="size-4" />
+                Возобновить
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="size-4" />
+                Завершить
+              </>
+            )}
+          </Button>
+          <div className="flex-1" />
           <Button variant="secondary" onClick={onClose}>
             Закрыть
           </Button>
@@ -414,71 +497,240 @@ function TaskDrawer({
       }
     >
       {task && (
-        <div className="space-y-6">
-          <Input label="Название" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_248px]">
+          {/* Основная колонка */}
+          <div className="min-w-0 space-y-6">
+            <div>
+              {task.completedAt && (
+                <div className="mb-3 flex items-center gap-2 rounded-md bg-success-50 px-3 py-2 text-[13px] font-medium text-success-700">
+                  <CheckCircle2 className="size-4" />
+                  Завершена {formatDate(task.completedAt)}
+                </div>
+              )}
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Название задачи"
+                className="-mx-2 w-[calc(100%+1rem)] rounded-md border border-transparent px-2 py-1.5 text-lg leading-snug font-bold text-ink transition-colors hover:border-slate-200 focus:border-transparent focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
+              />
+            </div>
+
+            <section>
+              <div className="mb-2">
+                <SectionLabel icon={FileText}>Описание</SectionLabel>
+              </div>
+              <RichTextEditor value={description} onChange={setDescription} minHeight={160} />
+            </section>
+
+            <section>
+              <div className="mb-2 flex items-center justify-between">
+                <SectionLabel icon={CheckSquare}>Чек-лист</SectionLabel>
+                {checklist.length > 0 && (
+                  <span className="font-mono text-xs font-semibold text-slate-500">
+                    {checklistDone}/{checklist.length}
+                  </span>
+                )}
+              </div>
+              {checklist.length > 0 && (
+                <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-primary-500 transition-all"
+                    style={{ width: `${(checklistDone / checklist.length) * 100}%` }}
+                  />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                {checklist.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group flex items-center gap-2.5 rounded-md border border-slate-200 px-3 py-2"
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-4 shrink-0 accent-primary-600"
+                      checked={item.done}
+                      onChange={() =>
+                        setChecklist((items) =>
+                          items.map((current) =>
+                            current.id === item.id ? { ...current, done: !current.done } : current,
+                          ),
+                        )
+                      }
+                    />
+                    <span
+                      className={cn(
+                        'flex-1 text-sm',
+                        item.done ? 'text-slate-400 line-through' : 'text-slate-700',
+                      )}
+                    >
+                      {item.text}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setChecklist((items) => items.filter((current) => current.id !== item.id))
+                      }
+                      className="shrink-0 cursor-pointer text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger-600"
+                      aria-label="Удалить пункт"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input
+                    value={newChecklistText}
+                    onChange={(event) => setNewChecklistText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' || !newChecklistText.trim()) return;
+                      setChecklist((items) => [
+                        ...items,
+                        { id: crypto.randomUUID(), text: newChecklistText.trim(), done: false },
+                      ]);
+                      setNewChecklistText('');
+                    }}
+                    placeholder="Новый пункт — Enter, чтобы добавить"
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      if (!newChecklistText.trim()) return;
+                      setChecklist((items) => [
+                        ...items,
+                        { id: crypto.randomUUID(), text: newChecklistText.trim(), done: false },
+                      ]);
+                      setNewChecklistText('');
+                    }}
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-2">
+                <SectionLabel icon={Paperclip}>Вложения</SectionLabel>
+              </div>
+              <div className="space-y-1.5">
+                {task.attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center gap-2.5 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  >
+                    <Paperclip className="size-4 shrink-0 text-slate-400" />
+                    {attachment.name}
+                  </div>
+                ))}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    toast.success('Мок-загрузка: файл появится после подключения реального хранилища')
+                  }
+                >
+                  <Plus className="size-4" />
+                  Добавить файл
+                </Button>
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <SectionLabel icon={MessageSquare}>Комментарии</SectionLabel>
+                {comments.length > 0 && (
+                  <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">
+                    {comments.length}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-4">
+                {comments.map((item) => {
+                  const author = usersQuery.data?.find((user) => user.id === item.authorId);
+                  return (
+                    <div key={item.id} className="flex gap-3">
+                      <Avatar name={author ? fullName(author) : '?'} src={author?.avatarUrl} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-semibold text-slate-900">
+                            {author ? fullName(author) : 'Пользователь'}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {formatRelativeDate(item.createdAt)}
+                          </span>
+                        </div>
+                        <div className="mt-1 rounded-md rounded-tl-sm bg-surface-muted px-3 py-2">
+                          <RichTextView content={item.content} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div>
+                  <Textarea
+                    value={comment}
+                    onChange={(event) => setComment(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) submitComment();
+                    }}
+                    placeholder="Написать комментарий… (Cmd+Enter — отправить)"
+                    rows={2}
+                  />
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    loading={addComment.isPending}
+                    disabled={!comment.trim()}
+                    onClick={submitComment}
+                  >
+                    <Send className="size-3.5" />
+                    Отправить
+                  </Button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* Панель свойств */}
+          <aside className="space-y-5 lg:border-l lg:border-slate-100 lg:pl-6">
+            <div className="text-[11px] font-bold tracking-[0.5px] text-slate-400 uppercase">
+              Свойства
+            </div>
+            <Select
+              label="Статус"
+              value={columnId}
+              onValueChange={setColumnId}
+              options={columns.map((column) => ({ value: column.id, label: column.name }))}
+            />
             <Select
               label="Приоритет"
               value={priority}
               onValueChange={(value) => setPriority(value as TaskPriority)}
               options={priorityOptions}
             />
-            <Input
-              label="Дедлайн"
-              type="date"
-              value={dueDate}
-              onChange={(event) => setDueDate(event.target.value)}
+            <div>
+              <Input
+                label="Дедлайн"
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+              />
+              {overdue && (
+                <p className="mt-1.5 text-xs font-semibold text-danger-600">Срок истёк</p>
+              )}
+            </div>
+            <Select
+              label="Повторение"
+              value={recurrence}
+              onValueChange={setRecurrence}
+              options={[
+                { value: 'none', label: 'Нет' },
+                { value: 'daily', label: 'Ежедневно' },
+                { value: 'weekly', label: 'Еженедельно' },
+                { value: 'monthly', label: 'Ежемесячно' },
+              ]}
             />
-          </div>
-
-          <section>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <FileText className="size-4 text-slate-400" />
-              Описание
-            </div>
-            <RichTextEditor value={description} onChange={setDescription} minHeight={180} />
-          </section>
-
-          <section className="grid gap-4 md:grid-cols-2">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <UserRound className="size-4 text-slate-400" />
-                Исполнители
-              </div>
-              <div className="space-y-2 rounded-md border border-slate-200 p-3">
-                {(usersQuery.data ?? []).map((user) => (
-                  <label key={user.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={assigneeIds.includes(user.id)}
-                      onChange={() => toggle(assigneeIds, user.id, setAssigneeIds)}
-                    />
-                    {fullName(user)}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <UsersRound className="size-4 text-slate-400" />
-                Наблюдатели
-              </div>
-              <div className="space-y-2 rounded-md border border-slate-200 p-3">
-                {(usersQuery.data ?? []).map((user) => (
-                  <label key={user.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={watcherIds.includes(user.id)}
-                      onChange={() => toggle(watcherIds, user.id, setWatcherIds)}
-                    />
-                    {fullName(user)}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <div className="grid gap-3 sm:grid-cols-2">
             <Select
               label="Исполнитель по должности"
               value={assigneePositionId || 'none'}
@@ -491,176 +743,87 @@ function TaskDrawer({
                 })),
               ]}
             />
-            <Select
-              label="Повторение"
-              value={recurrence}
-              onValueChange={setRecurrence}
-              options={[
-                { value: 'none', label: 'Нет' },
-                { value: 'daily', label: 'Ежедневно' },
-                { value: 'weekly', label: 'Еженедельно' },
-                { value: 'monthly', label: 'Ежемесячно' },
-              ]}
-            />
-          </div>
 
-          <section>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <ListFilter className="size-4 text-slate-400" />
-              Метки
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(labelsQuery.data ?? []).map((label) => (
-                <label key={label.id} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={labelIds.includes(label.id)}
-                    onChange={() => toggle(labelIds, label.id, setLabelIds)}
-                  />
-                  {label.name}
-                </label>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <CheckSquare className="size-4 text-slate-400" />
-              Чек-лист
-            </div>
-            <div className="space-y-2">
-              {checklist.map((item) => (
-                <label key={item.id} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    onChange={() =>
-                      setChecklist((items) =>
-                        items.map((current) =>
-                          current.id === item.id ? { ...current, done: !current.done } : current,
-                        ),
-                      )
-                    }
-                  />
-                  <span className={cn(item.done && 'text-slate-400 line-through')}>{item.text}</span>
-                </label>
-              ))}
-              <div className="flex gap-2">
-                <Input
-                  value={newChecklistText}
-                  onChange={(event) => setNewChecklistText(event.target.value)}
-                  placeholder="Новый пункт"
-                  className="flex-1"
-                />
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    if (!newChecklistText.trim()) return;
-                    setChecklist((items) => [
-                      ...items,
-                      { id: crypto.randomUUID(), text: newChecklistText.trim(), done: false },
-                    ]);
-                    setNewChecklistText('');
-                  }}
-                >
-                  <Plus className="size-4" />
-                </Button>
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                <UserRound className="size-3.5 text-slate-400" />
+                Исполнители
               </div>
-            </div>
-          </section>
-
-          <section>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <LinkIcon className="size-4 text-slate-400" />
-              Статьи БЗ
-            </div>
-            <div className="space-y-2 rounded-md border border-slate-200 p-3">
-              {(articlesQuery.data ?? []).map((article) => (
-                <label key={article.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={linkedArticleIds.includes(article.id)}
-                    onChange={() => toggle(linkedArticleIds, article.id, setLinkedArticleIds)}
-                  />
-                  {article.title}
-                </label>
-              ))}
-            </div>
-            {linkedArticles.length > 0 && (
-              <div className="mt-3 grid gap-2">
-                {linkedArticles.map((article) => (
-                  <div key={article.id} className="rounded-md bg-primary-50 px-3 py-2 text-sm text-primary-900">
-                    {article.title}
-                  </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(usersQuery.data ?? []).map((user) => (
+                  <ToggleChip
+                    key={user.id}
+                    active={assigneeIds.includes(user.id)}
+                    onClick={() => toggle(assigneeIds, user.id, setAssigneeIds)}
+                  >
+                    <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" className="-ml-0.5" />
+                    {user.firstName}
+                  </ToggleChip>
                 ))}
               </div>
-            )}
-          </section>
+            </div>
 
-          <section>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <Paperclip className="size-4 text-slate-400" />
-              Вложения
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                <UsersRound className="size-3.5 text-slate-400" />
+                Наблюдатели
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(usersQuery.data ?? []).map((user) => (
+                  <ToggleChip
+                    key={user.id}
+                    active={watcherIds.includes(user.id)}
+                    onClick={() => toggle(watcherIds, user.id, setWatcherIds)}
+                  >
+                    {user.firstName} {user.lastName[0]}.
+                  </ToggleChip>
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              {task.attachments.map((attachment) => (
-                <div key={attachment.id} className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
-                  {attachment.name}
-                </div>
-              ))}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  toast.success('Мок-загрузка: файл появится после подключения реального хранилища')
-                }
-              >
-                <Paperclip className="size-4" />
-                Добавить файл
-              </Button>
-            </div>
-          </section>
 
-          <section>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <MessageSquare className="size-4 text-slate-400" />
-              Комментарии
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                <ListFilter className="size-3.5 text-slate-400" />
+                Метки
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(labelsQuery.data ?? []).map((label) => (
+                  <ToggleChip
+                    key={label.id}
+                    active={labelIds.includes(label.id)}
+                    onClick={() => toggle(labelIds, label.id, setLabelIds)}
+                  >
+                    <span
+                      className={cn(
+                        'size-2 rounded-full',
+                        labelDotClasses[label.color] ?? 'bg-slate-400',
+                      )}
+                    />
+                    {label.name}
+                  </ToggleChip>
+                ))}
+              </div>
             </div>
-            <div className="space-y-3">
-              {(commentsQuery.data ?? []).map((item) => {
-                const author = usersQuery.data?.find((user) => user.id === item.authorId);
-                return (
-                  <div key={item.id} className="rounded-md border border-slate-200 p-3">
-                    <div className="mb-2 flex items-center gap-2">
-                      {author && <Avatar name={fullName(author)} src={author.avatarUrl} size="xs" />}
-                      <span className="text-sm font-medium text-slate-900">
-                        {author ? fullName(author) : 'Пользователь'}
-                      </span>
-                      <span className="text-xs text-slate-400">{formatRelativeDate(item.createdAt)}</span>
-                    </div>
-                    <RichTextView content={item.content} />
-                  </div>
-                );
-              })}
-              <Textarea
-                value={comment}
-                onChange={(event) => setComment(event.target.value)}
-                placeholder="Комментарий"
-                rows={3}
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={addComment.isPending}
-                onClick={() =>
-                  comment.trim() &&
-                  addComment.mutate({ taskId: task.id, content: plainTextToRichText(comment.trim()) })
-                }
-              >
-                Добавить комментарий
-              </Button>
+
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                <LinkIcon className="size-3.5 text-slate-400" />
+                Статьи БЗ
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(articlesQuery.data ?? []).map((article) => (
+                  <ToggleChip
+                    key={article.id}
+                    active={linkedArticleIds.includes(article.id)}
+                    onClick={() => toggle(linkedArticleIds, article.id, setLinkedArticleIds)}
+                  >
+                    <FileText className="size-3.5" />
+                    {article.title}
+                  </ToggleChip>
+                ))}
+              </div>
             </div>
-          </section>
+          </aside>
         </div>
       )}
     </Drawer>
@@ -841,7 +1004,7 @@ export function TasksPage() {
               placeholder="Поиск задач…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-9 w-full rounded-md border border-slate-300 bg-surface pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary-400"
+              className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
             />
           </div>
           <Select

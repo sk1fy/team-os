@@ -374,3 +374,52 @@ export interface AppNotification {
   read: boolean;
   createdAt: ISODate;
 }
+
+// ============================================================================
+// График работы
+// ============================================================================
+
+/** Тип дня в графике сотрудника. */
+export type ShiftType = 'work' | 'off' | 'vacation' | 'sick' | 'trip';
+
+/** Пятидневка (или произвольный набор дней недели) с единым временем смены. */
+export interface WeekTemplate {
+  type: 'week';
+  /** Рабочие дни недели: 0 = Пн … 6 = Вс. */
+  days: number[];
+  /** Время смены в формате HH:MM. */
+  start: string;
+  end: string;
+}
+
+/** Сменный график: цикл «on рабочих / off выходных» от даты старта. */
+export interface CycleTemplate {
+  type: 'cycle';
+  on: number;
+  off: number;
+  start: string;
+  end: string;
+  /** Первый рабочий день цикла, YYYY-MM-DD. */
+  cycleStart: string;
+}
+
+export type ScheduleTemplate = WeekTemplate | CycleTemplate;
+
+/** Базовый шаблон графика сотрудника. */
+export interface UserSchedule {
+  userId: ID;
+  template: ScheduleTemplate;
+}
+
+/** Точечное отклонение от шаблона на конкретную дату (правка, отпуск, больничный…). */
+export interface ShiftException {
+  id: ID;
+  userId: ID;
+  /** Дата в формате YYYY-MM-DD. */
+  date: string;
+  type: ShiftType;
+  /** Для type='work' — фактическое время смены. */
+  start?: string;
+  end?: string;
+  note?: string;
+}

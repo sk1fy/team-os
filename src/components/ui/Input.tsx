@@ -17,7 +17,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && (
-        <label htmlFor={id} className="text-sm font-medium text-slate-700">
+        <label htmlFor={id} className="text-xs font-semibold text-slate-700">
           {label}
         </label>
       )}
@@ -26,12 +26,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         id={id}
         aria-invalid={error ? true : undefined}
         className={cn(
-          'h-9 w-full rounded-md border bg-surface px-3 text-sm text-slate-900 transition-colors',
+          'h-9.5 w-full rounded-md border bg-surface px-3 text-sm text-slate-900 transition-colors',
           'focus:outline-2 focus:-outline-offset-1',
           'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400',
           error
             ? 'border-danger-500 focus:outline-danger-500'
-            : 'border-slate-300 focus:outline-primary-600',
+            : 'border-slate-200 focus:outline-primary-600',
         )}
         {...props}
       />

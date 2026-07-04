@@ -104,10 +104,10 @@ function CourseCard({
       onClick={onSelect}
       className={cn(
         'overflow-hidden rounded-lg border bg-surface text-left shadow-card transition-colors',
-        active ? 'border-primary-300 ring-2 ring-primary-100' : 'border-slate-200 hover:border-slate-300',
+        active ? 'border-primary-300 ring-2 ring-primary-100' : 'border-slate-200 hover:border-primary-200',
       )}
     >
-      <div className="h-24 bg-[linear-gradient(135deg,#e0f2fe,#dcfce7_48%,#fef3c7)] px-4 py-3">
+      <div className="h-24 bg-[linear-gradient(135deg,#EFF6F5,#DDEEEC_48%,#BBE2DF)] px-4 py-3">
         <Badge variant={course.status === 'published' ? 'success' : 'warning'}>
           {statusLabels[course.status]}
         </Badge>
@@ -486,7 +486,7 @@ function QuizBuilder({ lesson, quiz }: { lesson?: Lesson; quiz?: Quiz }) {
                           ),
                         )
                       }
-                      className="h-8 flex-1 rounded-md border border-slate-300 px-2 text-sm"
+                      className="h-8 flex-1 rounded-md border border-slate-200 px-2 text-sm focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
                     />
                   </label>
                 ))}

@@ -9,12 +9,12 @@ const icons: Record<ToastVariant, typeof Info> = {
 };
 
 const iconClasses: Record<ToastVariant, string> = {
-  info: 'text-primary-500',
-  success: 'text-success-500',
+  info: 'text-primary-400',
+  success: 'text-primary-400',
   error: 'text-danger-500',
 };
 
-/** Рендерит стек тостов. Подключается один раз в корне приложения. */
+/** Рендерит стек тостов — тёмные пилюли внизу по центру, как в дизайн-системе. */
 export function Toaster() {
   const toasts = useToastStore((state) => state.toasts);
   const dismiss = useToastStore((state) => state.dismiss);
@@ -22,25 +22,23 @@ export function Toaster() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed right-4 bottom-4 z-100 flex w-80 flex-col gap-2">
+    <div className="fixed bottom-6 left-1/2 z-100 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col items-center gap-2">
       {toasts.map((item) => {
         const Icon = icons[item.variant];
         return (
           <div
             key={item.id}
             role="status"
-            className="animate-toast-in flex items-start gap-3 rounded-lg border border-slate-200 bg-surface p-3 shadow-popover"
+            className="animate-toast-in flex items-center gap-3 rounded-md bg-ink py-3 pr-3 pl-5 text-white shadow-popover"
           >
-            <Icon className={cn('mt-0.5 size-5 shrink-0', iconClasses[item.variant])} />
+            <Icon className={cn('size-4.5 shrink-0', iconClasses[item.variant])} />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-900">{item.title}</p>
-              {item.description && (
-                <p className="mt-0.5 text-xs text-slate-500">{item.description}</p>
-              )}
+              <p className="text-sm font-medium">{item.title}</p>
+              {item.description && <p className="mt-0.5 text-xs text-white/60">{item.description}</p>}
             </div>
             <button
               onClick={() => dismiss(item.id)}
-              className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="shrink-0 rounded p-0.5 text-white/50 transition-colors hover:text-white"
               aria-label="Закрыть уведомление"
             >
               <X className="size-4" />

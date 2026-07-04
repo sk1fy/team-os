@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
+  CalendarDays,
   GraduationCap,
   Home,
   KanbanSquare,
@@ -13,12 +14,14 @@ import {
 } from 'lucide-react';
 import { useUiStore } from '@/stores/ui';
 import { Tooltip } from '@/components/ui';
+import { BrandMark } from './BrandMark';
 import { cn } from '@/lib/cn';
 
 const navItems = [
   { to: '/', label: 'Главная', icon: Home, end: true },
   { to: '/structure', label: 'Оргструктура', icon: Network },
   { to: '/employees', label: 'Сотрудники', icon: Users },
+  { to: '/schedule', label: 'График', icon: CalendarDays },
   { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/tasks', label: 'Задачи', icon: KanbanSquare },
   { to: '/academy', label: 'Академия', icon: GraduationCap },
@@ -32,21 +35,23 @@ function NavItem({
   collapsed,
 }: (typeof navItems)[number] & { collapsed: boolean }) {
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
+  // Активность считаем вручную: функция-className у NavLink ломается внутри
+  // Radix Tooltip (Slot приводит её к строке), поэтому передаём готовую строку.
+  const { pathname } = useLocation();
+  const isActive = end ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
 
   const link = (
     <NavLink
       to={to}
       end={end}
       onClick={() => setMobileSidebarOpen(false)}
-      className={({ isActive }) =>
-        cn(
-          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-          collapsed && 'justify-center px-2',
-          isActive
-            ? 'bg-primary-50 text-primary-700'
-            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-        )
-      }
+      className={cn(
+        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        collapsed && 'justify-center px-2',
+        isActive
+          ? 'bg-primary-50 font-semibold text-primary-600'
+          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+      )}
     >
       <Icon className="size-5 shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
@@ -67,12 +72,17 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn('flex h-14 items-center px-4', collapsed && 'justify-center px-2')}>
-        <div className="flex items-center gap-2 overflow-hidden">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-sm font-bold text-white">
-            T
-          </div>
-          {!collapsed && <span className="text-base font-bold text-slate-900">TeamOS</span>}
+      <div className={cn('flex h-16 items-center px-4', collapsed && 'justify-center px-2')}>
+        <div className="flex items-center gap-3 overflow-hidden">
+          <BrandMark className="size-9 rounded-[10px]" />
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="truncate text-[17px] leading-tight font-bold tracking-[-0.2px] text-ink">
+                Team<span className="text-primary-600">OS</span>
+              </div>
+              <div className="truncate text-xs text-slate-500">Управление командой</div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { preventDismissOnPopoverClick } from './dismissGuard';
 
 export interface ModalProps {
   open: boolean;
@@ -32,8 +33,10 @@ export function Modal({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="animate-overlay-in fixed inset-0 z-40 bg-slate-950/40" />
+        <Dialog.Overlay className="animate-overlay-in fixed inset-0 z-40 bg-ink/35" />
         <Dialog.Content
+          onPointerDownOutside={preventDismissOnPopoverClick}
+          onInteractOutside={preventDismissOnPopoverClick}
           className={cn(
             'animate-modal-in fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2',
             'flex max-h-[85vh] flex-col rounded-lg bg-surface shadow-popover',

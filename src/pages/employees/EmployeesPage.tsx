@@ -106,7 +106,7 @@ export function EmployeesPage() {
             placeholder="Поиск по имени или email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-9 w-full rounded-md border border-slate-300 bg-surface pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary-400"
+            className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
           />
         </div>
         <Select

@@ -9,6 +9,7 @@ import { AcademyPage } from '@/pages/academy/AcademyPage';
 import { LearnPage } from '@/pages/academy/LearnPage';
 import { KnowledgePage } from '@/pages/knowledge/KnowledgePage';
 import { TasksPage } from '@/pages/tasks/TasksPage';
+import { SchedulePage } from '@/pages/schedule/SchedulePage';
 import { StructurePage } from '@/pages/structure/StructurePage';
 import { EmployeesPage } from '@/pages/employees/EmployeesPage';
 import { EmployeeProfilePage } from '@/pages/employees/EmployeeProfilePage';
@@ -26,6 +27,7 @@ export function App() {
         <Route path="/structure" element={<StructurePage />} />
         <Route path="/employees" element={<EmployeesPage />} />
         <Route path="/employees/:id" element={<EmployeeProfilePage />} />
+        <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/academy" element={<AcademyPage />} />

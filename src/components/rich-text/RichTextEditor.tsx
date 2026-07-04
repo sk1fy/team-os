@@ -115,7 +115,7 @@ export function RichTextEditor({
   };
 
   return (
-    <div className="overflow-hidden rounded-md border border-slate-300 bg-surface">
+    <div className="overflow-hidden rounded-md border border-slate-200 bg-surface">
       <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-2">
         <ToolButton label="Абзац" onClick={() => editor.chain().focus().setParagraph().run()}>
           <Pilcrow className="size-4" />

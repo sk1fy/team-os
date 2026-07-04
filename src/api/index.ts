@@ -25,11 +25,13 @@ import type {
   Lesson,
   Quiz,
   Position,
+  ShiftException,
   Task,
   TaskColumn,
   TaskComment,
   TaskPriority,
   User,
+  UserSchedule,
 } from '@/types';
 
 const uid = () => crypto.randomUUID();
@@ -758,5 +760,30 @@ export const notificationsApi = {
       db.notifications.forEach((n) => {
         if (n.userId === db.CURRENT_USER_ID) n.read = true;
       });
+    }),
+};
+
+// ============================================================================
+// График работы
+// ============================================================================
+
+export const scheduleApi = {
+  getSchedules: (): Promise<UserSchedule[]> => mockRequest(() => db.schedules),
+
+  /** Правки за месяц (month в формате YYYY-MM). */
+  getExceptions: (month: string): Promise<ShiftException[]> =>
+    mockRequest(() => db.shiftExceptions.filter((e) => e.date.startsWith(month))),
+
+  /** Пакетное сохранение правок (публикация черновика): upsert по (userId, date). */
+  saveExceptions: (inputs: Array<Omit<ShiftException, 'id'>>): Promise<ShiftException[]> =>
+    mockRequest(() => {
+      for (const input of inputs) {
+        const index = db.shiftExceptions.findIndex(
+          (e) => e.userId === input.userId && e.date === input.date,
+        );
+        if (index >= 0) db.shiftExceptions.splice(index, 1);
+        db.shiftExceptions.push({ id: uid(), ...input });
+      }
+      return db.shiftExceptions;
     }),
 };

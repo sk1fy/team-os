@@ -23,10 +23,12 @@ import type {
   Position,
   Quiz,
   RichTextContent,
+  ShiftException,
   Task,
   TaskColumn,
   TaskComment,
   User,
+  UserSchedule,
 } from '@/types';
 
 /** Простой текстовый параграф в формате TipTap JSON. */
@@ -670,4 +672,45 @@ export const notifications: AppNotification[] = [
     read: true,
     createdAt: daysAgo(30),
   },
+];
+
+// ============================================================================
+// График работы
+// ============================================================================
+
+const scheduleNow = new Date();
+const scheduleYear = scheduleNow.getFullYear();
+const scheduleMonth = scheduleNow.getMonth() + 1;
+/** YYYY-MM-DD для дня текущего месяца (обрезается по длине месяца). */
+const monthDate = (day: number) => {
+  const last = new Date(scheduleYear, scheduleMonth, 0).getDate();
+  return `${scheduleYear}-${String(scheduleMonth).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
+};
+
+/** Базовые шаблоны графика: офис — пятидневки, поддержка — сменные циклы. */
+export const schedules: UserSchedule[] = [
+  { userId: 'user-1', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
+  { userId: 'user-2', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
+  { userId: 'user-3', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '10:00', end: '19:00' } },
+  { userId: 'user-4', template: { type: 'cycle', on: 2, off: 2, start: '09:00', end: '21:00', cycleStart: monthDate(1) } },
+  { userId: 'user-5', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
+  { userId: 'user-6', template: { type: 'cycle', on: 2, off: 2, start: '21:00', end: '09:00', cycleStart: monthDate(3) } },
+  { userId: 'user-7', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '10:00', end: '19:00' } },
+  { userId: 'user-8', template: { type: 'week', days: [0, 1, 2, 3, 5], start: '09:00', end: '17:00' } },
+];
+
+/** Точечные отклонения текущего месяца: переработки, больничные, командировка, отпуск. */
+export const shiftExceptions: ShiftException[] = [
+  { id: 'shift-1', userId: 'user-2', date: monthDate(8), type: 'work', start: '09:00', end: '20:00', note: 'Работа на выезде — встреча с клиентом в 14:00' },
+  { id: 'shift-2', userId: 'user-3', date: monthDate(10), type: 'sick' },
+  { id: 'shift-3', userId: 'user-3', date: monthDate(11), type: 'sick' },
+  { id: 'shift-4', userId: 'user-7', date: monthDate(14), type: 'trip', note: 'Командировка в Казань — внедрение у клиента' },
+  { id: 'shift-5', userId: 'user-7', date: monthDate(15), type: 'trip' },
+  { id: 'shift-6', userId: 'user-7', date: monthDate(16), type: 'trip' },
+  { id: 'shift-7', userId: 'user-5', date: monthDate(20), type: 'vacation' },
+  { id: 'shift-8', userId: 'user-5', date: monthDate(21), type: 'vacation' },
+  { id: 'shift-9', userId: 'user-5', date: monthDate(22), type: 'vacation' },
+  { id: 'shift-10', userId: 'user-5', date: monthDate(23), type: 'vacation' },
+  { id: 'shift-11', userId: 'user-5', date: monthDate(24), type: 'vacation' },
+  { id: 'shift-12', userId: 'user-4', date: monthDate(6), type: 'work', start: '09:00', end: '15:00', note: 'Отпросился — семейные обстоятельства' },
 ];
