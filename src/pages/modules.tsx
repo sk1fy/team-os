@@ -1,32 +1,10 @@
 /**
  * Страницы-заглушки модулей. Каждая заменяется реальной реализацией
- * в своём этапе плана (1 — оргструктура, 2 — БЗ, 3 — задачи, 4 — академия).
+ * в своём этапе плана (2 — БЗ, 3 — задачи, 4 — академия).
  */
 
-import { GraduationCap, KanbanSquare, Library, Network, Settings, Users } from 'lucide-react';
+import { GraduationCap, KanbanSquare, Library, Settings } from 'lucide-react';
 import { ModulePlaceholder } from '@/components/layout/ModulePlaceholder';
-
-export function StructurePage() {
-  return (
-    <ModulePlaceholder
-      title="Оргструктура"
-      description="Дерево компании: отделы, должности и сотрудники."
-      icon={Network}
-      stage={1}
-    />
-  );
-}
-
-export function EmployeesPage() {
-  return (
-    <ModulePlaceholder
-      title="Сотрудники"
-      description="Список сотрудников, приглашения и профили."
-      icon={Users}
-      stage={1}
-    />
-  );
-}
 
 export function KnowledgePage() {
   return (

@@ -8,3 +8,5 @@ export { Badge, type BadgeProps } from './Badge';
 export { Avatar, type AvatarProps } from './Avatar';
 export { Tooltip, TooltipProvider, type TooltipProps } from './Tooltip';
 export { Toaster } from './Toast';
+export { Drawer, type DrawerProps } from './Drawer';
+export { Textarea, type TextareaProps } from './Textarea';

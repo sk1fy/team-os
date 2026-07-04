@@ -4,8 +4,9 @@
  * только реализации (fetch вместо mockRequest), но не сигнатуры.
  */
 
-import { mockRequest, notFound } from './client';
+import { ApiError, mockRequest, notFound } from './client';
 import * as db from './fixtures';
+import { canMoveDepartment } from '@/lib/orgTree';
 import type {
   AppNotification,
   Article,
@@ -81,8 +82,90 @@ export const orgApi = {
       return department;
     }),
 
+  renameDepartment: (input: { id: ID; name: string }): Promise<Department> =>
+    mockRequest(() => {
+      const department = db.departments.find((d) => d.id === input.id) ?? notFound('Отдел');
+      department.name = input.name;
+      return department;
+    }),
+
+  deleteDepartment: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const hasChildren = db.departments.some((d) => d.parentId === id);
+      const hasPositions = db.positions.some((p) => p.departmentId === id);
+      if (hasChildren || hasPositions) {
+        throw new ApiError(
+          'Нельзя удалить отдел с вложенными отделами или должностями. Сначала переместите их.',
+          400,
+        );
+      }
+      const index = db.departments.findIndex((d) => d.id === id);
+      if (index === -1) notFound('Отдел');
+      db.departments.splice(index, 1);
+    }),
+
+  moveDepartment: (input: { id: ID; parentId: ID | null }): Promise<Department> =>
+    mockRequest(() => {
+      const validation = canMoveDepartment(db.departments, input.id, input.parentId);
+      if (!validation.allowed) {
+        throw new ApiError(validation.reason ?? 'Перемещение невозможно', 400);
+      }
+      const department = db.departments.find((d) => d.id === input.id)!;
+      department.parentId = input.parentId;
+      department.order = db.departments.filter(
+        (d) => d.parentId === input.parentId && d.id !== input.id,
+      ).length;
+      return department;
+    }),
+
+  createPosition: (input: {
+    name: string;
+    departmentId: ID;
+    description?: string;
+  }): Promise<Position> =>
+    mockRequest(() => {
+      const position: Position = {
+        id: uid(),
+        name: input.name,
+        departmentId: input.departmentId,
+        description: input.description,
+        articleIds: [],
+        requiredCourseIds: [],
+      };
+      db.positions.push(position);
+      return position;
+    }),
+
+  updatePosition: (input: { id: ID; name?: string; description?: string }): Promise<Position> =>
+    mockRequest(() => {
+      const position = db.positions.find((p) => p.id === input.id) ?? notFound('Должность');
+      if (input.name !== undefined) position.name = input.name;
+      if (input.description !== undefined) position.description = input.description;
+      return position;
+    }),
+
+  deletePosition: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const index = db.positions.findIndex((p) => p.id === id);
+      if (index === -1) notFound('Должность');
+      db.positions.splice(index, 1);
+      // Снимаем должность с сотрудников, которые её занимали.
+      db.users.forEach((user) => {
+        user.positionIds = user.positionIds.filter((pid) => pid !== id);
+      });
+    }),
+
+  movePosition: (input: { id: ID; departmentId: ID }): Promise<Position> =>
+    mockRequest(() => {
+      const position = db.positions.find((p) => p.id === input.id) ?? notFound('Должность');
+      if (!db.departments.some((d) => d.id === input.departmentId)) notFound('Отдел');
+      position.departmentId = input.departmentId;
+      return position;
+    }),
+
   inviteUser: (input: {
-    email: string;
+    /** Не задан для приглашения по ссылке. */
+    email?: string;
     role: User['role'];
     positionId?: ID;
     departmentId?: ID;
