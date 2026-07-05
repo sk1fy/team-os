@@ -10,9 +10,7 @@ import { LearnPage } from '@/pages/academy/LearnPage';
 import { KnowledgePage } from '@/pages/knowledge/KnowledgePage';
 import { TasksPage } from '@/pages/tasks/TasksPage';
 import { SchedulePage } from '@/pages/schedule/SchedulePage';
-import { StructurePage } from '@/pages/structure/StructurePage';
 import { EmployeesPage } from '@/pages/employees/EmployeesPage';
-import { EmployeeProfilePage } from '@/pages/employees/EmployeeProfilePage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { CreateCompanyPage } from '@/pages/auth/CreateCompanyPage';
@@ -24,9 +22,9 @@ export function App() {
       {/* Основное приложение */}
       <Route element={<AppLayout />}>
         <Route path="/" element={<DashboardPage />} />
-        <Route path="/structure" element={<StructurePage />} />
+        <Route path="/structure" element={<Navigate to="/employees" replace />} />
         <Route path="/employees" element={<EmployeesPage />} />
-        <Route path="/employees/:id" element={<EmployeeProfilePage />} />
+        <Route path="/employees/:id" element={<Navigate to="/employees" replace />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/tasks" element={<TasksPage />} />

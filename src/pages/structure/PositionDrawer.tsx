@@ -11,6 +11,7 @@ interface PositionDrawerProps {
   onClose: () => void;
   onEdit: (position: Position) => void;
   onDelete: (position: Position) => void;
+  onOpenUser: (id: ID) => void;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -22,7 +23,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function PositionDrawer({ positionId, onClose, onEdit, onDelete }: PositionDrawerProps) {
+export function PositionDrawer({
+  positionId,
+  onClose,
+  onEdit,
+  onDelete,
+  onOpenUser,
+}: PositionDrawerProps) {
   const navigate = useNavigate();
 
   const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
@@ -75,6 +82,12 @@ export function PositionDrawer({ positionId, onClose, onEdit, onDelete }: Positi
         </div>
       ) : (
         <div className="space-y-6">
+          <Section title="Уровень">
+            <Badge variant={position.level === 4 ? 'primary' : position.level === 0 ? 'warning' : 'neutral'}>
+              Уровень {position.level ?? 0}
+            </Badge>
+          </Section>
+
           <Section title="Описание функций">
             {position.description ? (
               <p className="text-sm whitespace-pre-line text-slate-700">{position.description}</p>
@@ -91,7 +104,7 @@ export function PositionDrawer({ positionId, onClose, onEdit, onDelete }: Positi
                 {occupants.map((user) => (
                   <button
                     key={user.id}
-                    onClick={() => navigate(`/employees/${user.id}`)}
+                    onClick={() => onOpenUser(user.id)}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-50"
                   >
                     <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />

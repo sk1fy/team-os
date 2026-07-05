@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Search, UserPlus } from 'lucide-react';
 import { orgApi } from '@/api';
+import type { ID } from '@/types';
 import {
   fullName,
   roleLabels,
@@ -12,17 +12,20 @@ import {
   userStatusVariants,
 } from '@/lib/labels';
 import { plural } from '@/lib/format';
-import { Avatar, Badge, Button, Select } from '@/components/ui';
+import { Avatar, Badge, Button, Select, Tabs } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { InviteModal } from './InviteModal';
+import { EmployeeDrawer } from './EmployeeDrawer';
+import { StructurePage } from '@/pages/structure/StructurePage';
 
 export function EmployeesPage() {
   useTitle('Сотрудники — TeamOS');
-  const navigate = useNavigate();
 
+  const [tab, setTab] = useState('employees');
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<ID | null>(null);
 
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
   const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
@@ -81,24 +84,9 @@ export function EmployeesPage() {
     return [...names].join(', ');
   };
 
-  return (
-    <div className="mx-auto max-w-5xl p-6">
-      <PageHeader
-        title="Сотрудники"
-        description={
-          usersQuery.data
-            ? `${usersQuery.data.length} ${plural(usersQuery.data.length, ['человек', 'человека', 'человек'])} в компании`
-            : undefined
-        }
-        actions={
-          <Button onClick={() => setInviteOpen(true)}>
-            <UserPlus className="size-4" />
-            Пригласить
-          </Button>
-        }
-      />
-
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+  const employeesContent = (
+    <>
+      <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -165,7 +153,7 @@ export function EmployeesPage() {
             {filteredUsers.map((user) => (
               <tr
                 key={user.id}
-                onClick={() => navigate(`/employees/${user.id}`)}
+                onClick={() => setSelectedEmployeeId(user.id)}
                 className="cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
               >
                 <td className="px-4 py-3">
@@ -198,8 +186,38 @@ export function EmployeesPage() {
           </tbody>
         </table>
       </div>
+    </>
+  );
+
+  return (
+    <div className="mx-auto max-w-5xl p-6">
+      <PageHeader
+        title="Сотрудники"
+        description={
+          usersQuery.data
+            ? `${usersQuery.data.length} ${plural(usersQuery.data.length, ['человек', 'человека', 'человек'])} в компании`
+            : undefined
+        }
+        actions={
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus className="size-4" />
+            Пригласить
+          </Button>
+        }
+      />
+
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="mt-6"
+        items={[
+          { value: 'employees', label: 'Сотрудники', content: employeesContent },
+          { value: 'structure', label: 'Оргструктура', content: <StructurePage embedded /> },
+        ]}
+      />
 
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <EmployeeDrawer userId={selectedEmployeeId} onClose={() => setSelectedEmployeeId(null)} />
     </div>
   );
 }

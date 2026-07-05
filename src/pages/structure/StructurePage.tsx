@@ -21,10 +21,11 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { DepartmentNode } from './DepartmentNode';
 import { StructureDialogs } from './StructureDialogs';
 import { PositionDrawer } from './PositionDrawer';
+import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import type { DragItem, StructureDialog } from './types';
 
-export function StructurePage() {
-  useTitle('Оргструктура — TeamOS');
+export function StructurePage({ embedded = false }: { embedded?: boolean }) {
+  useTitle(embedded ? 'Сотрудники — TeamOS' : 'Оргструктура — TeamOS');
   const queryClient = useQueryClient();
 
   const departmentsQuery = useQuery({
@@ -37,6 +38,7 @@ export function StructurePage() {
   const [collapsed, setCollapsed] = useState<Set<ID>>(new Set());
   const [dialog, setDialog] = useState<StructureDialog | null>(null);
   const [openPositionId, setOpenPositionId] = useState<ID | null>(null);
+  const [openUserId, setOpenUserId] = useState<ID | null>(null);
   const [activeDrag, setActiveDrag] = useState<DragItem | null>(null);
 
   const sensors = useSensors(
@@ -53,7 +55,11 @@ export function StructurePage() {
       list.push(position);
       map.set(position.departmentId, list);
     }
-    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+    for (const list of map.values()) {
+      list.sort(
+        (a, b) => (b.level ?? 0) - (a.level ?? 0) || a.name.localeCompare(b.name, 'ru'),
+      );
+    }
     return map;
   }, [positionsQuery.data]);
 
@@ -141,17 +147,30 @@ export function StructurePage() {
   const isError = departmentsQuery.isError;
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <PageHeader
-        title="Оргструктура"
-        description="Отделы, должности и сотрудники компании. Перетаскивайте отделы и должности, чтобы менять структуру."
-        actions={
+    <div className={embedded ? '' : 'mx-auto max-w-4xl p-6'}>
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-2xl text-sm text-slate-500">
+            Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех,
+            0 — нижний уровень.
+          </p>
           <Button onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}>
             <Plus className="size-4" />
             Добавить отдел
           </Button>
-        }
-      />
+        </div>
+      ) : (
+        <PageHeader
+          title="Оргструктура"
+          description="Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех, 0 — нижний уровень."
+          actions={
+            <Button onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}>
+              <Plus className="size-4" />
+              Добавить отдел
+            </Button>
+          }
+        />
+      )}
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-surface p-3 shadow-card">
         {isLoading && (
@@ -200,6 +219,7 @@ export function StructurePage() {
                   onToggleCollapse: toggleCollapse,
                   onDialog: setDialog,
                   onOpenPosition: setOpenPositionId,
+                  onOpenUser: setOpenUserId,
                   activeDrag,
                 }}
               />
@@ -234,7 +254,12 @@ export function StructurePage() {
           setOpenPositionId(null);
           setDialog({ type: 'deletePosition', position });
         }}
+        onOpenUser={(id) => {
+          setOpenPositionId(null);
+          setOpenUserId(id);
+        }}
       />
+      <EmployeeDrawer userId={openUserId} onClose={() => setOpenUserId(null)} />
     </div>
   );
 }

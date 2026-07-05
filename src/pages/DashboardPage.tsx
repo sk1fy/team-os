@@ -138,7 +138,7 @@ export function DashboardPage() {
         title: 'Создать отдел',
         description: 'Оргструктура станет основой доступов, задач и обучения.',
         done: (departments.data?.length ?? 0) > 1,
-        to: '/structure',
+        to: '/employees',
         icon: Building2,
       },
       {

@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { orgApi } from '@/api';
+import type { Position } from '@/types';
 import { toast } from '@/stores/toast';
-import { Button, Input, Modal, Textarea } from '@/components/ui';
+import { Button, Input, Modal, Select, Textarea } from '@/components/ui';
 import type { StructureDialog } from './types';
 
 interface StructureDialogsProps {
@@ -15,17 +16,33 @@ interface FormModalProps {
   submitLabel: string;
   initialName?: string;
   initialDescription?: string;
+  initialLevel?: Position['level'];
+  withLevel?: boolean;
   withDescription?: boolean;
   pending: boolean;
-  onSubmit: (values: { name: string; description: string }) => void;
+  onSubmit: (values: {
+    name: string;
+    description: string;
+    level: Position['level'];
+  }) => void;
   onClose: () => void;
 }
+
+const positionLevelOptions = [
+  { value: '4', label: 'Уровень 4 — верхний' },
+  { value: '3', label: 'Уровень 3' },
+  { value: '2', label: 'Уровень 2' },
+  { value: '1', label: 'Уровень 1' },
+  { value: '0', label: 'Уровень 0 — нижний' },
+];
 
 function FormModal({
   title,
   submitLabel,
   initialName = '',
   initialDescription = '',
+  initialLevel = 0,
+  withLevel = false,
   withDescription = false,
   pending,
   onSubmit,
@@ -33,10 +50,17 @@ function FormModal({
 }: FormModalProps) {
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
+  const [level, setLevel] = useState(String(initialLevel));
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (name.trim()) onSubmit({ name: name.trim(), description: description.trim() });
+    if (name.trim()) {
+      onSubmit({
+        name: name.trim(),
+        description: description.trim(),
+        level: Number(level) as Position['level'],
+      });
+    }
   };
 
   return (
@@ -63,6 +87,14 @@ function FormModal({
           autoFocus
           required
         />
+        {withLevel && (
+          <Select
+            label="Уровень должности"
+            value={level}
+            onValueChange={setLevel}
+            options={positionLevelOptions}
+          />
+        )}
         {withDescription && (
           <Textarea
             label="Описание функций"
@@ -194,10 +226,11 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
         <FormModal
           title="Новая должность"
           submitLabel="Создать"
+          withLevel
           withDescription
           pending={createPosition.isPending}
-          onSubmit={({ name, description }) =>
-            createPosition.mutate({ name, description, departmentId: dialog.departmentId })
+          onSubmit={({ name, description, level }) =>
+            createPosition.mutate({ name, description, level, departmentId: dialog.departmentId })
           }
           onClose={onClose}
         />
@@ -209,10 +242,12 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           submitLabel="Сохранить"
           initialName={dialog.position.name}
           initialDescription={dialog.position.description}
+          initialLevel={dialog.position.level ?? 0}
+          withLevel
           withDescription
           pending={updatePosition.isPending}
-          onSubmit={({ name, description }) =>
-            updatePosition.mutate({ id: dialog.position.id, name, description })
+          onSubmit={({ name, description, level }) =>
+            updatePosition.mutate({ id: dialog.position.id, name, description, level })
           }
           onClose={onClose}
         />

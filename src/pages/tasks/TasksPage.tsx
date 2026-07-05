@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { useTitle } from '@reactuses/core';
 import {
   CalendarDays,
@@ -9,7 +8,6 @@ import {
   CircleDot,
   Eye,
   FileText,
-  GripVertical,
   LinkIcon,
   ListFilter,
   MessageSquare,
@@ -102,19 +100,6 @@ function TaskCard({
   labelsById: Map<ID, Label>;
   onOpen: () => void;
 }) {
-  const draggable = useDraggable({
-    id: task.id,
-    data: { type: 'task', taskId: task.id, columnId: task.columnId, order: task.order },
-  });
-  const droppable = useDroppable({
-    id: `task-over-${task.id}`,
-    data: { type: 'task-over', taskId: task.id, columnId: task.columnId, order: task.order },
-  });
-  const setNodeRef = (node: HTMLElement | null) => {
-    draggable.setNodeRef(node);
-    droppable.setNodeRef(node);
-  };
-
   const checklistDone = task.checklist.filter((item) => item.done).length;
   const visibleLabels = task.labelIds
     .map((labelId) => labelsById.get(labelId))
@@ -126,13 +111,9 @@ function TaskCard({
 
   return (
     <div
-      ref={setNodeRef}
-      style={{ transform: draggable.transform ? `translate3d(${draggable.transform.x}px, ${draggable.transform.y}px, 0)` : undefined }}
       className={cn(
         'group relative overflow-hidden rounded-lg border border-l-4 bg-surface shadow-card transition-all hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-popover',
         priorityCardClasses[task.priority],
-        draggable.isDragging && 'opacity-40',
-        droppable.isOver && 'border-primary-300 bg-primary-50/60',
       )}
     >
       <div className="p-3 pb-2">
@@ -141,15 +122,6 @@ function TaskCard({
             <p className="line-clamp-2 text-sm font-semibold leading-5 text-slate-950">
               {task.title}
             </p>
-          </button>
-          <button
-            type="button"
-            {...draggable.attributes}
-            {...draggable.listeners}
-            className="cursor-grab rounded p-0.5 text-slate-300 opacity-70 transition-opacity hover:bg-slate-100 hover:text-slate-500 group-hover:opacity-100"
-            aria-label="Перетащить задачу"
-          >
-            <GripVertical className="size-4" />
           </button>
         </div>
 
@@ -249,18 +221,9 @@ function KanbanColumn({
   onOpenTask: (id: ID) => void;
   onCreateTask: (columnId: ID) => void;
 }) {
-  const droppable = useDroppable({
-    id: `column-${column.id}`,
-    data: { type: 'column', columnId: column.id, order: tasks.length },
-  });
-
   return (
     <section
-      ref={droppable.setNodeRef}
-      className={cn(
-        'flex max-h-full min-h-80 w-80 shrink-0 flex-col rounded-lg border border-slate-200 bg-slate-50',
-        droppable.isOver && 'border-primary-300 bg-primary-50/60',
-      )}
+      className="flex max-h-full min-h-80 w-80 shrink-0 flex-col rounded-lg border border-slate-200 bg-slate-50"
     >
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-3 py-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -358,7 +321,6 @@ function TaskDrawer({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState<RichTextContent>(emptyDoc);
   const [priority, setPriority] = useState<TaskPriority>('medium');
-  const [columnId, setColumnId] = useState<ID>('');
   const [dueDate, setDueDate] = useState('');
   const [assigneeIds, setAssigneeIds] = useState<ID[]>([]);
   const [assigneePositionId, setAssigneePositionId] = useState<ID>('');
@@ -375,7 +337,6 @@ function TaskDrawer({
     setTitle(task.title);
     setDescription(task.description ?? emptyDoc);
     setPriority(task.priority);
-    setColumnId(task.columnId);
     setDueDate(toDateInput(task.dueDate));
     setAssigneeIds(task.assigneeIds);
     setAssigneePositionId(task.assigneePositionId ?? '');
@@ -392,11 +353,6 @@ function TaskDrawer({
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.success('Задача сохранена');
     },
-  });
-
-  const moveTask = useMutation({
-    mutationFn: tasksApi.moveTask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   });
 
   const addComment = useMutation({
@@ -417,9 +373,6 @@ function TaskDrawer({
 
   const save = () => {
     if (!task || !title.trim()) return;
-    if (columnId && columnId !== task.columnId) {
-      moveTask.mutate({ taskId: task.id, columnId, order: 0 });
-    }
     updateTask.mutate({
       id: task.id,
       title: title.trim(),
@@ -452,6 +405,7 @@ function TaskDrawer({
   const overdue =
     Boolean(dueDate) && !task?.completedAt && new Date(`${dueDate}T23:59:59`).getTime() < Date.now();
   const comments = commentsQuery.data ?? [];
+  const currentColumnName = columns.find((column) => column.id === task?.columnId)?.name ?? '—';
 
   const submitComment = () => {
     if (!task || !comment.trim()) return;
@@ -697,12 +651,12 @@ function TaskDrawer({
             <div className="text-[11px] font-bold tracking-[0.5px] text-slate-400 uppercase">
               Свойства
             </div>
-            <Select
-              label="Статус"
-              value={columnId}
-              onValueChange={setColumnId}
-              options={columns.map((column) => ({ value: column.id, label: column.name }))}
-            />
+            <div>
+              <div className="mb-1.5 text-xs font-semibold text-slate-700">Статус</div>
+              <div className="rounded-md border border-slate-200 bg-surface-muted px-3 py-2 text-sm font-medium text-slate-700">
+                {currentColumnName}
+              </div>
+            </div>
             <Select
               label="Приоритет"
               value={priority}
@@ -851,15 +805,14 @@ export function TasksPage() {
   const queryClient = useQueryClient();
   const [activeBoardId, setActiveBoardId] = useState<ID>('board-2');
   const [view, setView] = useState('kanban');
+  const [showReviewColumn, setShowReviewColumn] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<ID | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [labelFilter, setLabelFilter] = useState('all');
   const [deadlineFilter, setDeadlineFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const boardsQuery = useQuery({ queryKey: ['tasks', 'boards'], queryFn: tasksApi.getBoards });
   const columnsQuery = useQuery({
     queryKey: ['tasks', 'columns', activeBoardId],
@@ -881,6 +834,11 @@ export function TasksPage() {
   const usersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
   const labelsById = useMemo(() => new Map(labels.map((label) => [label.id, label])), [labels]);
   const board = boards.find((item) => item.id === activeBoardId);
+  const visibleColumns = useMemo(
+    () =>
+      columns.filter((column) => showReviewColumn || column.name.toLowerCase() !== 'на проверке'),
+    [columns, showReviewColumn],
+  );
 
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -928,38 +886,6 @@ export function TasksPage() {
     },
   });
 
-  const moveTask = useMutation({
-    mutationFn: tasksApi.moveTask,
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['tasks', activeBoardId] });
-      const previous = queryClient.getQueryData<Task[]>(['tasks', activeBoardId]);
-      queryClient.setQueryData<Task[]>(['tasks', activeBoardId], (old) =>
-        old?.map((task) =>
-          task.id === input.taskId ? { ...task, columnId: input.columnId, order: input.order } : task,
-        ),
-      );
-      return { previous };
-    },
-    onError: (error, _input, context) => {
-      queryClient.setQueryData(['tasks', activeBoardId], context?.previous);
-      toast.error(error instanceof Error ? error.message : 'Не удалось переместить задачу');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks', activeBoardId] }),
-  });
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const taskId = event.active.data.current?.taskId as ID | undefined;
-    setActiveDragTask(tasks.find((task) => task.id === taskId) ?? null);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const taskId = event.active.data.current?.taskId as ID | undefined;
-    const over = event.over?.data.current as { columnId?: ID; order?: number } | undefined;
-    setActiveDragTask(null);
-    if (!taskId || !over?.columnId) return;
-    moveTask.mutate({ taskId, columnId: over.columnId, order: over.order ?? 0 });
-  };
-
   const createQuickTask = (columnId: ID) => {
     const title = window.prompt('Название задачи');
     if (!title?.trim()) return;
@@ -992,6 +918,15 @@ export function TasksPage() {
                 <Plus className="size-4" />
                 Колонка
               </Button>
+              {columns.some((column) => column.name.toLowerCase() === 'на проверке') && (
+                <Button
+                  variant={showReviewColumn ? 'secondary' : 'ghost'}
+                  onClick={() => setShowReviewColumn((prev) => !prev)}
+                >
+                  <CheckCircle2 className="size-4" />
+                  На проверке
+                </Button>
+              )}
             </>
           }
         />
@@ -1047,34 +982,19 @@ export function TasksPage() {
               value: 'kanban',
               label: 'Канбан',
               content: (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={pointerWithin}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onDragCancel={() => setActiveDragTask(null)}
-                >
-                  <div className="flex h-[calc(100dvh-260px)] gap-4 overflow-x-auto pb-3">
-                    {columns.map((column) => (
-                      <KanbanColumn
-                        key={column.id}
-                        column={column}
-                        tasks={tasksByColumn.get(column.id) ?? []}
-                        usersById={usersById}
-                        labelsById={labelsById}
-                        onOpenTask={setSelectedTaskId}
-                        onCreateTask={createQuickTask}
-                      />
-                    ))}
-                  </div>
-                  <DragOverlay>
-                    {activeDragTask && (
-                      <div className="w-80 rounded-lg border border-primary-200 bg-surface p-3 shadow-popover">
-                        <p className="text-sm font-medium text-slate-900">{activeDragTask.title}</p>
-                      </div>
-                    )}
-                  </DragOverlay>
-                </DndContext>
+                <div className="flex h-[calc(100dvh-260px)] gap-4 overflow-x-auto pb-3">
+                  {visibleColumns.map((column) => (
+                    <KanbanColumn
+                      key={column.id}
+                      column={column}
+                      tasks={tasksByColumn.get(column.id) ?? []}
+                      usersById={usersById}
+                      labelsById={labelsById}
+                      onOpenTask={setSelectedTaskId}
+                      onCreateTask={createQuickTask}
+                    />
+                  ))}
+                </div>
               ),
             },
             {

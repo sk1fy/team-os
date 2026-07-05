@@ -37,6 +37,7 @@ import { toast } from '@/stores/toast';
 import { Avatar, Button, Drawer, Textarea } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
 
 /** Черновик правки одной ячейки (до публикации). */
@@ -306,6 +307,7 @@ export function SchedulePage() {
   const [chip, setChip] = useState<'all' | 'working' | 'absent'>('all');
   const [compact, setCompact] = useState(false);
   const [panelCell, setPanelCell] = useState<{ userId: ID; date: string; day: number } | null>(null);
+  const [employeePanelId, setEmployeePanelId] = useState<ID | null>(null);
 
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: orgApi.getDepartments });
@@ -728,6 +730,7 @@ export function SchedulePage() {
                       positionName={(user) =>
                         user.positionIds[0] ? positionById.get(user.positionIds[0])?.name : undefined
                       }
+                      onOpenUser={setEmployeePanelId}
                       onCellMouseDown={(userId, day, event) => {
                         if (mode !== 'edit') return;
                         event.preventDefault();
@@ -820,6 +823,7 @@ export function SchedulePage() {
           toast.success('Смена обновлена', 'Изменение в черновике — опубликуйте, когда закончите.');
         }}
       />
+      <EmployeeDrawer userId={employeePanelId} onClose={() => setEmployeePanelId(null)} />
     </div>
   );
 }
@@ -841,6 +845,7 @@ function GroupRows({
   resolve,
   scheduleByUser,
   positionName,
+  onOpenUser,
   onCellMouseDown,
   onCellMouseEnter,
   onCellClick,
@@ -860,6 +865,7 @@ function GroupRows({
   resolve: (userId: ID, day: number) => DayState | undefined;
   scheduleByUser: Map<ID, UserSchedule>;
   positionName: (user: User) => string | undefined;
+  onOpenUser: (userId: ID) => void;
   onCellMouseDown: (userId: ID, day: number, event: React.MouseEvent) => void;
   onCellMouseEnter: (userId: ID, day: number) => void;
   onCellClick: (userId: ID, day: number) => void;
@@ -916,7 +922,11 @@ function GroupRows({
                   rowHeight,
                 )}
               >
-                <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => onOpenUser(user.id)}
+                  className="flex max-w-full items-center gap-3 rounded-md text-left hover:text-primary-700"
+                >
                   <Avatar name={fullName(user)} src={user.avatarUrl} size={compact ? 'sm' : 'md'} />
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-ink">{fullName(user)}</div>
@@ -933,7 +943,7 @@ function GroupRows({
                       </>
                     )}
                   </div>
-                </div>
+                </button>
               </td>
 
               {/* Дни */}

@@ -5,7 +5,6 @@ import {
   Home,
   KanbanSquare,
   Library,
-  Network,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -19,11 +18,10 @@ import { cn } from '@/lib/cn';
 
 const navItems = [
   { to: '/', label: 'Главная', icon: Home, end: true },
-  { to: '/structure', label: 'Оргструктура', icon: Network },
-  { to: '/employees', label: 'Сотрудники', icon: Users },
   { to: '/schedule', label: 'График', icon: CalendarDays },
-  { to: '/knowledge', label: 'База знаний', icon: Library },
+  { to: '/employees', label: 'Сотрудники', icon: Users },
   { to: '/tasks', label: 'Задачи', icon: KanbanSquare },
+  { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/academy', label: 'Академия', icon: GraduationCap },
 ];
 

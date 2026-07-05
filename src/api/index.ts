@@ -126,6 +126,7 @@ export const orgApi = {
   createPosition: (input: {
     name: string;
     departmentId: ID;
+    level?: Position['level'];
     description?: string;
   }): Promise<Position> =>
     mockRequest(() => {
@@ -133,6 +134,7 @@ export const orgApi = {
         id: uid(),
         name: input.name,
         departmentId: input.departmentId,
+        level: input.level ?? 0,
         description: input.description,
         articleIds: [],
         requiredCourseIds: [],
@@ -141,10 +143,16 @@ export const orgApi = {
       return position;
     }),
 
-  updatePosition: (input: { id: ID; name?: string; description?: string }): Promise<Position> =>
+  updatePosition: (input: {
+    id: ID;
+    name?: string;
+    level?: Position['level'];
+    description?: string;
+  }): Promise<Position> =>
     mockRequest(() => {
       const position = db.positions.find((p) => p.id === input.id) ?? notFound('Должность');
       if (input.name !== undefined) position.name = input.name;
+      if (input.level !== undefined) position.level = input.level;
       if (input.description !== undefined) position.description = input.description;
       return position;
     }),
@@ -503,6 +511,25 @@ export const tasksApi = {
 // Академия
 // ============================================================================
 
+/** Урок-«ссылка» всегда отдаёт актуальный контент статьи БЗ. */
+function withLiveContent(lesson: Lesson): Lesson {
+  if (lesson.sourceMode !== 'link' || !lesson.sourceArticleId) return lesson;
+  const article = db.articles.find((a) => a.id === lesson.sourceArticleId);
+  return article ? { ...lesson, content: article.content } : lesson;
+}
+
+/** Удаляет урок вместе с его тестом и отметками прохождения. */
+function removeLessonCascade(lessonId: ID) {
+  const index = db.lessons.findIndex((l) => l.id === lessonId);
+  if (index === -1) return;
+  db.lessons.splice(index, 1);
+  const quizIndex = db.quizzes.findIndex((q) => q.lessonId === lessonId);
+  if (quizIndex !== -1) db.quizzes.splice(quizIndex, 1);
+  db.courseProgress.forEach((progress) => {
+    progress.completedLessonIds = progress.completedLessonIds.filter((id) => id !== lessonId);
+  });
+}
+
 export const academyApi = {
   getCourses: (): Promise<Course[]> => mockRequest(() => db.courses),
 
@@ -511,9 +538,9 @@ export const academyApi = {
 
   getLessons: (courseId?: ID): Promise<Lesson[]> =>
     mockRequest(() =>
-      (courseId ? db.lessons.filter((l) => l.courseId === courseId) : db.lessons).sort(
-        (a, b) => a.order - b.order,
-      ),
+      (courseId ? db.lessons.filter((l) => l.courseId === courseId) : db.lessons)
+        .sort((a, b) => a.order - b.order)
+        .map(withLiveContent),
     ),
 
   getCourseSections: (courseId: ID): Promise<CourseSection[]> =>
@@ -555,6 +582,69 @@ export const academyApi = {
       return course;
     }),
 
+  /**
+   * Создаёт курс на основе базы знаний: выбранные разделы БЗ становятся
+   * разделами курса, их статьи — уроками (в режиме link или copy).
+   */
+  createCourseFromKb: (input: {
+    title: string;
+    description?: string;
+    sequential?: boolean;
+    deadlineDays?: number;
+    /** Режим связи уроков со статьями: link — синхронизация, copy — независимая копия. */
+    mode: NonNullable<Lesson['sourceMode']>;
+    /** Разделы БЗ в порядке следования. */
+    sectionIds: ID[];
+    /** Статьи выбранных разделов, которые станут уроками. */
+    articleIds: ID[];
+  }): Promise<Course> =>
+    mockRequest(() => {
+      const selected = new Set(input.articleIds);
+      const source = input.sectionIds
+        .map((sectionId) => ({
+          kbSection: db.articleSections.find((s) => s.id === sectionId),
+          articles: db.articles.filter((a) => a.sectionId === sectionId && selected.has(a.id)),
+        }))
+        .filter((item) => item.kbSection && item.articles.length > 0);
+      if (source.length === 0) {
+        throw new ApiError('Выберите хотя бы одну статью для курса.', 400);
+      }
+      const course: Course = {
+        id: uid(),
+        title: input.title,
+        description: input.description,
+        status: 'draft',
+        sequential: input.sequential ?? true,
+        deadlineDays: input.deadlineDays,
+        authorId: db.CURRENT_USER_ID,
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      db.courses.push(course);
+      source.forEach(({ kbSection, articles }, order) => {
+        const section: CourseSection = {
+          id: uid(),
+          courseId: course.id,
+          title: kbSection!.name,
+          order,
+        };
+        db.courseSections.push(section);
+        articles.forEach((article, lessonOrder) => {
+          db.lessons.push({
+            id: uid(),
+            courseId: course.id,
+            sectionId: section.id,
+            title: article.title,
+            order: lessonOrder,
+            content: article.content,
+            sourceArticleId: article.id,
+            sourceMode: input.mode,
+          });
+        });
+      });
+      return course;
+    }),
+
   updateCourse: (input: {
     id: ID;
     title?: string;
@@ -574,6 +664,29 @@ export const academyApi = {
       return course;
     }),
 
+  deleteCourse: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const index = db.courses.findIndex((c) => c.id === id);
+      if (index === -1) notFound('Курс');
+      db.courses.splice(index, 1);
+      db.lessons
+        .filter((l) => l.courseId === id)
+        .map((l) => l.id)
+        .forEach(removeLessonCascade);
+      for (let i = db.courseSections.length - 1; i >= 0; i--) {
+        if (db.courseSections[i].courseId === id) db.courseSections.splice(i, 1);
+      }
+      for (let i = db.courseAssignments.length - 1; i >= 0; i--) {
+        if (db.courseAssignments[i].courseId === id) db.courseAssignments.splice(i, 1);
+      }
+      for (let i = db.courseProgress.length - 1; i >= 0; i--) {
+        if (db.courseProgress[i].courseId === id) db.courseProgress.splice(i, 1);
+      }
+      db.positions.forEach((position) => {
+        position.requiredCourseIds = position.requiredCourseIds.filter((cid) => cid !== id);
+      });
+    }),
+
   createCourseSection: (input: { courseId: ID; title: string }): Promise<CourseSection> =>
     mockRequest(() => {
       const siblings = db.courseSections.filter((s) => s.courseId === input.courseId);
@@ -585,6 +698,24 @@ export const academyApi = {
       };
       db.courseSections.push(section);
       return section;
+    }),
+
+  updateCourseSection: (input: { id: ID; title: string }): Promise<CourseSection> =>
+    mockRequest(() => {
+      const section = db.courseSections.find((s) => s.id === input.id) ?? notFound('Раздел курса');
+      section.title = input.title;
+      return section;
+    }),
+
+  deleteCourseSection: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const index = db.courseSections.findIndex((s) => s.id === id);
+      if (index === -1) notFound('Раздел курса');
+      db.lessons
+        .filter((l) => l.sectionId === id)
+        .map((l) => l.id)
+        .forEach(removeLessonCascade);
+      db.courseSections.splice(index, 1);
     }),
 
   createLesson: (input: {
@@ -638,6 +769,12 @@ export const academyApi = {
       }
       else if (input.content !== undefined) lesson.content = input.content;
       return lesson;
+    }),
+
+  deleteLesson: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      if (!db.lessons.some((l) => l.id === id)) notFound('Урок');
+      removeLessonCascade(id);
     }),
 
   moveLesson: (input: { id: ID; sectionId: ID; order: number }): Promise<Lesson> =>

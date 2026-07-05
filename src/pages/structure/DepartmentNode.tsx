@@ -1,5 +1,4 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { useNavigate } from 'react-router-dom';
 import {
   Briefcase,
   Building2,
@@ -27,12 +26,13 @@ interface NodeContext {
   onToggleCollapse: (id: ID) => void;
   onDialog: (dialog: StructureDialog) => void;
   onOpenPosition: (id: ID) => void;
+  onOpenUser: (id: ID) => void;
   activeDrag: DragItem | null;
 }
 
 function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }) {
-  const navigate = useNavigate();
   const occupants = ctx.usersByPosition.get(position.id) ?? [];
+  const level = position.level ?? 0;
 
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `drag-position-${position.id}`,
@@ -54,6 +54,9 @@ function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }
         >
           {position.name}
         </button>
+        <Badge variant={level === 4 ? 'primary' : level === 0 ? 'warning' : 'neutral'}>
+          Уровень {level}
+        </Badge>
         {occupants.length === 0 && <Badge variant="warning">Вакантно</Badge>}
         <button
           {...listeners}
@@ -69,7 +72,7 @@ function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }
           {occupants.map((user) => (
             <button
               key={user.id}
-              onClick={() => navigate(`/employees/${user.id}`)}
+              onClick={() => ctx.onOpenUser(user.id)}
               className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-slate-50"
             >
               <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" />
@@ -82,7 +85,13 @@ function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }
   );
 }
 
-export function DepartmentNode({ node, ctx }: { node: DepartmentTreeNode; ctx: NodeContext }) {
+export function DepartmentNode({
+  node,
+  ctx,
+}: {
+  node: DepartmentTreeNode;
+  ctx: NodeContext;
+}) {
   const positions = ctx.positionsByDepartment.get(node.id) ?? [];
   const isRoot = node.parentId === null;
   const isCollapsed = ctx.collapsed.has(node.id);

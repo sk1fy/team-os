@@ -13,10 +13,12 @@ import {
   UserRound,
 } from 'lucide-react';
 import { academyApi, authApi, kbApi, notificationsApi, orgApi, tasksApi } from '@/api';
+import type { ID } from '@/types';
 import { useUiStore } from '@/stores/ui';
 import { Avatar, Dropdown } from '@/components/ui';
 import { fullName as formatFullName, roleLabels } from '@/lib/labels';
 import { richTextToPlainText } from '@/lib/richText';
+import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
 
 type SearchResult = {
@@ -26,6 +28,7 @@ type SearchResult = {
   to: string;
   group: 'Сотрудники' | 'Статьи' | 'Задачи' | 'Курсы';
   icon: typeof UserRound;
+  employeeId?: ID;
 };
 
 export function Topbar() {
@@ -33,6 +36,7 @@ export function Topbar() {
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<ID | null>(null);
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -64,9 +68,10 @@ export function Topbar() {
           id: user.id,
           title: formatFullName(user),
           subtitle: user.email,
-          to: `/employees/${user.id}`,
+          to: '/employees',
           group: 'Сотрудники',
           icon: UserRound,
+          employeeId: user.id,
         });
       }
     }
@@ -117,7 +122,8 @@ export function Topbar() {
   }, [articlesQuery.data, coursesQuery.data, query, tasksQuery.data, usersQuery.data]);
 
   const openResult = (result: SearchResult) => {
-    navigate(result.to);
+    if (result.employeeId) setSelectedEmployeeId(result.employeeId);
+    else navigate(result.to);
     setSearch('');
     setSearchOpen(false);
   };
@@ -238,7 +244,7 @@ export function Topbar() {
                 key: 'profile',
                 label: 'Мой профиль',
                 icon: UserRound,
-                onSelect: () => navigate(`/employees/${currentUser.id}`),
+                onSelect: () => setSelectedEmployeeId(currentUser.id),
               },
               {
                 key: 'settings',
@@ -258,6 +264,10 @@ export function Topbar() {
           />
         )}
       </div>
+      <EmployeeDrawer
+        userId={selectedEmployeeId}
+        onClose={() => setSelectedEmployeeId(null)}
+      />
     </header>
   );
 }
