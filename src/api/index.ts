@@ -7,6 +7,8 @@
 import { ApiError, mockRequest, notFound } from './client';
 import * as db from './fixtures';
 import { canMoveDepartment } from '@/lib/orgTree';
+import { validateInviteEmail } from '@/lib/inviteRules';
+import { validateUserUpdate } from '@/lib/userGuards';
 import type {
   AppNotification,
   Article,
@@ -52,6 +54,28 @@ export const authApi = {
 
   getInviteByToken: (token: string): Promise<Invite> =>
     mockRequest(() => db.invites.find((i) => i.token === token) ?? notFound('Приглашение')),
+
+  updateCompany: (input: { name?: string; logoUrl?: string }): Promise<Company> =>
+    mockRequest(() => {
+      if (input.name !== undefined) db.company.name = input.name;
+      if (input.logoUrl !== undefined) db.company.logoUrl = input.logoUrl || undefined;
+      return db.company;
+    }),
+
+  updateCurrentUser: (input: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    avatarUrl?: string;
+  }): Promise<User> =>
+    mockRequest(() => {
+      const user = db.users.find((u) => u.id === db.CURRENT_USER_ID) ?? notFound('Пользователь');
+      if (input.firstName !== undefined) user.firstName = input.firstName;
+      if (input.lastName !== undefined) user.lastName = input.lastName;
+      if (input.phone !== undefined) user.phone = input.phone || undefined;
+      if (input.avatarUrl !== undefined) user.avatarUrl = input.avatarUrl || undefined;
+      return user;
+    }),
 };
 
 // ============================================================================
@@ -176,6 +200,9 @@ export const orgApi = {
       return position;
     }),
 
+  getInvites: (): Promise<Invite[]> =>
+    mockRequest(() => [...db.invites].sort((a, b) => b.createdAt.localeCompare(a.createdAt))),
+
   inviteUser: (input: {
     /** Не задан для приглашения по ссылке. */
     email?: string;
@@ -184,6 +211,11 @@ export const orgApi = {
     departmentId?: ID;
   }): Promise<Invite> =>
     mockRequest(() => {
+      if (input.email) {
+        const inviteError = validateInviteEmail(input.email, db.users);
+        if (inviteError) throw new ApiError(inviteError, 400);
+      }
+
       const invite: Invite = {
         id: uid(),
         token: uid(),
@@ -193,7 +225,84 @@ export const orgApi = {
         ...input,
       };
       db.invites.push(invite);
+
+      if (input.email) {
+        const normalized = input.email.trim().toLowerCase();
+        const existing = db.users.find((u) => u.email.toLowerCase() === normalized);
+        if (existing) {
+          existing.role = input.role;
+          existing.status = 'invited';
+          existing.positionIds = input.positionId ? [input.positionId] : [];
+        } else {
+          const [local] = normalized.split('@');
+          const firstName = local.split(/[._-]/)[0] ?? 'Новый';
+          db.users.push({
+            id: uid(),
+            email: normalized,
+            firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
+            lastName: 'Сотрудник',
+            role: input.role,
+            status: 'invited',
+            positionIds: input.positionId ? [input.positionId] : [],
+            createdAt: now(),
+          });
+        }
+      }
+
       return invite;
+    }),
+
+  resendInvite: (id: ID): Promise<Invite> =>
+    mockRequest(() => {
+      const invite = db.invites.find((i) => i.id === id) ?? notFound('Приглашение');
+      if (invite.status !== 'pending') {
+        throw new ApiError('Повторно отправить можно только ожидающие приглашения', 400);
+      }
+      invite.createdAt = now();
+      return invite;
+    }),
+
+  revokeInvite: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const invite = db.invites.find((i) => i.id === id) ?? notFound('Приглашение');
+      if (invite.status === 'accepted') {
+        throw new ApiError('Нельзя отозвать принятое приглашение', 400);
+      }
+      invite.status = 'expired';
+      if (invite.email) {
+        const user = db.users.find(
+          (u) => u.email.toLowerCase() === invite.email!.toLowerCase() && u.status === 'invited',
+        );
+        if (user) user.status = 'deactivated';
+      }
+    }),
+
+  updateUser: (input: {
+    id: ID;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    role?: User['role'];
+    status?: User['status'];
+    positionIds?: ID[];
+  }): Promise<User> =>
+    mockRequest(() => {
+      const user = db.users.find((u) => u.id === input.id) ?? notFound('Сотрудник');
+      const guardError = validateUserUpdate(
+        user,
+        { role: input.role, status: input.status },
+        { ownerId: db.company.ownerId, currentUserId: db.CURRENT_USER_ID },
+      );
+      if (guardError) throw new ApiError(guardError, 400);
+
+      if (input.firstName !== undefined) user.firstName = input.firstName.trim();
+      if (input.lastName !== undefined) user.lastName = input.lastName.trim();
+      if (input.phone !== undefined) user.phone = input.phone.trim() || undefined;
+      if (input.role !== undefined) user.role = input.role;
+      if (input.status !== undefined) user.status = input.status;
+      if (input.positionIds !== undefined) user.positionIds = input.positionIds;
+
+      return user;
     }),
 };
 

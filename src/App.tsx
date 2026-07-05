@@ -4,13 +4,14 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { SettingsPage } from '@/pages/modules';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { AcademyPage } from '@/pages/academy/AcademyPage';
 import { LearnPage } from '@/pages/academy/LearnPage';
 import { KnowledgePage } from '@/pages/knowledge/KnowledgePage';
 import { TasksPage } from '@/pages/tasks/TasksPage';
 import { SchedulePage } from '@/pages/schedule/SchedulePage';
 import { EmployeesPage } from '@/pages/employees/EmployeesPage';
+import { EmployeeProfilePage } from '@/pages/employees/EmployeeProfilePage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { CreateCompanyPage } from '@/pages/auth/CreateCompanyPage';
@@ -24,7 +25,7 @@ export function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/structure" element={<Navigate to="/employees" replace />} />
         <Route path="/employees" element={<EmployeesPage />} />
-        <Route path="/employees/:id" element={<Navigate to="/employees" replace />} />
+        <Route path="/employees/:id" element={<EmployeeProfilePage />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/tasks" element={<TasksPage />} />

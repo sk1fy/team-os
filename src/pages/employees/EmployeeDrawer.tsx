@@ -1,66 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Briefcase,
-  CalendarDays,
-  GraduationCap,
-  KanbanSquare,
-  Mail,
-  Phone,
-} from 'lucide-react';
+import { ExternalLink, Pencil } from 'lucide-react';
 import { academyApi, orgApi, tasksApi } from '@/api';
-import type { CourseProgressStatus, ID } from '@/types';
-import { formatDate, formatRelativeDate } from '@/lib/format';
-import {
-  fullName,
-  priorityLabels,
-  priorityVariants,
-  roleLabels,
-  roleVariants,
-  userStatusLabels,
-  userStatusVariants,
-} from '@/lib/labels';
-import { Avatar, Badge, Button, Drawer } from '@/components/ui';
-
-const progressStatusLabels: Record<CourseProgressStatus, string> = {
-  not_started: 'Не начат',
-  in_progress: 'В процессе',
-  completed: 'Завершён',
-  overdue: 'Просрочен',
-};
-
-const progressStatusVariants: Record<
-  CourseProgressStatus,
-  'neutral' | 'primary' | 'success' | 'danger'
-> = {
-  not_started: 'neutral',
-  in_progress: 'primary',
-  completed: 'success',
-  overdue: 'danger',
-};
-
-function WidgetCard({
-  title,
-  icon: Icon,
-  footnote,
-  children,
-}: {
-  title: string;
-  icon: typeof KanbanSquare;
-  footnote: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col rounded-lg border border-slate-200 bg-surface shadow-card">
-      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
-        <Icon className="size-4 text-primary-500" />
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      </div>
-      <div className="flex-1 p-4">{children}</div>
-      <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">{footnote}</p>
-    </div>
-  );
-}
+import type { ID } from '@/types';
+import { fullName } from '@/lib/labels';
+import { Button, Drawer } from '@/components/ui';
+import { EmployeeEditModal } from './EmployeeEditModal';
+import { EmployeeLearningWidget } from './EmployeeLearningWidget';
+import { EmployeeProfileHeader } from './EmployeeProfileHeader';
+import { EmployeeTasksWidget } from './EmployeeTasksWidget';
 
 export function EmployeeDrawer({
   userId,
@@ -70,19 +19,30 @@ export function EmployeeDrawer({
   onClose: () => void;
 }) {
   const open = Boolean(userId);
+  const [editOpen, setEditOpen] = useState(false);
+
   const userQuery = useQuery({
     queryKey: ['users', userId],
     queryFn: () => orgApi.getUser(userId!),
     enabled: open,
   });
-  const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
-  const { data: departments } = useQuery({
+  const { data: positions = [] } = useQuery({
+    queryKey: ['positions'],
+    queryFn: orgApi.getPositions,
+  });
+  const { data: departments = [] } = useQuery({
     queryKey: ['departments'],
     queryFn: orgApi.getDepartments,
   });
-  const { data: tasks } = useQuery({ queryKey: ['tasks'], queryFn: () => tasksApi.getTasks() });
-  const { data: courses } = useQuery({ queryKey: ['courses'], queryFn: academyApi.getCourses });
-  const { data: progress } = useQuery({
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => tasksApi.getTasks(),
+  });
+  const { data: courses = [] } = useQuery({
+    queryKey: ['courses'],
+    queryFn: academyApi.getCourses,
+  });
+  const { data: progress = [] } = useQuery({
     queryKey: ['courseProgress'],
     queryFn: () => academyApi.getProgress(),
   });
@@ -90,13 +50,13 @@ export function EmployeeDrawer({
   const user = userQuery.data;
 
   const userPositions = useMemo(
-    () => (positions ?? []).filter((position) => user?.positionIds.includes(position.id)),
+    () => positions.filter((position) => user?.positionIds.includes(position.id)),
     [positions, user],
   );
 
   const userTasks = useMemo(
     () =>
-      (tasks ?? []).filter(
+      tasks.filter(
         (task) =>
           !task.completedAt &&
           userId &&
@@ -107,7 +67,7 @@ export function EmployeeDrawer({
   );
 
   const userProgress = useMemo(
-    () => (progress ?? []).filter((entry) => entry.userId === userId),
+    () => progress.filter((entry) => entry.userId === userId),
     [progress, userId],
   );
 
@@ -117,159 +77,73 @@ export function EmployeeDrawer({
     return [...required].filter((courseId) => !started.has(courseId));
   }, [userPositions, userProgress]);
 
-  const courseTitle = (courseId: string) =>
-    courses?.find((course) => course.id === courseId)?.title ?? 'Курс';
-
   return (
-    <Drawer
-      open={open}
-      onOpenChange={(next) => !next && onClose()}
-      title={user ? fullName(user) : 'Сотрудник'}
-      description={user ? user.email : undefined}
-      size="xl"
-      footer={
-        <Button variant="secondary" onClick={onClose}>
-          Закрыть
-        </Button>
-      }
-    >
-      {userQuery.isPending && (
-        <div className="space-y-4">
-          <div className="h-28 animate-pulse rounded-lg bg-slate-200/60" />
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="h-48 animate-pulse rounded-lg bg-slate-200/60" />
-            <div className="h-48 animate-pulse rounded-lg bg-slate-200/60" />
-          </div>
-        </div>
-      )}
-
-      {(userQuery.isError || (!userQuery.isPending && !user)) && (
-        <p className="py-10 text-center text-sm text-slate-500">
-          Сотрудник не найден или произошла ошибка.
-        </p>
-      )}
-
-      {user && (
-        <div className="space-y-4">
-          <div className="rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
-            <div className="flex flex-wrap items-start gap-5">
-              <Avatar name={fullName(user)} src={user.avatarUrl} size="xl" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-bold text-ink">{fullName(user)}</h2>
-                  <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
-                  <Badge variant={userStatusVariants[user.status]}>
-                    {userStatusLabels[user.status]}
-                  </Badge>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-slate-600">
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="size-4 text-slate-400" />
-                    {user.email}
-                  </span>
-                  {user.phone && (
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="size-4 text-slate-400" />
-                      {user.phone}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1.5">
-                    <CalendarDays className="size-4 text-slate-400" />В компании с{' '}
-                    {formatDate(user.createdAt)}
-                  </span>
-                </div>
-                {userPositions.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {userPositions.map((position) => {
-                      const department = departments?.find((item) => item.id === position.departmentId);
-                      return (
-                        <span
-                          key={position.id}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-surface-muted px-2.5 py-1 text-sm text-slate-700"
-                        >
-                          <Briefcase className="size-3.5 text-slate-400" />
-                          {position.name}
-                          {department && <span className="text-slate-400">· {department.name}</span>}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+    <>
+      <Drawer
+        open={open}
+        onOpenChange={(next) => !next && onClose()}
+        title={user ? fullName(user) : 'Сотрудник'}
+        description={user ? user.email : undefined}
+        size="xl"
+        footer={
+          user && (
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => setEditOpen(true)}>
+                <Pencil className="size-4" />
+                Редактировать
+              </Button>
+              <Link
+                to={`/employees/${user.id}`}
+                onClick={onClose}
+                className="inline-flex h-9.5 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-surface px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-primary-200 hover:text-primary-600"
+              >
+                <ExternalLink className="size-4" />
+                Открыть профиль
+              </Link>
+              <Button variant="ghost" onClick={onClose}>
+                Закрыть
+              </Button>
+            </div>
+          )
+        }
+      >
+        {userQuery.isPending && (
+          <div className="space-y-4">
+            <div className="h-28 animate-pulse rounded-lg bg-slate-200/60" />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="h-48 animate-pulse rounded-lg bg-slate-200/60" />
+              <div className="h-48 animate-pulse rounded-lg bg-slate-200/60" />
             </div>
           </div>
+        )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <WidgetCard title="Задачи" icon={KanbanSquare} footnote="Открытые задачи сотрудника">
-              {userTasks.length === 0 ? (
-                <p className="text-sm text-slate-400">Нет открытых задач.</p>
-              ) : (
-                <div className="space-y-2">
-                  {userTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between gap-3 rounded-md border border-slate-100 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-slate-800">{task.title}</p>
-                        {task.dueDate && (
-                          <p className="text-xs text-slate-400">
-                            до {formatRelativeDate(task.dueDate)}
-                          </p>
-                        )}
-                      </div>
-                      <Badge variant={priorityVariants[task.priority]}>
-                        {priorityLabels[task.priority]}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </WidgetCard>
+        {(userQuery.isError || (!userQuery.isPending && !user)) && (
+          <p className="py-10 text-center text-sm text-slate-500">
+            Сотрудник не найден или произошла ошибка.
+          </p>
+        )}
 
-            <WidgetCard title="Обучение" icon={GraduationCap} footnote="Прогресс в академии">
-              {userProgress.length === 0 && notStartedCourseIds.length === 0 ? (
-                <p className="text-sm text-slate-400">Курсы пока не назначены.</p>
-              ) : (
-                <div className="space-y-2">
-                  {userProgress.map((entry) => (
-                    <div
-                      key={entry.courseId}
-                      className="flex items-center justify-between gap-3 rounded-md border border-slate-100 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-slate-800">
-                          {courseTitle(entry.courseId)}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          Пройдено уроков: {entry.completedLessonIds.length}
-                        </p>
-                      </div>
-                      <Badge variant={progressStatusVariants[entry.status]}>
-                        {progressStatusLabels[entry.status]}
-                      </Badge>
-                    </div>
-                  ))}
-                  {notStartedCourseIds.map((courseId) => (
-                    <div
-                      key={courseId}
-                      className="flex items-center justify-between gap-3 rounded-md border border-slate-100 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-slate-800">{courseTitle(courseId)}</p>
-                        <p className="text-xs text-slate-400">Обязательный для должности</p>
-                      </div>
-                      <Badge variant={progressStatusVariants.not_started}>
-                        {progressStatusLabels.not_started}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </WidgetCard>
+        {user && (
+          <div className="space-y-4">
+            <EmployeeProfileHeader
+              user={user}
+              positions={positions}
+              departments={departments}
+              headingLevel="h2"
+            />
+            <div className="grid gap-4 md:grid-cols-2">
+              <EmployeeTasksWidget tasks={userTasks} />
+              <EmployeeLearningWidget
+                progress={userProgress}
+                notStartedCourseIds={notStartedCourseIds}
+                courses={courses}
+              />
+            </div>
           </div>
-        </div>
-      )}
-    </Drawer>
+        )}
+      </Drawer>
+
+      <EmployeeEditModal user={user ?? null} open={editOpen} onClose={() => setEditOpen(false)} />
+    </>
   );
 }

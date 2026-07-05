@@ -219,6 +219,25 @@ export const invites: Invite[] = [
     status: 'pending',
     createdAt: daysAgo(3),
   },
+  {
+    id: 'invite-2',
+    token: 'demo-link-invite-token',
+    role: 'partner',
+    invitedById: 'user-1',
+    status: 'pending',
+    createdAt: daysAgo(1),
+  },
+  {
+    id: 'invite-3',
+    email: 'old.candidate@romashka.ru',
+    token: 'demo-expired-token',
+    role: 'employee',
+    positionId: 'position-5',
+    departmentId: 'department-2',
+    invitedById: 'user-2',
+    status: 'expired',
+    createdAt: daysAgo(30),
+  },
 ];
 
 // ============================================================================

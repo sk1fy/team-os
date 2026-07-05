@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCopyToClipboard } from '@reactuses/core';
 import { Check, Copy, Link2 } from 'lucide-react';
 import { orgApi } from '@/api';
@@ -19,6 +19,7 @@ const roleOptions = [
 ];
 
 export function InviteModal({ open, onClose }: InviteModalProps) {
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<string>('employee');
   const [positionId, setPositionId] = useState<string>('none');
@@ -49,18 +50,26 @@ export function InviteModal({ open, onClose }: InviteModalProps) {
       positionId === 'none' ? undefined : positions?.find((p) => p.id === positionId)?.departmentId,
   });
 
+  const refreshInvites = () => {
+    queryClient.invalidateQueries({ queryKey: ['invites'] });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+  };
+
   const sendInvite = useMutation({
     mutationFn: orgApi.inviteUser,
     onSuccess: () => {
+      refreshInvites();
       toast.success('Приглашение отправлено', `Письмо ушло на ${email}`);
       handleClose();
     },
-    onError: () => toast.error('Не удалось отправить приглашение'),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось отправить приглашение'),
   });
 
   const createLink = useMutation({
     mutationFn: orgApi.inviteUser,
     onSuccess: (invite) => {
+      refreshInvites();
       setInviteLink(`${window.location.origin}/auth/invite/${invite.token}`);
     },
     onError: () => toast.error('Не удалось создать ссылку'),

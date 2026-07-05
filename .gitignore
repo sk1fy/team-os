@@ -3,6 +3,7 @@ dist
 dist-ssr
 *.local
 .DS_Store
+.tasks/
 
 # Editor directories and files
 .vscode/*
