@@ -20,7 +20,7 @@ export const roleVariants: Record<UserRole, BadgeVariant> = {
 
 export const userStatusLabels: Record<UserStatus, string> = {
   active: 'Активен',
-  invited: 'Приглашён',
+  invited: 'Ожидает активации',
   deactivated: 'Деактивирован',
 };
 

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
+import { useSearchParams } from 'react-router-dom';
 import {
-  BookOpen,
-  Check,
   ChevronDown,
   FileClock,
   FileText,
@@ -14,6 +13,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Share2,
   Trash2,
   UsersRound,
 } from 'lucide-react';
@@ -21,6 +21,7 @@ import { kbApi, orgApi } from '@/api';
 import type { AccessSettings, Article, ArticleSection, ID, RichTextContent } from '@/types';
 import { formatDate, formatRelativeDate } from '@/lib/format';
 import { fullName } from '@/lib/labels';
+import { copyText } from '@/lib/clipboard';
 import { getRichTextHeadings, plainTextToRichText, richTextToPlainText } from '@/lib/richText';
 import { toast } from '@/stores/toast';
 import {
@@ -590,6 +591,7 @@ function VersionsDialog({
 export function KnowledgePage() {
   useTitle('База знаний — TeamOS');
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeSectionId, setActiveSectionId] = useState<ID | null>(null);
   const [activeArticleId, setActiveArticleId] = useState<ID | null>(null);
   const [search, setSearch] = useState('');
@@ -613,11 +615,50 @@ export function KnowledgePage() {
   const activeArticle = articles.find((article) => article.id === activeArticleId);
   const rootSections = sectionChildren(sections, null);
   const headings = getRichTextHeadings(activeArticle?.content);
+  const requestedArticleId = searchParams.get('article');
 
   useEffect(() => {
+    if (!requestedArticleId) return;
+
+    const article = articles.find((item) => item.id === requestedArticleId);
+    if (!article) return;
+
+    if (activeArticleId !== article.id) setActiveArticleId(article.id);
+    if (activeSectionId !== article.sectionId) setActiveSectionId(article.sectionId);
+  }, [activeArticleId, activeSectionId, articles, requestedArticleId]);
+
+  useEffect(() => {
+    if (requestedArticleId) return;
     if (!activeSectionId && sections[0]) setActiveSectionId(sections[0].id);
     if (!activeArticleId && articles[0]) setActiveArticleId(articles[0].id);
-  }, [activeArticleId, activeSectionId, articles, sections]);
+  }, [activeArticleId, activeSectionId, articles, requestedArticleId, sections]);
+
+  const selectArticle = (id: ID) => {
+    const article = articles.find((item) => item.id === id);
+    setActiveArticleId(id);
+    if (article) setActiveSectionId(article.sectionId);
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params);
+        next.set('article', id);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  const selectSection = (id: ID) => {
+    setActiveSectionId(id);
+    setActiveArticleId(null);
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params);
+        next.delete('article');
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   const searchResults = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -627,14 +668,6 @@ export function KnowledgePage() {
       return article.title.toLowerCase().includes(query) || body.includes(query);
     });
   }, [articles, search]);
-
-  const acknowledge = useMutation({
-    mutationFn: kbApi.acknowledgeArticle,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'acknowledgements'] });
-      toast.success('Отметка сохранена');
-    },
-  });
 
   const deleteSection = useMutation({
     mutationFn: kbApi.deleteSection,
@@ -647,7 +680,12 @@ export function KnowledgePage() {
   });
 
   const acknowledgedUserIds = new Set((acknowledgementsQuery.data ?? []).map((item) => item.userId));
-  const currentUserAcknowledged = acknowledgedUserIds.has('user-1');
+
+  const copyArticleLink = async (articleId: ID) => {
+    const copied = await copyText(`${window.location.origin}/share/article/${articleId}`);
+    if (copied) toast.success('Ссылка скопирована');
+    else toast.error('Не удалось скопировать ссылку');
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -693,8 +731,7 @@ export function KnowledgePage() {
                     key={article.id}
                     type="button"
                     onClick={() => {
-                      setActiveArticleId(article.id);
-                      setActiveSectionId(article.sectionId);
+                      selectArticle(article.id);
                     }}
                     className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-slate-100"
                   >
@@ -721,15 +758,8 @@ export function KnowledgePage() {
                     articles={articles}
                     activeSectionId={activeSectionId}
                     activeArticleId={activeArticleId}
-                    onSelectSection={(id) => {
-                      setActiveSectionId(id);
-                      setActiveArticleId(null);
-                    }}
-                    onSelectArticle={(id) => {
-                      const article = articles.find((item) => item.id === id);
-                      setActiveArticleId(id);
-                      if (article) setActiveSectionId(article.sectionId);
-                    }}
+                    onSelectSection={selectSection}
+                    onSelectArticle={selectArticle}
                   />
                 ))}
               </div>
@@ -758,6 +788,12 @@ export function KnowledgePage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
+                    {activeArticle.status === 'published' && (
+                      <Button variant="secondary" size="sm" onClick={() => copyArticleLink(activeArticle.id)}>
+                        <Share2 className="size-4" />
+                        Поделиться
+                      </Button>
+                    )}
                     <Button variant="secondary" size="sm" onClick={() => setVersionsOpen(true)}>
                       <History className="size-4" />
                       Версии
@@ -772,26 +808,6 @@ export function KnowledgePage() {
                 <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
                   <RichTextView content={activeArticle.content} />
                 </div>
-
-                {activeArticle.requiresAcknowledgement && (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3">
-                    <div className="flex items-center gap-2 text-sm text-primary-900">
-                      <BookOpen className="size-4" />
-                      {currentUserAcknowledged
-                        ? 'Вы уже отметили ознакомление.'
-                        : 'Эта статья требует отметки ознакомления.'}
-                    </div>
-                    <Button
-                      size="sm"
-                      disabled={currentUserAcknowledged}
-                      loading={acknowledge.isPending}
-                      onClick={() => acknowledge.mutate(activeArticle.id)}
-                    >
-                      <Check className="size-4" />
-                      Ознакомлен
-                    </Button>
-                  </div>
-                )}
               </div>
 
               <aside className="space-y-4">

@@ -1,6 +1,7 @@
 export { Button, type ButtonProps } from './Button';
 export { Input, type InputProps } from './Input';
 export { Select, type SelectProps, type SelectOption } from './Select';
+export { MultiSelect, type MultiSelectProps, type MultiSelectOption } from './MultiSelect';
 export { Modal, type ModalProps } from './Modal';
 export { Dropdown, type DropdownProps, type DropdownItem } from './Dropdown';
 export { Tabs, type TabsProps, type TabItem } from './Tabs';

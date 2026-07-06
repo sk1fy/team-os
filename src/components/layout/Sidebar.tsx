@@ -1,10 +1,11 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   CalendarDays,
   GraduationCap,
   Home,
   KanbanSquare,
   Library,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -65,14 +66,49 @@ function NavItem({
   );
 }
 
-function SidebarContent({ collapsed }: { collapsed: boolean }) {
+function SidebarContent({ collapsed, canToggle = true }: { collapsed: boolean; canToggle?: boolean }) {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
+  const navigate = useNavigate();
+
+  const logoutButton = (
+    <button
+      onClick={() => {
+        setMobileSidebarOpen(false);
+        navigate('/auth/login');
+      }}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-danger-600 transition-colors hover:bg-danger-50',
+        collapsed && 'justify-center px-2',
+      )}
+      aria-label="Выйти"
+    >
+      <LogOut className="size-5 shrink-0" />
+      {!collapsed && <span>Выйти</span>}
+    </button>
+  );
 
   return (
     <div className="flex h-full flex-col">
       <div className={cn('flex h-16 items-center px-4', collapsed && 'justify-center px-2')}>
         <div className="flex items-center gap-3 overflow-hidden">
-          <BrandMark className="size-9 rounded-[10px]" />
+          <div className="group relative size-9 shrink-0 rounded-[10px]">
+            <BrandMark className="size-9 rounded-[10px] transition-opacity group-hover:opacity-0" />
+            {canToggle && (
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="absolute inset-0 hidden size-9 items-center justify-center rounded-[10px] bg-ink text-white opacity-0 shadow-card transition-opacity group-hover:flex group-hover:opacity-100 focus-visible:flex focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 lg:flex"
+                aria-label={collapsed ? 'Развернуть сайдбар' : 'Свернуть сайдбар'}
+              >
+                {collapsed ? (
+                  <PanelLeftOpen className="size-5" />
+                ) : (
+                  <PanelLeftClose className="size-5" />
+                )}
+              </button>
+            )}
+          </div>
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate text-[17px] leading-tight font-bold tracking-[-0.2px] text-ink">
@@ -92,22 +128,13 @@ function SidebarContent({ collapsed }: { collapsed: boolean }) {
 
       <div className="space-y-1 border-t border-slate-200 p-2">
         <NavItem to="/settings" label="Настройки" icon={Settings} collapsed={collapsed} end={false} />
-        <button
-          onClick={toggleSidebar}
-          className={cn(
-            'hidden w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 lg:flex',
-            collapsed && 'justify-center px-2',
-          )}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="size-5" />
-          ) : (
-            <>
-              <PanelLeftClose className="size-5" />
-              <span>Свернуть</span>
-            </>
-          )}
-        </button>
+        {collapsed ? (
+          <Tooltip content="Выйти" side="right">
+            {logoutButton}
+          </Tooltip>
+        ) : (
+          logoutButton
+        )}
       </div>
     </div>
   );
@@ -145,7 +172,7 @@ export function Sidebar() {
             >
               <X className="size-5" />
             </button>
-            <SidebarContent collapsed={false} />
+            <SidebarContent collapsed={false} canToggle={false} />
           </aside>
         </div>
       )}

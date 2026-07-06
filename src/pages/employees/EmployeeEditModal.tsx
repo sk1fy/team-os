@@ -21,7 +21,7 @@ const roleOptions: { value: UserRole; label: string }[] = [
 
 const statusOptions: { value: UserStatus; label: string }[] = [
   { value: 'active', label: 'Активен' },
-  { value: 'invited', label: 'Приглашён' },
+  { value: 'invited', label: 'Ожидает активации' },
   { value: 'deactivated', label: 'Деактивирован' },
 ];
 

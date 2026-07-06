@@ -8,8 +8,8 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  Plus,
   Search,
-  UserPlus,
 } from 'lucide-react';
 import { orgApi } from '@/api';
 import type { ID } from '@/types';
@@ -23,9 +23,8 @@ import {
 import { plural } from '@/lib/format';
 import { Avatar, Badge, Button, Select, Tabs } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { InviteModal } from './InviteModal';
+import { AddUserModal } from './AddUserModal';
 import { EmployeeDrawer } from './EmployeeDrawer';
-import { InvitesPanel } from './InvitesPanel';
 import { StructurePage } from '@/pages/structure/StructurePage';
 import {
   filterEmployees,
@@ -60,7 +59,7 @@ const sortLabels: Record<EmployeeSortField, string> = {
   status: 'Статус',
 };
 
-const tabs = ['employees', 'invites', 'structure'] as const;
+const tabs = ['employees', 'structure'] as const;
 const sortFields = ['name', 'department', 'role', 'status'] as const;
 const sortDirections = ['asc', 'desc'] as const;
 
@@ -97,7 +96,7 @@ export function EmployeesPage() {
   const sortField = oneOf(searchParams.get('sort'), sortFields, 'name') as EmployeeSortField;
   const sortDirection = oneOf(searchParams.get('dir'), sortDirections, 'asc') as SortDirection;
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
-  const inviteOpen = searchParams.get('invite') === '1';
+  const addUserOpen = searchParams.get('addUser') === '1';
   const selectedEmployeeId = searchParams.get('drawer') as ID | null;
 
   const updateParams = useCallback(
@@ -345,9 +344,9 @@ export function EmployeesPage() {
             : undefined
         }
         actions={
-          <Button onClick={() => updateParams({ invite: '1' })}>
-            <UserPlus className="size-4" />
-            Пригласить
+          <Button onClick={() => updateParams({ addUser: '1' })}>
+            <Plus className="size-4" />
+            Добавить пользователя
           </Button>
         }
       />
@@ -363,14 +362,13 @@ export function EmployeesPage() {
         className="mt-6"
         items={[
           { value: 'employees', label: 'Сотрудники', content: employeesContent },
-          { value: 'invites', label: 'Приглашения', content: <InvitesPanel /> },
           { value: 'structure', label: 'Оргструктура', content: <StructurePage embedded /> },
         ]}
       />
 
-      <InviteModal
-        open={inviteOpen}
-        onClose={() => updateParams({ invite: null })}
+      <AddUserModal
+        open={addUserOpen}
+        onClose={() => updateParams({ addUser: null })}
       />
       <EmployeeDrawer
         userId={selectedEmployeeId}

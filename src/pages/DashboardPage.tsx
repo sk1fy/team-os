@@ -12,7 +12,6 @@ import {
   KanbanSquare,
   Library,
   Plus,
-  Send,
   ShieldAlert,
   UserPlus,
   Users,
@@ -217,7 +216,7 @@ function TeamHealth({
 }) {
   const rows = [
     { label: 'Активные сотрудники', value: activeUsers, tone: 'success' as const },
-    { label: 'Ожидают приглашение', value: invitedUsers, tone: invitedUsers > 0 ? ('warning' as const) : ('neutral' as const) },
+    { label: 'Ожидают активации', value: invitedUsers, tone: invitedUsers > 0 ? ('warning' as const) : ('neutral' as const) },
     { label: 'Без должности', value: usersWithoutPosition, tone: usersWithoutPosition > 0 ? ('warning' as const) : ('neutral' as const) },
     { label: 'Вакантные должности', value: vacantPositions, tone: vacantPositions > 0 ? ('warning' as const) : ('neutral' as const) },
     { label: 'Отделы', value: departmentsCount, tone: 'neutral' as const },
@@ -227,7 +226,7 @@ function TeamHealth({
     <section className="rounded-lg border border-slate-200 bg-surface shadow-card">
       <div className="border-b border-slate-200 px-5 py-4">
         <h2 className="text-base font-semibold text-slate-950">Состояние команды</h2>
-        <p className="mt-1 text-sm text-slate-500">Структура, приглашения и незакрытые позиции.</p>
+        <p className="mt-1 text-sm text-slate-500">Структура, пользователи и незакрытые позиции.</p>
       </div>
       <div className="divide-y divide-slate-100">
         {rows.map((row) => (
@@ -390,11 +389,11 @@ export function DashboardPage() {
       },
       {
         key: 'people',
-        title: 'Пригласить людей',
-        description: 'Добавьте команду или отправьте приглашение по ссылке.',
+        title: 'Добавить пользователей',
+        description: 'Создайте локальных пользователей или синхронизируйте команду из CRM.',
         done: (users.data?.length ?? 0) > 1,
         to: '/employees',
-        icon: Send,
+        icon: UserPlus,
       },
       {
         key: 'article',
@@ -508,7 +507,7 @@ export function DashboardPage() {
         <MetricCard
           title="Активные сотрудники"
           value={activeUsers}
-          detail={`${invitedUsers} ${plural(invitedUsers, ['приглашение', 'приглашения', 'приглашений'])} ожидает ответа`}
+          detail={`${invitedUsers} ${plural(invitedUsers, ['пользователь', 'пользователя', 'пользователей'])} ожидает активации`}
           icon={Users}
           tone="primary"
           loading={users.isPending}
@@ -554,7 +553,7 @@ export function DashboardPage() {
         <h2 className="mb-3 text-base font-semibold text-slate-950">Быстрые действия</h2>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <QuickAction
-            label="Пригласить сотрудника"
+            label="Добавить пользователя"
             description="Открыть список людей"
             to="/employees"
             icon={UserPlus}

@@ -196,6 +196,16 @@ export interface Attachment {
   mimeType: string;
 }
 
+export type TaskSourceType = 'task' | 'contact' | 'company' | 'deal';
+
+export interface TaskSource {
+  type: TaskSourceType;
+  title: string;
+  url: string;
+  funnelName?: string;
+  stageName?: string;
+}
+
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly';
 
 export interface RecurrenceRule {
@@ -225,6 +235,8 @@ export interface Task {
   labelIds: ID[];
   checklist: ChecklistItem[];
   attachments: Attachment[];
+  /** CRM-контекст задачи: ссылка на задачу/объект и, если есть, воронка + этап. */
+  source?: TaskSource;
   /** Привязанные статьи БЗ (регламенты к задаче). */
   linkedArticleIds: ID[];
   recurrence?: RecurrenceRule;

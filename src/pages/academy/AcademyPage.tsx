@@ -25,6 +25,7 @@ import {
   Folder,
   GraduationCap,
   GripVertical,
+  Link2,
   LinkIcon,
   Lock,
   MoreHorizontal,
@@ -55,6 +56,7 @@ import type {
   User,
 } from '@/types';
 import { formatDate, formatRelativeDate } from '@/lib/format';
+import { copyText } from '@/lib/clipboard';
 import { fullName } from '@/lib/labels';
 import { plainTextToRichText } from '@/lib/richText';
 import { toast } from '@/stores/toast';
@@ -107,6 +109,12 @@ function pluralRu(count: number, one: string, few: string, many: string) {
 
 const showApiError = (error: unknown) =>
   toast.error(error instanceof Error ? error.message : 'Что-то пошло не так. Попробуйте ещё раз.');
+
+const copyCourseLink = async (courseId: ID) => {
+  const copied = await copyText(`${window.location.origin}/learn/${courseId}`);
+  if (copied) toast.success('Ссылка скопирована');
+  else toast.error('Не удалось скопировать ссылку');
+};
 
 function progressPercent(courseId: ID, lessons: Lesson[], progress?: CourseProgress) {
   const courseLessons = lessons.filter((lesson) => lesson.courseId === courseId);
@@ -223,6 +231,19 @@ function CourseCard({
           <Play className="size-4" />
           Пройти
         </Button>
+        {course.status === 'published' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(event) => {
+              event.stopPropagation();
+              copyCourseLink(course.id);
+            }}
+          >
+            <Link2 className="size-4" />
+            Ссылка
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -349,23 +370,31 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
         Последовательное прохождение
       </label>
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-        <Button
-          size="sm"
-          loading={updateCourse.isPending}
-          onClick={() =>
-            title.trim() &&
-            updateCourse.mutate({
-              id: course.id,
-              title: title.trim(),
-              description,
-              status,
-              sequential,
-              deadlineDays: Number(deadlineDays) || undefined,
-            })
-          }
-        >
-          Сохранить
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            loading={updateCourse.isPending}
+            onClick={() =>
+              title.trim() &&
+              updateCourse.mutate({
+                id: course.id,
+                title: title.trim(),
+                description,
+                status,
+                sequential,
+                deadlineDays: Number(deadlineDays) || undefined,
+              })
+            }
+          >
+            Сохранить
+          </Button>
+          {course.status === 'published' && (
+            <Button size="sm" variant="ghost" onClick={() => copyCourseLink(course.id)}>
+              <Link2 className="size-4" />
+              Ссылка
+            </Button>
+          )}
+        </div>
         <Button
           size="sm"
           variant="ghost"

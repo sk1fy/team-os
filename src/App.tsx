@@ -8,6 +8,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { AcademyPage } from '@/pages/academy/AcademyPage';
 import { LearnPage } from '@/pages/academy/LearnPage';
 import { KnowledgePage } from '@/pages/knowledge/KnowledgePage';
+import { ShareArticlePage } from '@/pages/knowledge/ShareArticlePage';
 import { TasksPage } from '@/pages/tasks/TasksPage';
 import { SchedulePage } from '@/pages/schedule/SchedulePage';
 import { EmployeesPage } from '@/pages/employees/EmployeesPage';
@@ -44,6 +45,7 @@ export function App() {
       </Route>
 
       <Route path="/learn/:courseId" element={<LearnPage />} />
+      <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

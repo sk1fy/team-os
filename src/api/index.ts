@@ -252,6 +252,38 @@ export const orgApi = {
       return invite;
     }),
 
+  createUser: (input: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    role: User['role'];
+    positionIds?: ID[];
+  }): Promise<User> =>
+    mockRequest(() => {
+      const email = input.email.trim().toLowerCase();
+      if (!input.firstName.trim()) throw new ApiError('Укажите имя пользователя', 400);
+      if (!input.lastName.trim()) throw new ApiError('Укажите фамилию пользователя', 400);
+      if (!email) throw new ApiError('Укажите email пользователя', 400);
+      if (db.users.some((user) => user.email.toLowerCase() === email)) {
+        throw new ApiError('Пользователь с таким email уже существует', 400);
+      }
+
+      const user: User = {
+        id: uid(),
+        email,
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        phone: input.phone?.trim() || undefined,
+        role: input.role,
+        status: 'active',
+        positionIds: input.positionIds ?? [],
+        createdAt: now(),
+      };
+      db.users.push(user);
+      return user;
+    }),
+
   resendInvite: (id: ID): Promise<Invite> =>
     mockRequest(() => {
       const invite = db.invites.find((i) => i.id === id) ?? notFound('Приглашение');
@@ -535,7 +567,7 @@ export const tasksApi = {
         order: tasksInColumn.length,
         title: input.title,
         authorId: db.CURRENT_USER_ID,
-        assigneeIds: [],
+        assigneeIds: [db.CURRENT_USER_ID],
         watcherIds: [],
         priority: input.priority ?? 'medium',
         labelIds: [],
