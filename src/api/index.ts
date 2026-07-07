@@ -314,6 +314,9 @@ export const orgApi = {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    birthDate?: string;
+    hiredAt?: string;
+    vacationAllowance?: number;
     role?: User['role'];
     status?: User['status'];
     positionIds?: ID[];
@@ -330,6 +333,9 @@ export const orgApi = {
       if (input.firstName !== undefined) user.firstName = input.firstName.trim();
       if (input.lastName !== undefined) user.lastName = input.lastName.trim();
       if (input.phone !== undefined) user.phone = input.phone.trim() || undefined;
+      if (input.birthDate !== undefined) user.birthDate = input.birthDate || undefined;
+      if (input.hiredAt !== undefined) user.hiredAt = input.hiredAt || undefined;
+      if (input.vacationAllowance !== undefined) user.vacationAllowance = input.vacationAllowance;
       if (input.role !== undefined) user.role = input.role;
       if (input.status !== undefined) user.status = input.status;
       if (input.positionIds !== undefined) user.positionIds = input.positionIds;
@@ -1047,6 +1053,14 @@ export const notificationsApi = {
 
 export const scheduleApi = {
   getSchedules: (): Promise<UserSchedule[]> => mockRequest(() => db.schedules),
+
+  saveSchedule: (input: UserSchedule): Promise<UserSchedule> =>
+    mockRequest(() => {
+      const index = db.schedules.findIndex((schedule) => schedule.userId === input.userId);
+      if (index >= 0) db.schedules[index] = input;
+      else db.schedules.push(input);
+      return input;
+    }),
 
   /** Правки за месяц (month в формате YYYY-MM). */
   getExceptions: (month: string): Promise<ShiftException[]> =>

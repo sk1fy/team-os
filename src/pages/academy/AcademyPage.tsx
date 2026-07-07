@@ -212,36 +212,40 @@ function CourseCard({
         <Button
           size="sm"
           variant="ghost"
+          className="min-w-0 flex-1 px-2"
           onClick={(event) => {
             event.stopPropagation();
             onOpenBuilder();
           }}
         >
-          <Pencil className="size-4" />
-          Конструктор
+          <Pencil className="size-4 shrink-0" />
+          <span className="truncate">Конструктор</span>
         </Button>
         <Button
           size="sm"
           variant="ghost"
+          className="min-w-0 flex-1 px-2"
           onClick={(event) => {
             event.stopPropagation();
             onOpenPlayer();
           }}
         >
-          <Play className="size-4" />
-          Пройти
+          <Play className="size-4 shrink-0" />
+          <span className="truncate">Пройти</span>
         </Button>
         {course.status === 'published' && (
           <Button
             size="sm"
             variant="ghost"
+            className="size-8 shrink-0 px-0"
+            aria-label="Скопировать ссылку на курс"
+            title="Скопировать ссылку"
             onClick={(event) => {
               event.stopPropagation();
               copyCourseLink(course.id);
             }}
           >
             <Link2 className="size-4" />
-            Ссылка
           </Button>
         )}
       </div>

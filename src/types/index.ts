@@ -46,6 +46,12 @@ export interface User {
   status: UserStatus;
   /** Один сотрудник может занимать несколько должностей. */
   positionIds: ID[];
+  /** Дата рождения — отметки 🎂 в графике и поздравления. */
+  birthDate?: ISODate;
+  /** Дата выхода на работу — стаж и годовщины 🎉 в графике. */
+  hiredAt?: ISODate;
+  /** Базовая норма отпуска сотрудника в днях за год. */
+  vacationAllowance?: number;
   createdAt: ISODate;
 }
 

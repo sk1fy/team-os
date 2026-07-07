@@ -44,6 +44,9 @@ export function richText(...paragraphs: string[]): RichTextContent {
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
 const daysAhead = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+/** «Текущий месяц, день N» заданного года — чтобы отметки 🎂/🎉 попадали в открытый месяц демо. */
+const thisMonthDate = (year: number, day: number) =>
+  `${year}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
 // ============================================================================
 // Компания и люди
@@ -68,6 +71,9 @@ export const users: User[] = [
     role: 'owner',
     status: 'active',
     positionIds: ['position-1'],
+    phone: '+7 903 118-24-07',
+    birthDate: thisMonthDate(1988, 8),
+    hiredAt: '2019-11-04',
     createdAt: daysAgo(180),
   },
   {
@@ -78,6 +84,9 @@ export const users: User[] = [
     role: 'admin',
     status: 'active',
     positionIds: ['position-2'],
+    phone: '+7 926 540-11-88',
+    birthDate: '1990-03-17',
+    hiredAt: thisMonthDate(new Date().getFullYear() - 3, 22),
     createdAt: daysAgo(170),
   },
   {
@@ -88,6 +97,9 @@ export const users: User[] = [
     role: 'employee',
     status: 'active',
     positionIds: ['position-3'],
+    phone: '+7 916 774-52-08',
+    birthDate: '1992-09-05',
+    hiredAt: '2022-02-14',
     createdAt: daysAgo(150),
   },
   {
@@ -98,6 +110,9 @@ export const users: User[] = [
     role: 'employee',
     status: 'active',
     positionIds: ['position-4'],
+    phone: '+7 905 612-78-30',
+    birthDate: thisMonthDate(1995, 24),
+    hiredAt: '2023-06-01',
     createdAt: daysAgo(120),
   },
   {
@@ -108,6 +123,9 @@ export const users: User[] = [
     role: 'employee',
     status: 'active',
     positionIds: ['position-5'],
+    phone: '+7 909 640-72-15',
+    birthDate: '1997-01-30',
+    hiredAt: '2024-04-08',
     createdAt: daysAgo(90),
   },
   {
@@ -118,6 +136,9 @@ export const users: User[] = [
     role: 'employee',
     status: 'active',
     positionIds: ['position-4'],
+    phone: '+7 918 233-47-60',
+    birthDate: '1993-12-11',
+    hiredAt: '2024-09-15',
     createdAt: daysAgo(60),
   },
   {
@@ -128,6 +149,8 @@ export const users: User[] = [
     role: 'employee',
     status: 'invited',
     positionIds: ['position-6'],
+    phone: '+7 925 447-90-61',
+    birthDate: '1999-05-21',
     createdAt: daysAgo(3),
   },
   {
@@ -138,7 +161,21 @@ export const users: User[] = [
     role: 'partner',
     status: 'active',
     positionIds: [],
+    phone: '+7 917 330-14-88',
     createdAt: daysAgo(30),
+  },
+  {
+    id: 'user-9',
+    email: 'viktor.kozlov@romashka.ru',
+    firstName: 'Виктор',
+    lastName: 'Козлов',
+    role: 'employee',
+    status: 'deactivated',
+    positionIds: ['position-5'],
+    phone: '+7 921 305-88-42',
+    birthDate: '1991-08-02',
+    hiredAt: '2023-03-01',
+    createdAt: daysAgo(400),
   },
 ];
 
@@ -836,6 +873,7 @@ export const schedules: UserSchedule[] = [
   { userId: 'user-6', template: { type: 'cycle', on: 2, off: 2, start: '21:00', end: '09:00', cycleStart: monthDate(3) } },
   { userId: 'user-7', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '10:00', end: '19:00' } },
   { userId: 'user-8', template: { type: 'week', days: [0, 1, 2, 3, 5], start: '09:00', end: '17:00' } },
+  { userId: 'user-9', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
 ];
 
 /** Точечные отклонения текущего месяца: переработки, больничные, командировка, отпуск. */
@@ -852,4 +890,5 @@ export const shiftExceptions: ShiftException[] = [
   { id: 'shift-10', userId: 'user-5', date: monthDate(23), type: 'vacation' },
   { id: 'shift-11', userId: 'user-5', date: monthDate(24), type: 'vacation' },
   { id: 'shift-12', userId: 'user-4', date: monthDate(6), type: 'work', start: '09:00', end: '15:00', note: 'Отпросился — семейные обстоятельства' },
+  { id: 'shift-13', userId: 'user-3', date: monthDate(17), type: 'work', start: '09:00', end: '18:00', note: 'Сместила смену на час раньше — забирает ребёнка' },
 ];
