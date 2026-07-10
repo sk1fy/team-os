@@ -9,6 +9,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Shuffle,
   Users,
   X,
 } from 'lucide-react';
@@ -19,9 +20,10 @@ import { cn } from '@/lib/cn';
 
 const navItems = [
   { to: '/', label: 'Главная', icon: Home, end: true },
-  { to: '/schedule', label: 'График', icon: CalendarDays },
   { to: '/employees', label: 'Сотрудники', icon: Users },
+  { to: '/schedule', label: 'График', icon: CalendarDays },
   { to: '/tasks', label: 'Задачи', icon: KanbanSquare },
+  { to: '/distribution', label: 'Распределение', icon: Shuffle },
   { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/academy', label: 'Академия', icon: GraduationCap },
 ];
@@ -66,7 +68,13 @@ function NavItem({
   );
 }
 
-function SidebarContent({ collapsed, canToggle = true }: { collapsed: boolean; canToggle?: boolean }) {
+function SidebarContent({
+  collapsed,
+  canToggle = true,
+}: {
+  collapsed: boolean;
+  canToggle?: boolean;
+}) {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const navigate = useNavigate();
@@ -127,7 +135,13 @@ function SidebarContent({ collapsed, canToggle = true }: { collapsed: boolean; c
       </nav>
 
       <div className="space-y-1 border-t border-slate-200 p-2">
-        <NavItem to="/settings" label="Настройки" icon={Settings} collapsed={collapsed} end={false} />
+        <NavItem
+          to="/settings"
+          label="Настройки"
+          icon={Settings}
+          collapsed={collapsed}
+          end={false}
+        />
         {collapsed ? (
           <Tooltip content="Выйти" side="right">
             {logoutButton}

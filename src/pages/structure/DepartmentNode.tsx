@@ -58,10 +58,36 @@ function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }
           Уровень {level}
         </Badge>
         {occupants.length === 0 && <Badge variant="warning">Вакантно</Badge>}
+        <Dropdown
+          trigger={
+            <button
+              className="ml-auto rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+              aria-label={`Действия с должностью «${position.name}»`}
+            >
+              <MoreHorizontal className="size-4" />
+            </button>
+          }
+          items={[
+            {
+              key: 'edit',
+              label: 'Редактировать',
+              icon: Pencil,
+              onSelect: () => ctx.onDialog({ type: 'editPosition', position }),
+            },
+            'separator',
+            {
+              key: 'delete',
+              label: 'Удалить',
+              icon: Trash2,
+              danger: true,
+              onSelect: () => ctx.onDialog({ type: 'deletePosition', position }),
+            },
+          ]}
+        />
         <button
           {...listeners}
           {...attributes}
-          className="ml-auto cursor-grab rounded p-1 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-slate-200 hover:text-slate-500 active:cursor-grabbing"
+          className="cursor-grab rounded p-1 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-slate-200 hover:text-slate-500 active:cursor-grabbing"
           aria-label={`Переместить должность «${position.name}»`}
         >
           <GripVertical className="size-4" />
@@ -85,13 +111,7 @@ function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }
   );
 }
 
-export function DepartmentNode({
-  node,
-  ctx,
-}: {
-  node: DepartmentTreeNode;
-  ctx: NodeContext;
-}) {
+export function DepartmentNode({ node, ctx }: { node: DepartmentTreeNode; ctx: NodeContext }) {
   const positions = ctx.positionsByDepartment.get(node.id) ?? [];
   const isRoot = node.parentId === null;
   const isCollapsed = ctx.collapsed.has(node.id);
@@ -164,46 +184,41 @@ export function DepartmentNode({
           </span>
         )}
 
-        <span className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={() => ctx.onDialog({ type: 'createPosition', departmentId: node.id })}
+          className="ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-primary-100 bg-primary-50 px-2 text-xs font-semibold text-primary-700 hover:border-primary-200 hover:bg-primary-100"
+          aria-label={`Добавить должность в отдел «${node.name}»`}
+        >
+          <Plus className="size-3.5" />
+          <span className="hidden sm:inline">Должность</span>
+        </button>
+
+        <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => ctx.onDialog({ type: 'createDepartment', parentId: node.id })}
+            className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+            aria-label={`Добавить подотдел в «${node.name}»`}
+            title="Добавить подотдел"
+          >
+            <Building2 className="size-4" />
+          </button>
           <Dropdown
             trigger={
               <button
                 className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                aria-label="Добавить"
-              >
-                <Plus className="size-4" />
-              </button>
-            }
-            items={[
-              {
-                key: 'add-department',
-                label: 'Добавить подотдел',
-                icon: Building2,
-                onSelect: () => ctx.onDialog({ type: 'createDepartment', parentId: node.id }),
-              },
-              {
-                key: 'add-position',
-                label: 'Добавить должность',
-                icon: Briefcase,
-                onSelect: () => ctx.onDialog({ type: 'createPosition', departmentId: node.id }),
-              },
-            ]}
-          />
-          <Dropdown
-            trigger={
-              <button
-                className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                aria-label="Действия с отделом"
+                aria-label={`Действия с отделом «${node.name}»`}
               >
                 <MoreHorizontal className="size-4" />
               </button>
             }
             items={[
               {
-                key: 'rename',
-                label: 'Переименовать',
+                key: 'edit',
+                label: 'Настройки отдела',
                 icon: Pencil,
-                onSelect: () => ctx.onDialog({ type: 'renameDepartment', department: node }),
+                onSelect: () => ctx.onDialog({ type: 'editDepartment', department: node }),
               },
               ...(isRoot
                 ? []

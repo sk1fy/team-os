@@ -3,7 +3,7 @@ import type { Department, ID, Position } from '@/types';
 /** Открытая модалка страницы оргструктуры. */
 export type StructureDialog =
   | { type: 'createDepartment'; parentId: ID | null }
-  | { type: 'renameDepartment'; department: Department }
+  | { type: 'editDepartment'; department: Department }
   | { type: 'deleteDepartment'; department: Department }
   | { type: 'createPosition'; departmentId: ID }
   | { type: 'editPosition'; position: Position }

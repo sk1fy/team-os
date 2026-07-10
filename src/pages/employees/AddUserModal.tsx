@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { orgApi } from '@/api';
-import type { ID, UserRole } from '@/types';
+import type { UserRole } from '@/types';
 import { roleLabels } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { Button, Input, Modal, Select } from '@/components/ui';
+import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 
 interface AddUserModalProps {
   open: boolean;
@@ -24,7 +25,7 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
-  const [positionIds, setPositionIds] = useState<ID[]>([]);
+  const [positionId, setPositionId] = useState(NO_POSITION_VALUE);
 
   const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
   const { data: departments } = useQuery({
@@ -39,24 +40,13 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
     setEmail('');
     setPhone('');
     setRole('employee');
-    setPositionIds([]);
+    setPositionId(NO_POSITION_VALUE);
   }, [open]);
 
-  const positionOptions = useMemo(() => {
-    const departmentName = (id: string) => departments?.find((department) => department.id === id)?.name;
-    return (positions ?? []).map((position) => ({
-      value: position.id,
-      label: departmentName(position.departmentId)
-        ? `${position.name} — ${departmentName(position.departmentId)}`
-        : position.name,
-    }));
-  }, [positions, departments]);
-
-  const togglePosition = (positionId: ID) => {
-    setPositionIds((prev) =>
-      prev.includes(positionId) ? prev.filter((id) => id !== positionId) : [...prev, positionId],
-    );
-  };
+  const positionOptions = useMemo(
+    () => buildPositionOptions(positions ?? [], departments ?? []),
+    [positions, departments],
+  );
 
   const createUser = useMutation({
     mutationFn: () =>
@@ -66,7 +56,7 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
         email: email.trim(),
         phone: phone.trim() || undefined,
         role,
-        positionIds,
+        positionIds: positionId === NO_POSITION_VALUE ? [] : [positionId],
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -135,30 +125,12 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
           value={role}
           onValueChange={(value) => setRole(value as UserRole)}
         />
-        {positionOptions.length > 0 && (
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Должности</p>
-            <div className="flex flex-wrap gap-2">
-              {positionOptions.map((option) => {
-                const active = positionIds.includes(option.value);
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => togglePosition(option.value)}
-                    className={`rounded-md border px-2.5 py-1 text-sm transition-colors ${
-                      active
-                        ? 'border-primary-300 bg-primary-50 text-primary-800'
-                        : 'border-slate-200 bg-surface text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <Select
+          label="Должность"
+          options={positionOptions}
+          value={positionId}
+          onValueChange={setPositionId}
+        />
       </form>
     </Modal>
   );

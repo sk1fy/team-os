@@ -26,8 +26,9 @@ import {
 import { cn } from '@/lib/cn';
 import { MONTH_LABELS, MONTH_LABELS_GENITIVE } from '@/lib/schedule';
 import { toast } from '@/stores/toast';
-import { Avatar, Badge, Button, Drawer, Modal } from '@/components/ui';
+import { Avatar, Badge, Button, Drawer, Modal, Select } from '@/components/ui';
 import { EmployeeEditModal } from './EmployeeEditModal';
+import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const monthShortNames = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
@@ -44,7 +45,13 @@ export function EmployeeDrawer({
   const [editOpen, setEditOpen] = useState(false);
   const [absenceOpen, setAbsenceOpen] = useState(false);
   const [view, setView] = useState<'side' | 'center'>('side');
-  const [profileDraft, setProfileDraft] = useState({ fullName: '', role: '', phone: '', hire: '', birth: '' });
+  const [profileDraft, setProfileDraft] = useState({
+    fullName: '',
+    positionId: NO_POSITION_VALUE,
+    phone: '',
+    hire: '',
+    birth: '',
+  });
   const [scheduleType, setScheduleType] = useState<'week' | 'cycle'>('week');
   const [weekDraft, setWeekDraft] = useState({
     uniform: true,
@@ -100,6 +107,10 @@ export function EmployeeDrawer({
   const primaryDepartment = primaryPosition
     ? departments.find((department) => department.id === primaryPosition.departmentId)
     : undefined;
+  const positionOptions = useMemo(
+    () => buildPositionOptions(positions, departments),
+    [positions, departments],
+  );
   const schedule = schedules.find((item) => item.userId === userId);
   const userMonthExceptions = useMemo(
     () => monthExceptions.filter((item) => item.userId === userId),
@@ -131,13 +142,13 @@ export function EmployeeDrawer({
     if (!open || !user) return;
     setProfileDraft({
       fullName: fullName(user),
-      role: primaryPosition?.name ?? '',
+      positionId: primaryPosition?.id ?? NO_POSITION_VALUE,
       phone: user.phone ?? '',
       hire: user.hiredAt ?? '',
       birth: user.birthDate ?? '',
     });
     setVacationNorm(user.vacationAllowance ?? 28);
-  }, [open, user?.id, user?.firstName, user?.lastName, user?.phone, user?.hiredAt, user?.birthDate, user?.vacationAllowance, primaryPosition?.name]);
+  }, [open, user?.id, user?.firstName, user?.lastName, user?.phone, user?.hiredAt, user?.birthDate, user?.vacationAllowance, primaryPosition?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -197,7 +208,8 @@ export function EmployeeDrawer({
           vacationAllowance: vacationNorm,
           role: user.role,
           status: user.status,
-          positionIds: user.positionIds,
+          positionIds:
+            profileDraft.positionId === NO_POSITION_VALUE ? [] : [profileDraft.positionId],
         }),
         scheduleApi.saveSchedule({ userId: user.id, template }),
       ]);
@@ -340,7 +352,14 @@ export function EmployeeDrawer({
 
             <PanelSection title="Профиль сотрудника">
               <PanelInput label="Имя" value={profileDraft.fullName} onChange={(value) => setProfileDraft((draft) => ({ ...draft, fullName: value }))} />
-              <PanelInput label="Должность" value={profileDraft.role} placeholder="напр. Руководитель отдела" onChange={(value) => setProfileDraft((draft) => ({ ...draft, role: value }))} />
+              <Select
+                label="Должность"
+                options={positionOptions}
+                value={profileDraft.positionId}
+                onValueChange={(positionId) =>
+                  setProfileDraft((draft) => ({ ...draft, positionId }))
+                }
+              />
               <PanelInput label="Телефон" value={profileDraft.phone} placeholder="+7 900 000-00-00" onChange={(value) => setProfileDraft((draft) => ({ ...draft, phone: value }))} />
               <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
                 <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />

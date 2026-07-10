@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, orgApi } from '@/api';
-import type { ID, User, UserRole, UserStatus } from '@/types';
+import type { User, UserRole, UserStatus } from '@/types';
 import { roleLabels } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { Button, Input, Modal, Select } from '@/components/ui';
+import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 
 interface EmployeeEditModalProps {
   user: User | null;
@@ -32,7 +33,7 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [status, setStatus] = useState<UserStatus>('active');
-  const [positionIds, setPositionIds] = useState<ID[]>([]);
+  const [positionId, setPositionId] = useState(NO_POSITION_VALUE);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
 
   const { data: company } = useQuery({ queryKey: ['company'], queryFn: authApi.getCompany });
@@ -53,22 +54,17 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
     setPhone(user.phone ?? '');
     setRole(user.role);
     setStatus(user.status);
-    setPositionIds(user.positionIds);
+    setPositionId(user.positionIds[0] ?? NO_POSITION_VALUE);
     setConfirmDeactivate(false);
   }, [user]);
 
   const isOwner = user?.id === company?.ownerId;
   const isSelf = user?.id === currentUser?.id;
 
-  const positionOptions = useMemo(() => {
-    const departmentName = (id: string) => departments?.find((d) => d.id === id)?.name;
-    return (positions ?? []).map((position) => ({
-      value: position.id,
-      label: departmentName(position.departmentId)
-        ? `${position.name} — ${departmentName(position.departmentId)}`
-        : position.name,
-    }));
-  }, [positions, departments]);
+  const positionOptions = useMemo(
+    () => buildPositionOptions(positions ?? [], departments ?? []),
+    [positions, departments],
+  );
 
   const availableRoles = useMemo(() => {
     if (isOwner) return roleOptions.filter((option) => option.value === 'owner');
@@ -81,12 +77,6 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
     return statusOptions;
   }, [isOwner, isSelf]);
 
-  const togglePosition = (positionId: ID) => {
-    setPositionIds((prev) =>
-      prev.includes(positionId) ? prev.filter((id) => id !== positionId) : [...prev, positionId],
-    );
-  };
-
   const save = useMutation({
     mutationFn: () =>
       orgApi.updateUser({
@@ -96,7 +86,7 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
         phone,
         role,
         status,
-        positionIds,
+        positionIds: positionId === NO_POSITION_VALUE ? [] : [positionId],
       }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -185,30 +175,12 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
               }}
             />
           </div>
-          {positionOptions.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-medium text-slate-700">Должности</p>
-              <div className="flex flex-wrap gap-2">
-                {positionOptions.map((option) => {
-                  const active = positionIds.includes(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => togglePosition(option.value)}
-                      className={`rounded-md border px-2.5 py-1 text-sm transition-colors ${
-                        active
-                          ? 'border-primary-300 bg-primary-50 text-primary-800'
-                          : 'border-slate-200 bg-surface text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <Select
+            label="Должность"
+            options={positionOptions}
+            value={positionId}
+            onValueChange={setPositionId}
+          />
         </form>
       )}
     </Modal>

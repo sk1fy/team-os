@@ -11,18 +11,24 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { useTitle } from '@reactuses/core';
-import { Briefcase, Building2, Plus } from 'lucide-react';
+import { Briefcase, Building2, ListTree, Network, Plus, ZoomIn, ZoomOut } from 'lucide-react';
 import { orgApi } from '@/api';
 import type { Department, ID, Position, User } from '@/types';
 import { buildDepartmentTree, canMoveDepartment } from '@/lib/orgTree';
 import { toast } from '@/stores/toast';
 import { Button } from '@/components/ui';
+import { cn } from '@/lib/cn';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DepartmentNode } from './DepartmentNode';
+import { OrgChart } from './OrgChart';
 import { StructureDialogs } from './StructureDialogs';
 import { PositionDrawer } from './PositionDrawer';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import type { DragItem, StructureDialog } from './types';
+
+const MIN_DIAGRAM_ZOOM = 50;
+const MAX_DIAGRAM_ZOOM = 150;
+const DIAGRAM_ZOOM_STEP = 10;
 
 export function StructurePage({ embedded = false }: { embedded?: boolean }) {
   useTitle(embedded ? 'Сотрудники — TeamOS' : 'Оргструктура — TeamOS');
@@ -36,14 +42,15 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
 
   const [collapsed, setCollapsed] = useState<Set<ID>>(new Set());
+  const [diagramCollapsed, setDiagramCollapsed] = useState<Set<ID>>(new Set());
+  const [diagramZoom, setDiagramZoom] = useState(100);
+  const [view, setView] = useState<'diagram' | 'hierarchy'>('hierarchy');
   const [dialog, setDialog] = useState<StructureDialog | null>(null);
   const [openPositionId, setOpenPositionId] = useState<ID | null>(null);
   const [openUserId, setOpenUserId] = useState<ID | null>(null);
   const [activeDrag, setActiveDrag] = useState<DragItem | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const departments = useMemo(() => departmentsQuery.data ?? [], [departmentsQuery.data]);
   const tree = useMemo(() => buildDepartmentTree(departments), [departments]);
@@ -56,9 +63,7 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
       map.set(position.departmentId, list);
     }
     for (const list of map.values()) {
-      list.sort(
-        (a, b) => (b.level ?? 0) - (a.level ?? 0) || a.name.localeCompare(b.name, 'ru'),
-      );
+      list.sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || a.name.localeCompare(b.name, 'ru'));
     }
     return map;
   }, [positionsQuery.data]);
@@ -74,6 +79,11 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
     }
     return map;
   }, [usersQuery.data]);
+
+  const usersById = useMemo(
+    () => new Map((usersQuery.data ?? []).map((user) => [user.id, user])),
+    [usersQuery.data],
+  );
 
   // Перемещения — с optimistic-обновлением: дерево меняется мгновенно,
   // при ошибке мок-API состояние откатывается.
@@ -143,18 +153,29 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
     });
   };
 
+  const toggleDiagramCollapse = (id: ID) => {
+    setDiagramCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const isLoading = departmentsQuery.isPending || positionsQuery.isPending || usersQuery.isPending;
-  const isError = departmentsQuery.isError;
+  const isError = departmentsQuery.isError || positionsQuery.isError || usersQuery.isError;
 
   return (
     <div className={embedded ? '' : 'mx-auto max-w-4xl p-6'}>
       {embedded ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-2xl text-sm text-slate-500">
-            Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех,
-            0 — нижний уровень.
+            Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех, 0
+            — нижний уровень.
           </p>
-          <Button onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}>
+          <Button
+            onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}
+          >
             <Plus className="size-4" />
             Добавить отдел
           </Button>
@@ -164,7 +185,9 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
           title="Оргструктура"
           description="Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех, 0 — нижний уровень."
           actions={
-            <Button onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}>
+            <Button
+              onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}
+            >
               <Plus className="size-4" />
               Добавить отдел
             </Button>
@@ -172,7 +195,93 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
         />
       )}
 
-      <div className="mt-6 rounded-lg border border-slate-200 bg-surface p-3 shadow-card">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div
+          className="inline-flex rounded-md bg-surface-sunken p-1"
+          role="group"
+          aria-label="Вид оргструктуры"
+        >
+          <button
+            type="button"
+            onClick={() => setView('hierarchy')}
+            aria-pressed={view === 'hierarchy'}
+            className={cn(
+              'flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-semibold transition-colors',
+              view === 'hierarchy'
+                ? 'bg-surface text-primary-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700',
+            )}
+          >
+            <ListTree className="size-4" />
+            Иерархия
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('diagram')}
+            aria-pressed={view === 'diagram'}
+            className={cn(
+              'flex h-8 items-center gap-1.5 rounded-[9px] px-3 text-[13px] font-semibold transition-colors',
+              view === 'diagram'
+                ? 'bg-surface text-primary-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700',
+            )}
+          >
+            <Network className="size-4" />
+            Диаграмма
+          </button>
+        </div>
+        {view === 'diagram' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs text-slate-400">
+              Нажмите на сотрудника или должность, чтобы открыть подробности
+            </p>
+            <div
+              className="inline-flex items-center rounded-md border border-slate-200 bg-surface p-0.5 shadow-card"
+              role="group"
+              aria-label="Масштаб диаграммы"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setDiagramZoom((zoom) => Math.max(MIN_DIAGRAM_ZOOM, zoom - DIAGRAM_ZOOM_STEP))
+                }
+                disabled={diagramZoom === MIN_DIAGRAM_ZOOM}
+                className="flex size-7 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-primary-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                aria-label="Уменьшить масштаб"
+              >
+                <ZoomOut className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiagramZoom(100)}
+                className="h-7 min-w-12 rounded px-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-primary-700"
+                aria-label={`Сбросить масштаб, сейчас ${diagramZoom}%`}
+                title="Сбросить масштаб"
+              >
+                {diagramZoom}%
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setDiagramZoom((zoom) => Math.min(MAX_DIAGRAM_ZOOM, zoom + DIAGRAM_ZOOM_STEP))
+                }
+                disabled={diagramZoom === MAX_DIAGRAM_ZOOM}
+                className="flex size-7 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-primary-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                aria-label="Увеличить масштаб"
+              >
+                <ZoomIn className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          'mt-3 rounded-lg border border-slate-200 bg-surface shadow-card',
+          view === 'hierarchy' && 'p-3',
+        )}
+      >
         {isLoading && (
           <div className="space-y-2 p-2">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -192,14 +301,32 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
               variant="secondary"
               size="sm"
               className="mt-3"
-              onClick={() => departmentsQuery.refetch()}
+              onClick={() => {
+                departmentsQuery.refetch();
+                positionsQuery.refetch();
+                usersQuery.refetch();
+              }}
             >
               Повторить
             </Button>
           </div>
         )}
 
-        {!isLoading && !isError && (
+        {!isLoading && !isError && view === 'diagram' && (
+          <OrgChart
+            tree={tree}
+            zoom={diagramZoom}
+            positionsByDepartment={positionsByDepartment}
+            usersByPosition={usersByPosition}
+            usersById={usersById}
+            collapsed={diagramCollapsed}
+            onToggleCollapse={toggleDiagramCollapse}
+            onOpenPosition={setOpenPositionId}
+            onOpenUser={setOpenUserId}
+          />
+        )}
+
+        {!isLoading && !isError && view === 'hierarchy' && (
           <DndContext
             sensors={sensors}
             collisionDetection={pointerWithin}

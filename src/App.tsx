@@ -17,6 +17,8 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { CreateCompanyPage } from '@/pages/auth/CreateCompanyPage';
 import { InvitePage } from '@/pages/auth/InvitePage';
+import { DistributionPage } from '@/pages/distribution/DistributionPage';
+import { DistributionGroupPage } from '@/pages/distribution/DistributionGroupPage';
 
 export function App() {
   return (
@@ -30,6 +32,8 @@ export function App() {
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/tasks" element={<TasksPage />} />
+        <Route path="/distribution" element={<DistributionPage />} />
+        <Route path="/distribution/:groupId" element={<DistributionGroupPage />} />
         <Route path="/academy" element={<AcademyPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings" element={<SettingsPage />} />

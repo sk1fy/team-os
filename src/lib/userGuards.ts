@@ -1,8 +1,13 @@
-import type { User, UserRole, UserStatus } from '@/types';
+import type { ID, User, UserRole, UserStatus } from '@/types';
 
 export interface UserUpdateInput {
   role?: UserRole;
   status?: UserStatus;
+}
+
+export function validatePositionAssignment(positionIds: ID[]): string | null {
+  if (positionIds.length > 1) return 'Сотруднику можно назначить только одну должность';
+  return null;
 }
 
 export function validateUserUpdate(

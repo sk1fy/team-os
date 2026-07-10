@@ -17,6 +17,8 @@ import type {
   CourseProgress,
   CourseSection,
   Department,
+  DealDistributionGroup,
+  DistributionEvent,
   Invite,
   Label,
   Lesson,
@@ -182,8 +184,20 @@ export const users: User[] = [
 export const departments: Department[] = [
   { id: 'department-1', name: 'Ромашка Digital', parentId: null, headUserId: 'user-1', order: 0 },
   { id: 'department-2', name: 'Продажи', parentId: 'department-1', headUserId: 'user-2', order: 0 },
-  { id: 'department-3', name: 'Маркетинг', parentId: 'department-1', headUserId: 'user-3', order: 1 },
-  { id: 'department-4', name: 'Разработка', parentId: 'department-1', headUserId: 'user-4', order: 2 },
+  {
+    id: 'department-3',
+    name: 'Маркетинг',
+    parentId: 'department-1',
+    headUserId: 'user-3',
+    order: 1,
+  },
+  {
+    id: 'department-4',
+    name: 'Разработка',
+    parentId: 'department-1',
+    headUserId: 'user-4',
+    order: 2,
+  },
   { id: 'department-5', name: 'Отдел контента', parentId: 'department-3', order: 0 },
 ];
 
@@ -472,7 +486,9 @@ export const tasks: Task[] = [
     columnId: 'column-1',
     order: 2,
     title: 'Обновить регламент обработки заявок',
-    description: richText('Синхронизировать порядок обработки заявок между продажами и поддержкой.'),
+    description: richText(
+      'Синхронизировать порядок обработки заявок между продажами и поддержкой.',
+    ),
     authorId: 'user-4',
     assigneeIds: ['user-4'],
     watcherIds: [],
@@ -865,23 +881,78 @@ const monthDate = (day: number) => {
 
 /** Базовые шаблоны графика: офис — пятидневки, поддержка — сменные циклы. */
 export const schedules: UserSchedule[] = [
-  { userId: 'user-1', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
-  { userId: 'user-2', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
-  { userId: 'user-3', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '10:00', end: '19:00' } },
-  { userId: 'user-4', template: { type: 'cycle', on: 2, off: 2, start: '09:00', end: '21:00', cycleStart: monthDate(1) } },
-  { userId: 'user-5', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
-  { userId: 'user-6', template: { type: 'cycle', on: 2, off: 2, start: '21:00', end: '09:00', cycleStart: monthDate(3) } },
-  { userId: 'user-7', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '10:00', end: '19:00' } },
-  { userId: 'user-8', template: { type: 'week', days: [0, 1, 2, 3, 5], start: '09:00', end: '17:00' } },
-  { userId: 'user-9', template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' } },
+  {
+    userId: 'user-1',
+    template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' },
+  },
+  {
+    userId: 'user-2',
+    template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' },
+  },
+  {
+    userId: 'user-3',
+    template: { type: 'week', days: [0, 1, 2, 3, 4], start: '10:00', end: '19:00' },
+  },
+  {
+    userId: 'user-4',
+    template: {
+      type: 'cycle',
+      on: 2,
+      off: 2,
+      start: '09:00',
+      end: '21:00',
+      cycleStart: monthDate(1),
+    },
+  },
+  {
+    userId: 'user-5',
+    template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' },
+  },
+  {
+    userId: 'user-6',
+    template: {
+      type: 'cycle',
+      on: 2,
+      off: 2,
+      start: '21:00',
+      end: '09:00',
+      cycleStart: monthDate(3),
+    },
+  },
+  {
+    userId: 'user-7',
+    template: { type: 'week', days: [0, 1, 2, 3, 4], start: '10:00', end: '19:00' },
+  },
+  {
+    userId: 'user-8',
+    template: { type: 'week', days: [0, 1, 2, 3, 5], start: '09:00', end: '17:00' },
+  },
+  {
+    userId: 'user-9',
+    template: { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' },
+  },
 ];
 
 /** Точечные отклонения текущего месяца: переработки, больничные, командировка, отпуск. */
 export const shiftExceptions: ShiftException[] = [
-  { id: 'shift-1', userId: 'user-2', date: monthDate(8), type: 'work', start: '09:00', end: '20:00', note: 'Работа на выезде — встреча с клиентом в 14:00' },
+  {
+    id: 'shift-1',
+    userId: 'user-2',
+    date: monthDate(8),
+    type: 'work',
+    start: '09:00',
+    end: '20:00',
+    note: 'Работа на выезде — встреча с клиентом в 14:00',
+  },
   { id: 'shift-2', userId: 'user-3', date: monthDate(10), type: 'sick' },
   { id: 'shift-3', userId: 'user-3', date: monthDate(11), type: 'sick' },
-  { id: 'shift-4', userId: 'user-7', date: monthDate(14), type: 'trip', note: 'Командировка в Казань — внедрение у клиента' },
+  {
+    id: 'shift-4',
+    userId: 'user-7',
+    date: monthDate(14),
+    type: 'trip',
+    note: 'Командировка в Казань — внедрение у клиента',
+  },
   { id: 'shift-5', userId: 'user-7', date: monthDate(15), type: 'trip' },
   { id: 'shift-6', userId: 'user-7', date: monthDate(16), type: 'trip' },
   { id: 'shift-7', userId: 'user-5', date: monthDate(20), type: 'vacation' },
@@ -889,6 +960,77 @@ export const shiftExceptions: ShiftException[] = [
   { id: 'shift-9', userId: 'user-5', date: monthDate(22), type: 'vacation' },
   { id: 'shift-10', userId: 'user-5', date: monthDate(23), type: 'vacation' },
   { id: 'shift-11', userId: 'user-5', date: monthDate(24), type: 'vacation' },
-  { id: 'shift-12', userId: 'user-4', date: monthDate(6), type: 'work', start: '09:00', end: '15:00', note: 'Отпросился — семейные обстоятельства' },
-  { id: 'shift-13', userId: 'user-3', date: monthDate(17), type: 'work', start: '09:00', end: '18:00', note: 'Сместила смену на час раньше — забирает ребёнка' },
+  {
+    id: 'shift-12',
+    userId: 'user-4',
+    date: monthDate(6),
+    type: 'work',
+    start: '09:00',
+    end: '15:00',
+    note: 'Отпросился — семейные обстоятельства',
+  },
+  {
+    id: 'shift-13',
+    userId: 'user-3',
+    date: monthDate(17),
+    type: 'work',
+    start: '09:00',
+    end: '18:00',
+    note: 'Сместила смену на час раньше — забирает ребёнка',
+  },
+];
+
+// ============================================================================
+// Распределение сделок
+// ============================================================================
+
+export const distributionGroups: DealDistributionGroup[] = [
+  {
+    id: 'distribution-group-1',
+    name: 'Входящие заявки — Отдел продаж',
+    description: 'Новые заявки распределяются между сотрудниками на смене',
+    active: true,
+    algorithm: 'round_robin',
+    memberIds: ['user-2', 'user-5', 'user-3', 'user-4', 'user-6'],
+    disabledMemberIds: [],
+    source: 'Сайт · форма «Заявка»',
+    dealLimit: 10,
+    unclaimedMinutes: 15,
+    createdAt: daysAgo(45),
+  },
+];
+
+export const distributionEvents: DistributionEvent[] = [
+  {
+    id: 'distribution-event-1',
+    groupId: 'distribution-group-1',
+    dealNumber: 4821,
+    userId: 'user-2',
+    status: 'accepted',
+    createdAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+  },
+  {
+    id: 'distribution-event-2',
+    groupId: 'distribution-group-1',
+    dealNumber: 4820,
+    userId: 'user-5',
+    status: 'in_progress',
+    createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+  },
+  {
+    id: 'distribution-event-3',
+    groupId: 'distribution-group-1',
+    dealNumber: 4819,
+    userId: 'user-3',
+    status: 'reassigned',
+    createdAt: new Date(Date.now() - 8 * 60_000).toISOString(),
+  },
+  {
+    id: 'distribution-event-4',
+    groupId: 'distribution-group-1',
+    dealNumber: 4818,
+    userId: 'user-4',
+    status: 'declined',
+    createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+  },
 ];

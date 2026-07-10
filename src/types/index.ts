@@ -44,7 +44,7 @@ export interface User {
   phone?: string;
   role: UserRole;
   status: UserStatus;
-  /** Один сотрудник может занимать несколько должностей. */
+  /** Не более одной должности; массив сохранён для совместимости API. */
   positionIds: ID[];
   /** Дата рождения — отметки 🎂 в графике и поздравления. */
   birthDate?: ISODate;
@@ -442,4 +442,36 @@ export interface ShiftException {
   start?: string;
   end?: string;
   note?: string;
+}
+
+// ============================================================================
+// Распределение сделок
+// ============================================================================
+
+export type DistributionAlgorithm = 'round_robin' | 'least_loaded' | 'priority';
+export type DistributionEventStatus = 'accepted' | 'in_progress' | 'reassigned' | 'declined';
+
+export interface DealDistributionGroup {
+  id: ID;
+  name: string;
+  description?: string;
+  active: boolean;
+  algorithm: DistributionAlgorithm;
+  /** Порядок участников важен для очереди и приоритетов. */
+  memberIds: ID[];
+  /** Участники остаются в группе, но временно исключаются из распределения. */
+  disabledMemberIds: ID[];
+  source: string;
+  dealLimit: number;
+  unclaimedMinutes: number;
+  createdAt: ISODate;
+}
+
+export interface DistributionEvent {
+  id: ID;
+  groupId: ID;
+  dealNumber: number;
+  userId: ID;
+  status: DistributionEventStatus;
+  createdAt: ISODate;
 }

@@ -8,7 +8,8 @@ import { ApiError, mockRequest, notFound } from './client';
 import * as db from './fixtures';
 import { canMoveDepartment } from '@/lib/orgTree';
 import { validateInviteEmail } from '@/lib/inviteRules';
-import { validateUserUpdate } from '@/lib/userGuards';
+import { validatePositionAssignment, validateUserUpdate } from '@/lib/userGuards';
+import { pickDistributionMember } from '@/lib/dealDistribution';
 import type {
   AppNotification,
   Article,
@@ -21,6 +22,8 @@ import type {
   CourseProgress,
   CourseSection,
   Department,
+  DealDistributionGroup,
+  DistributionEvent,
   ID,
   Invite,
   Label,
@@ -98,23 +101,38 @@ export const orgApi = {
   createDepartment: (input: {
     name: string;
     parentId: ID | null;
+    headUserId?: ID;
   }): Promise<Department> =>
     mockRequest(() => {
+      if (input.headUserId) {
+        if (!db.users.some((user) => user.id === input.headUserId)) notFound('Сотрудник');
+      }
       const siblings = db.departments.filter((d) => d.parentId === input.parentId);
       const department: Department = {
         id: uid(),
         name: input.name,
         parentId: input.parentId,
+        headUserId: input.headUserId,
         order: siblings.length,
       };
       db.departments.push(department);
       return department;
     }),
 
-  renameDepartment: (input: { id: ID; name: string }): Promise<Department> =>
+  updateDepartment: (input: {
+    id: ID;
+    name?: string;
+    headUserId?: ID | null;
+  }): Promise<Department> =>
     mockRequest(() => {
       const department = db.departments.find((d) => d.id === input.id) ?? notFound('Отдел');
-      department.name = input.name;
+      if (input.name !== undefined) department.name = input.name;
+      if (input.headUserId !== undefined) {
+        if (input.headUserId !== null) {
+          if (!db.users.some((user) => user.id === input.headUserId)) notFound('Сотрудник');
+        }
+        department.headUserId = input.headUserId ?? undefined;
+      }
       return department;
     }),
 
@@ -170,12 +188,19 @@ export const orgApi = {
   updatePosition: (input: {
     id: ID;
     name?: string;
+    departmentId?: ID;
     level?: Position['level'];
     description?: string;
   }): Promise<Position> =>
     mockRequest(() => {
       const position = db.positions.find((p) => p.id === input.id) ?? notFound('Должность');
       if (input.name !== undefined) position.name = input.name;
+      if (input.departmentId !== undefined) {
+        if (!db.departments.some((department) => department.id === input.departmentId)) {
+          notFound('Отдел');
+        }
+        position.departmentId = input.departmentId;
+      }
       if (input.level !== undefined) position.level = input.level;
       if (input.description !== undefined) position.description = input.description;
       return position;
@@ -261,6 +286,8 @@ export const orgApi = {
     positionIds?: ID[];
   }): Promise<User> =>
     mockRequest(() => {
+      const positionError = validatePositionAssignment(input.positionIds ?? []);
+      if (positionError) throw new ApiError(positionError, 400);
       const email = input.email.trim().toLowerCase();
       if (!input.firstName.trim()) throw new ApiError('Укажите имя пользователя', 400);
       if (!input.lastName.trim()) throw new ApiError('Укажите фамилию пользователя', 400);
@@ -329,6 +356,10 @@ export const orgApi = {
         { ownerId: db.company.ownerId, currentUserId: db.CURRENT_USER_ID },
       );
       if (guardError) throw new ApiError(guardError, 400);
+      if (input.positionIds !== undefined) {
+        const positionError = validatePositionAssignment(input.positionIds);
+        if (positionError) throw new ApiError(positionError, 400);
+      }
 
       if (input.firstName !== undefined) user.firstName = input.firstName.trim();
       if (input.lastName !== undefined) user.lastName = input.lastName.trim();
@@ -476,8 +507,9 @@ export const kbApi = {
     mockRequest(() => {
       const article = db.articles.find((a) => a.id === input.articleId) ?? notFound('Статья');
       const version =
-        db.articleVersions.find((v) => v.id === input.versionId && v.articleId === input.articleId) ??
-        notFound('Версия');
+        db.articleVersions.find(
+          (v) => v.id === input.versionId && v.articleId === input.articleId,
+        ) ?? notFound('Версия');
       db.articleVersions.push({
         id: uid(),
         articleId: article.id,
@@ -608,7 +640,8 @@ export const tasksApi = {
       if (input.title !== undefined) task.title = input.title;
       if (input.description !== undefined) task.description = input.description;
       if (input.assigneeIds !== undefined) task.assigneeIds = input.assigneeIds;
-      if (input.assigneePositionId !== undefined) task.assigneePositionId = input.assigneePositionId;
+      if (input.assigneePositionId !== undefined)
+        task.assigneePositionId = input.assigneePositionId;
       if (input.watcherIds !== undefined) task.watcherIds = input.watcherIds;
       if (input.dueDate !== undefined) task.dueDate = input.dueDate || undefined;
       if (input.priority !== undefined) task.priority = input.priority;
@@ -696,9 +729,7 @@ export const academyApi = {
     ),
 
   getQuizzes: (lessonId?: ID): Promise<Quiz[]> =>
-    mockRequest(() =>
-      lessonId ? db.quizzes.filter((q) => q.lessonId === lessonId) : db.quizzes,
-    ),
+    mockRequest(() => (lessonId ? db.quizzes.filter((q) => q.lessonId === lessonId) : db.quizzes)),
 
   createCourse: (input: {
     title: string;
@@ -911,10 +942,13 @@ export const academyApi = {
       if (input.sourceArticleId !== undefined) lesson.sourceArticleId = input.sourceArticleId;
       if (input.sourceMode !== undefined) lesson.sourceMode = input.sourceMode;
       if (lesson.sourceMode === 'link' && sourceArticle) lesson.content = sourceArticle.content;
-      else if (input.sourceArticleId !== undefined && sourceArticle && input.content === undefined) {
+      else if (
+        input.sourceArticleId !== undefined &&
+        sourceArticle &&
+        input.content === undefined
+      ) {
         lesson.content = sourceArticle.content;
-      }
-      else if (input.content !== undefined) lesson.content = input.content;
+      } else if (input.content !== undefined) lesson.content = input.content;
       return lesson;
     }),
 
@@ -988,7 +1022,11 @@ export const academyApi = {
       courseId ? db.courseProgress.filter((p) => p.courseId === courseId) : db.courseProgress,
     ),
 
-  markLessonComplete: (input: { courseId: ID; lessonId: ID; userId?: ID }): Promise<CourseProgress> =>
+  markLessonComplete: (input: {
+    courseId: ID;
+    lessonId: ID;
+    userId?: ID;
+  }): Promise<CourseProgress> =>
     mockRequest(() => {
       const userId = input.userId ?? db.CURRENT_USER_ID;
       let progress = db.courseProgress.find(
@@ -1077,5 +1115,129 @@ export const scheduleApi = {
         db.shiftExceptions.push({ id: uid(), ...input });
       }
       return db.shiftExceptions;
+    }),
+};
+
+// ============================================================================
+// Распределение сделок
+// ============================================================================
+
+export const distributionApi = {
+  getGroups: (): Promise<DealDistributionGroup[]> => mockRequest(() => db.distributionGroups),
+
+  createGroup: (input: {
+    name: string;
+    description?: string;
+    memberIds: ID[];
+  }): Promise<DealDistributionGroup> =>
+    mockRequest(() => {
+      if (!input.name.trim()) throw new ApiError('Укажите название группы', 400);
+      if (input.memberIds.length === 0) {
+        throw new ApiError('Добавьте в группу хотя бы одного сотрудника', 400);
+      }
+      const group: DealDistributionGroup = {
+        id: uid(),
+        name: input.name.trim(),
+        description: input.description?.trim() || undefined,
+        active: true,
+        algorithm: 'round_robin',
+        memberIds: [...new Set(input.memberIds)],
+        disabledMemberIds: [],
+        source: 'Все новые сделки',
+        dealLimit: 10,
+        unclaimedMinutes: 15,
+        createdAt: now(),
+      };
+      db.distributionGroups.push(group);
+      return group;
+    }),
+
+  updateGroup: (input: {
+    id: ID;
+    name?: string;
+    description?: string;
+    active?: boolean;
+    algorithm?: DealDistributionGroup['algorithm'];
+    memberIds?: ID[];
+    disabledMemberIds?: ID[];
+    source?: string;
+    dealLimit?: number;
+    unclaimedMinutes?: number;
+  }): Promise<DealDistributionGroup> =>
+    mockRequest(() => {
+      const group =
+        db.distributionGroups.find((item) => item.id === input.id) ??
+        notFound('Группа распределения');
+      if (input.name !== undefined) group.name = input.name.trim();
+      if (input.description !== undefined) {
+        group.description = input.description.trim() || undefined;
+      }
+      if (input.active !== undefined) group.active = input.active;
+      if (input.algorithm !== undefined) group.algorithm = input.algorithm;
+      if (input.memberIds !== undefined) {
+        group.memberIds = [...new Set(input.memberIds)];
+        group.disabledMemberIds = group.disabledMemberIds.filter((id) =>
+          group.memberIds.includes(id),
+        );
+      }
+      if (input.disabledMemberIds !== undefined) {
+        group.disabledMemberIds = [...new Set(input.disabledMemberIds)].filter((id) =>
+          group.memberIds.includes(id),
+        );
+      }
+      if (input.source !== undefined) group.source = input.source.trim();
+      if (input.dealLimit !== undefined) group.dealLimit = Math.max(1, input.dealLimit);
+      if (input.unclaimedMinutes !== undefined) {
+        group.unclaimedMinutes = Math.max(1, input.unclaimedMinutes);
+      }
+      return group;
+    }),
+
+  deleteGroup: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const index = db.distributionGroups.findIndex((group) => group.id === id);
+      if (index === -1) notFound('Группа распределения');
+      db.distributionGroups.splice(index, 1);
+      for (let i = db.distributionEvents.length - 1; i >= 0; i -= 1) {
+        if (db.distributionEvents[i]?.groupId === id) db.distributionEvents.splice(i, 1);
+      }
+    }),
+
+  getEvents: (groupId: ID): Promise<DistributionEvent[]> =>
+    mockRequest(() =>
+      db.distributionEvents
+        .filter((event) => event.groupId === groupId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    ),
+
+  simulateDeal: (groupId: ID): Promise<DistributionEvent> =>
+    mockRequest(() => {
+      const group =
+        db.distributionGroups.find((item) => item.id === groupId) ??
+        notFound('Группа распределения');
+      if (!group.active) throw new ApiError('Группа приостановлена', 400);
+      const userId = pickDistributionMember(group, db.distributionEvents);
+      if (!userId) throw new ApiError('В группе нет сотрудников', 400);
+      const latestDealNumber = Math.max(
+        4821,
+        ...db.distributionEvents.map((event) => event.dealNumber),
+      );
+      const event: DistributionEvent = {
+        id: uid(),
+        groupId,
+        dealNumber: latestDealNumber + 1,
+        userId,
+        status: 'accepted',
+        createdAt: now(),
+      };
+      db.distributionEvents.push(event);
+      return event;
+    }),
+
+  resetEvents: (groupId: ID): Promise<void> =>
+    mockRequest(() => {
+      for (let i = db.distributionEvents.length - 1; i >= 0; i -= 1) {
+        if (db.distributionEvents[i]?.groupId === groupId) db.distributionEvents.splice(i, 1);
+      }
     }),
 };
