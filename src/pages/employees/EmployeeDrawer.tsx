@@ -7,9 +7,7 @@ import {
   Image as ImageIcon,
   PanelRight,
   Plus,
-  Save,
   Square,
-  Trash2,
   X,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -319,11 +317,9 @@ export function EmployeeDrawer({
                 onClick={() => setEditOpen(true)}
                 className="mr-auto"
               >
-                <Trash2 className="size-4" />
                 {user.status === 'deactivated' ? 'Восстановить' : 'Уволить'}
               </Button>
               <Button onClick={() => savePanel.mutate()} disabled={savePanel.isPending}>
-                <Save className="size-4" />
                 {savePanel.isPending ? 'Сохраняю' : 'Сохранить'}
               </Button>
               <Button variant="ghost" onClick={onClose}>

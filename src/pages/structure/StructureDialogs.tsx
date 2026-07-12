@@ -17,11 +17,13 @@ interface FormModalProps {
   submitLabel: string;
   initialName?: string;
   initialDescription?: string;
+  initialValuableFinalProduct?: string;
   initialLevel?: Position['level'];
   initialHeadUserId?: ID;
   initialDepartmentId?: ID;
   withLevel?: boolean;
   withDescription?: boolean;
+  withValuableFinalProduct?: boolean;
   withHead?: boolean;
   withDepartment?: boolean;
   headOptions?: Array<{ value: string; label: string }>;
@@ -30,6 +32,7 @@ interface FormModalProps {
   onSubmit: (values: {
     name: string;
     description: string;
+    valuableFinalProduct: string;
     level: Position['level'];
     headUserId: ID | null;
     departmentId: ID;
@@ -52,11 +55,13 @@ function FormModal({
   submitLabel,
   initialName = '',
   initialDescription = '',
+  initialValuableFinalProduct = '',
   initialLevel = 0,
   initialHeadUserId,
   initialDepartmentId = '',
   withLevel = false,
   withDescription = false,
+  withValuableFinalProduct = false,
   withHead = false,
   withDepartment = false,
   headOptions = [],
@@ -67,6 +72,7 @@ function FormModal({
 }: FormModalProps) {
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
+  const [valuableFinalProduct, setValuableFinalProduct] = useState(initialValuableFinalProduct);
   const [level, setLevel] = useState(String(initialLevel));
   const [headUserId, setHeadUserId] = useState(initialHeadUserId ?? NO_HEAD_VALUE);
   const [departmentId, setDepartmentId] = useState(initialDepartmentId);
@@ -77,6 +83,7 @@ function FormModal({
       onSubmit({
         name: name.trim(),
         description: description.trim(),
+        valuableFinalProduct: valuableFinalProduct.trim(),
         level: Number(level) as Position['level'],
         headUserId: headUserId === NO_HEAD_VALUE ? null : headUserId,
         departmentId,
@@ -135,6 +142,15 @@ function FormModal({
             value={headUserId}
             onValueChange={setHeadUserId}
             options={[{ value: NO_HEAD_VALUE, label: 'Не назначен' }, ...headOptions]}
+          />
+        )}
+        {withValuableFinalProduct && (
+          <Textarea
+            label="ЦКП отдела"
+            value={valuableFinalProduct}
+            onChange={(e) => setValuableFinalProduct(e.target.value)}
+            placeholder="Например: стабильный поток квалифицированных заявок для отдела продаж"
+            rows={3}
           />
         )}
         {withDescription && (
@@ -258,13 +274,15 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           title="Новый отдел"
           submitLabel="Создать"
           withHead
+          withValuableFinalProduct
           headOptions={headOptions}
           pending={createDepartment.isPending}
-          onSubmit={({ name, headUserId }) =>
+          onSubmit={({ name, headUserId, valuableFinalProduct }) =>
             createDepartment.mutate({
               name,
               parentId: dialog.parentId,
               headUserId: headUserId ?? undefined,
+              valuableFinalProduct: valuableFinalProduct || undefined,
             })
           }
           onClose={onClose}
@@ -277,11 +295,18 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           submitLabel="Сохранить"
           initialName={dialog.department.name}
           initialHeadUserId={dialog.department.headUserId}
+          initialValuableFinalProduct={dialog.department.valuableFinalProduct}
           withHead
+          withValuableFinalProduct
           headOptions={headOptions}
           pending={updateDepartment.isPending}
-          onSubmit={({ name, headUserId }) =>
-            updateDepartment.mutate({ id: dialog.department.id, name, headUserId })
+          onSubmit={({ name, headUserId, valuableFinalProduct }) =>
+            updateDepartment.mutate({
+              id: dialog.department.id,
+              name,
+              headUserId,
+              valuableFinalProduct: valuableFinalProduct || null,
+            })
           }
           onClose={onClose}
         />

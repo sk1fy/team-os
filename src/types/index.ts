@@ -61,6 +61,8 @@ export interface Department {
   /** null — корневой отдел компании. */
   parentId: ID | null;
   headUserId?: ID;
+  /** Ценный конечный продукт отдела. */
+  valuableFinalProduct?: string;
   /** Порядок среди соседей в дереве. */
   order: number;
 }

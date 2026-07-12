@@ -183,7 +183,15 @@ export const users: User[] = [
 
 export const departments: Department[] = [
   { id: 'department-1', name: 'Ромашка Digital', parentId: null, headUserId: 'user-1', order: 0 },
-  { id: 'department-2', name: 'Продажи', parentId: 'department-1', headUserId: 'user-2', order: 0 },
+  {
+    id: 'department-2',
+    name: 'Продажи',
+    parentId: 'department-1',
+    headUserId: 'user-2',
+    valuableFinalProduct:
+      'Оплаченные сделки с целевыми клиентами, выполненные в срок и с плановой маржинальностью',
+    order: 0,
+  },
   {
     id: 'department-3',
     name: 'Маркетинг',

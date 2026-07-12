@@ -102,6 +102,7 @@ export const orgApi = {
     name: string;
     parentId: ID | null;
     headUserId?: ID;
+    valuableFinalProduct?: string;
   }): Promise<Department> =>
     mockRequest(() => {
       if (input.headUserId) {
@@ -113,6 +114,7 @@ export const orgApi = {
         name: input.name,
         parentId: input.parentId,
         headUserId: input.headUserId,
+        valuableFinalProduct: input.valuableFinalProduct,
         order: siblings.length,
       };
       db.departments.push(department);
@@ -123,6 +125,7 @@ export const orgApi = {
     id: ID;
     name?: string;
     headUserId?: ID | null;
+    valuableFinalProduct?: string | null;
   }): Promise<Department> =>
     mockRequest(() => {
       const department = db.departments.find((d) => d.id === input.id) ?? notFound('Отдел');
@@ -132,6 +135,9 @@ export const orgApi = {
           if (!db.users.some((user) => user.id === input.headUserId)) notFound('Сотрудник');
         }
         department.headUserId = input.headUserId ?? undefined;
+      }
+      if (input.valuableFinalProduct !== undefined) {
+        department.valuableFinalProduct = input.valuableFinalProduct?.trim() || undefined;
       }
       return department;
     }),

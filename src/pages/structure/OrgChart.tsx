@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { Briefcase, ChevronDown, Users } from 'lucide-react';
+import { Briefcase, ChevronDown, Target, Users } from 'lucide-react';
 import type { ID, Position, User } from '@/types';
 import type { DepartmentTreeNode } from '@/lib/orgTree';
 import { fullName } from '@/lib/labels';
@@ -127,6 +127,17 @@ function OrgChartNode({
                 </span>
               </span>
             </button>
+          )}
+          {node.valuableFinalProduct && (
+            <div className="mt-2.5 rounded-md border border-primary-100 bg-surface/80 px-2.5 py-2.5">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-primary-600 uppercase">
+                <Target className="size-3.5" />
+                Ценный конечный продукт
+              </div>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-700">
+                {node.valuableFinalProduct}
+              </p>
+            </div>
           )}
         </div>
 
