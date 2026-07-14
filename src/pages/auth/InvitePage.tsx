@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { authApi } from '@/api';
+import { ApiError } from '@/api/client';
 import { Button, Input } from '@/components/ui';
 import { toast } from '@/stores/toast';
 
@@ -15,20 +16,39 @@ export function InvitePage() {
   const navigate = useNavigate();
   const { token = '' } = useParams();
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string>();
 
-  const { data: invite, isPending, isError } = useQuery({
+  const {
+    data: invite,
+    isPending,
+    isError,
+  } = useQuery({
     queryKey: ['invite', token],
     queryFn: () => authApi.getInviteByToken(token),
     retry: 1,
   });
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitting(true);
-    setTimeout(() => {
+    setSubmitError(undefined);
+    const form = new FormData(event.currentTarget);
+    try {
+      await authApi.acceptInvite(token, {
+        email: invite?.email ? undefined : String(form.get('email') ?? ''),
+        firstName: String(form.get('firstName') ?? ''),
+        lastName: String(form.get('lastName') ?? ''),
+        password: String(form.get('password') ?? ''),
+      });
       toast.success('Добро пожаловать в команду!');
-      navigate('/');
-    }, 600);
+      navigate('/', { replace: true });
+    } catch (caught) {
+      setSubmitError(
+        caught instanceof ApiError ? caught.message : 'Не удалось принять приглашение.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (isPending) {
@@ -63,24 +83,40 @@ export function InvitePage() {
       </p>
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Имя" placeholder="Ольга" autoComplete="given-name" required />
-          <Input label="Фамилия" placeholder="Лебедева" autoComplete="family-name" required />
+          <Input
+            label="Имя"
+            name="firstName"
+            placeholder="Ольга"
+            autoComplete="given-name"
+            required
+          />
+          <Input
+            label="Фамилия"
+            name="lastName"
+            placeholder="Лебедева"
+            autoComplete="family-name"
+            required
+          />
         </div>
         <Input
           label="Email"
+          name="email"
           type="email"
           defaultValue={invite.email}
+          readOnly={Boolean(invite.email)}
           autoComplete="email"
           required
         />
         <Input
           label="Пароль"
+          name="password"
           type="password"
           placeholder="Минимум 8 символов"
           autoComplete="new-password"
           minLength={8}
           required
         />
+        {submitError && <p className="text-sm text-danger-600">{submitError}</p>}
         <Button type="submit" className="w-full" loading={submitting}>
           Присоединиться
         </Button>

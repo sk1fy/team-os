@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/api/queryClient';
 import { TooltipProvider, Toaster } from '@/components/ui';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
+import { AuthBootstrap } from '@/components/auth/AuthBootstrap';
 import { App } from '@/App';
 import './index.css';
 
@@ -12,12 +13,14 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <TooltipProvider>
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
-          <Toaster />
-        </TooltipProvider>
+        <AuthBootstrap>
+          <TooltipProvider>
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
+            <Toaster />
+          </TooltipProvider>
+        </AuthBootstrap>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

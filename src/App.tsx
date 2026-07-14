@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { RequireAuth } from '@/components/auth/AuthBootstrap';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
@@ -15,7 +16,6 @@ import { EmployeesPage } from '@/pages/employees/EmployeesPage';
 import { EmployeeProfilePage } from '@/pages/employees/EmployeeProfilePage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
-import { CreateCompanyPage } from '@/pages/auth/CreateCompanyPage';
 import { InvitePage } from '@/pages/auth/InvitePage';
 import { DistributionPage } from '@/pages/distribution/DistributionPage';
 import { DistributionGroupPage } from '@/pages/distribution/DistributionGroupPage';
@@ -24,7 +24,13 @@ export function App() {
   return (
     <Routes>
       {/* Основное приложение */}
-      <Route element={<AppLayout />}>
+      <Route
+        element={
+          <RequireAuth>
+            <AppLayout />
+          </RequireAuth>
+        }
+      >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/structure" element={<Navigate to="/employees" replace />} />
         <Route path="/employees" element={<EmployeesPage />} />
@@ -44,7 +50,7 @@ export function App() {
         <Route index element={<Navigate to="/auth/login" replace />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
-        <Route path="create-company" element={<CreateCompanyPage />} />
+        <Route path="create-company" element={<Navigate to="/auth/register" replace />} />
         <Route path="invite/:token" element={<InvitePage />} />
       </Route>
 

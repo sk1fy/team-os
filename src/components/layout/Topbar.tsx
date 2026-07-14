@@ -13,6 +13,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { academyApi, authApi, kbApi, notificationsApi, orgApi, tasksApi } from '@/api';
+import { isHttpApiMode } from '@/api/config';
 import type { ID } from '@/types';
 import { useUiStore } from '@/stores/ui';
 import { Avatar, Dropdown } from '@/components/ui';
@@ -20,6 +21,7 @@ import { fullName as formatFullName, roleLabels } from '@/lib/labels';
 import { richTextToPlainText } from '@/lib/richText';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
+import { useLogout } from '@/components/auth/useLogout';
 
 type SearchResult = {
   id: string;
@@ -33,6 +35,7 @@ type SearchResult = {
 
 export function Topbar() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -46,13 +49,22 @@ export function Topbar() {
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['notifications', 'unreadCount'],
     queryFn: notificationsApi.getUnreadCount,
-    refetchInterval: 60_000,
+    refetchInterval: isHttpApiMode('notifications') ? false : 60_000,
   });
 
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const articlesQuery = useQuery({ queryKey: ['kb', 'articles'], queryFn: () => kbApi.getArticles() });
-  const tasksQuery = useQuery({ queryKey: ['tasks', 'global'], queryFn: () => tasksApi.getTasks() });
-  const coursesQuery = useQuery({ queryKey: ['academy', 'courses'], queryFn: academyApi.getCourses });
+  const articlesQuery = useQuery({
+    queryKey: ['kb', 'articles'],
+    queryFn: () => kbApi.getArticles(),
+  });
+  const tasksQuery = useQuery({
+    queryKey: ['tasks', 'global'],
+    queryFn: () => tasksApi.getTasks(),
+  });
+  const coursesQuery = useQuery({
+    queryKey: ['academy', 'courses'],
+    queryFn: academyApi.getCourses,
+  });
 
   const fullName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '';
   const query = search.trim().toLowerCase();
@@ -129,7 +141,10 @@ export function Topbar() {
   };
 
   const isSearching =
-    usersQuery.isPending || articlesQuery.isPending || tasksQuery.isPending || coursesQuery.isPending;
+    usersQuery.isPending ||
+    articlesQuery.isPending ||
+    tasksQuery.isPending ||
+    coursesQuery.isPending;
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-surface px-4">
@@ -258,16 +273,13 @@ export function Topbar() {
                 label: 'Выйти',
                 icon: LogOut,
                 danger: true,
-                onSelect: () => navigate('/auth/login'),
+                onSelect: () => void logout(),
               },
             ]}
           />
         )}
       </div>
-      <EmployeeDrawer
-        userId={selectedEmployeeId}
-        onClose={() => setSelectedEmployeeId(null)}
-      />
+      <EmployeeDrawer userId={selectedEmployeeId} onClose={() => setSelectedEmployeeId(null)} />
     </header>
   );
 }

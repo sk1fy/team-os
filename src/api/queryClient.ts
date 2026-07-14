@@ -8,13 +8,6 @@ export const queryClient = new QueryClient({
       retry: 2,
       staleTime: 30_000,
       refetchOnWindowFocus: false,
-      // Мок-API не ходит в сеть — не даём TanStack Query приостанавливать
-      // запросы, когда navigator.onLine врёт про офлайн. Убрать при
-      // подключении реального бэкенда.
-      networkMode: 'always',
-    },
-    mutations: {
-      networkMode: 'always',
     },
   },
 });

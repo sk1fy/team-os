@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   CalendarDays,
   GraduationCap,
@@ -17,6 +17,7 @@ import { useUiStore } from '@/stores/ui';
 import { Tooltip } from '@/components/ui';
 import { BrandMark } from './BrandMark';
 import { cn } from '@/lib/cn';
+import { useLogout } from '@/components/auth/useLogout';
 
 const navItems = [
   { to: '/', label: 'Главная', icon: Home, end: true },
@@ -77,13 +78,13 @@ function SidebarContent({
 }) {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
-  const navigate = useNavigate();
+  const logout = useLogout();
 
   const logoutButton = (
     <button
       onClick={() => {
         setMobileSidebarOpen(false);
-        navigate('/auth/login');
+        void logout();
       }}
       className={cn(
         'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-danger-600 transition-colors hover:bg-danger-50',

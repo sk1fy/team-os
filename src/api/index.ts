@@ -4,7 +4,18 @@
  * только реализации (fetch вместо mockRequest), но не сигнатуры.
  */
 
-import { ApiError, mockRequest, notFound } from './client';
+import { ApiError, mockRequest, notFound, type AuthSession } from './client';
+import { isHttpApiMode } from './config';
+import {
+  httpAcademyApi,
+  httpAuthApi,
+  httpDistributionApi,
+  httpKbApi,
+  httpNotificationsApi,
+  httpOrgApi,
+  httpScheduleApi,
+  httpTasksApi,
+} from './http';
 import * as db from './fixtures';
 import { canMoveDepartment } from '@/lib/orgTree';
 import { validateInviteEmail } from '@/lib/inviteRules';
@@ -46,7 +57,7 @@ const now = () => new Date().toISOString();
 // Аутентификация и компания (пока моки без реальной авторизации)
 // ============================================================================
 
-export const authApi = {
+const mockAuthApi = {
   getCurrentUser: (): Promise<User> =>
     mockRequest(
       () => db.users.find((u) => u.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
@@ -79,13 +90,53 @@ export const authApi = {
       if (input.avatarUrl !== undefined) user.avatarUrl = input.avatarUrl || undefined;
       return user;
     }),
+
+  login: (input: { email: string; password: string }): Promise<AuthSession<User>> => {
+    void input;
+    return mockRequest(() => ({
+      accessToken: 'mock-access-token',
+      user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
+    }));
+  },
+
+  refresh: (): Promise<boolean> => mockRequest(() => true, { noFail: true }),
+
+  logout: (): Promise<void> => mockRequest(() => undefined, { noFail: true }),
+
+  register: (input: {
+    companyName: string;
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }): Promise<AuthSession<User>> => {
+    void input;
+    return mockRequest(() => ({
+      accessToken: 'mock-access-token',
+      user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
+    }));
+  },
+
+  acceptInvite: (
+    token: string,
+    input: { email?: string; firstName: string; lastName: string; password: string },
+  ): Promise<AuthSession<User>> =>
+    mockRequest(() => {
+      void input;
+      const invite = db.invites.find((item) => item.token === token) ?? notFound('Приглашение');
+      invite.status = 'accepted';
+      return {
+        accessToken: 'mock-access-token',
+        user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
+      };
+    }),
 };
 
 // ============================================================================
 // Оргструктура
 // ============================================================================
 
-export const orgApi = {
+const mockOrgApi = {
   getDepartments: (): Promise<Department[]> => mockRequest(() => db.departments),
 
   getPositions: (): Promise<Position[]> => mockRequest(() => db.positions),
@@ -385,7 +436,7 @@ export const orgApi = {
 // База знаний
 // ============================================================================
 
-export const kbApi = {
+const mockKbApi = {
   getSections: (): Promise<ArticleSection[]> => mockRequest(() => db.articleSections),
 
   getArticles: (sectionId?: ID): Promise<Article[]> =>
@@ -555,7 +606,7 @@ export const kbApi = {
 // Таск-трекер
 // ============================================================================
 
-export const tasksApi = {
+const mockTasksApi = {
   getBoards: (): Promise<Board[]> => mockRequest(() => db.boards),
 
   getColumns: (boardId: ID): Promise<TaskColumn[]> =>
@@ -716,7 +767,7 @@ function removeLessonCascade(lessonId: ID) {
   });
 }
 
-export const academyApi = {
+const mockAcademyApi = {
   getCourses: (): Promise<Course[]> => mockRequest(() => db.courses),
 
   getCourse: (id: ID): Promise<Course> =>
@@ -1067,7 +1118,7 @@ export const academyApi = {
 // Уведомления
 // ============================================================================
 
-export const notificationsApi = {
+const mockNotificationsApi = {
   getNotifications: (): Promise<AppNotification[]> =>
     mockRequest(() => db.notifications.filter((n) => n.userId === db.CURRENT_USER_ID)),
 
@@ -1095,7 +1146,7 @@ export const notificationsApi = {
 // График работы
 // ============================================================================
 
-export const scheduleApi = {
+const mockScheduleApi = {
   getSchedules: (): Promise<UserSchedule[]> => mockRequest(() => db.schedules),
 
   saveSchedule: (input: UserSchedule): Promise<UserSchedule> =>
@@ -1128,7 +1179,7 @@ export const scheduleApi = {
 // Распределение сделок
 // ============================================================================
 
-export const distributionApi = {
+const mockDistributionApi = {
   getGroups: (): Promise<DealDistributionGroup[]> => mockRequest(() => db.distributionGroups),
 
   createGroup: (input: {
@@ -1247,3 +1298,20 @@ export const distributionApi = {
       }
     }),
 };
+
+export const authApi: typeof mockAuthApi = isHttpApiMode('auth') ? httpAuthApi : mockAuthApi;
+export const orgApi: typeof mockOrgApi = isHttpApiMode('org') ? httpOrgApi : mockOrgApi;
+export const kbApi: typeof mockKbApi = isHttpApiMode('kb') ? httpKbApi : mockKbApi;
+export const tasksApi: typeof mockTasksApi = isHttpApiMode('tasks') ? httpTasksApi : mockTasksApi;
+export const academyApi: typeof mockAcademyApi = isHttpApiMode('academy')
+  ? httpAcademyApi
+  : mockAcademyApi;
+export const notificationsApi: typeof mockNotificationsApi = isHttpApiMode('notifications')
+  ? httpNotificationsApi
+  : mockNotificationsApi;
+export const scheduleApi: typeof mockScheduleApi = isHttpApiMode('schedule')
+  ? httpScheduleApi
+  : mockScheduleApi;
+export const distributionApi: typeof mockDistributionApi = isHttpApiMode('distribution')
+  ? httpDistributionApi
+  : mockDistributionApi;
