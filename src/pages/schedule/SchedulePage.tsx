@@ -41,6 +41,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
+import { filterScheduleUsers } from './scheduleUsers';
 
 /** Черновик правки одной ячейки (до публикации). */
 type Draft = { type: ShiftType; start?: string; end?: string; note?: string };
@@ -528,14 +529,11 @@ export function SchedulePage() {
   const absentToday = staffUsers.filter((user) => ['vacation', 'sick'].includes(stateToday(user.id)?.type ?? '')).length;
 
   // Поиск + чипы
-  const visibleUsers = staffUsers.filter((user) => {
-    if (!scheduleByUser.has(user.id)) return false;
-    const position = user.positionIds[0] ? positionById.get(user.positionIds[0]) : undefined;
-    const haystack = `${fullName(user)} ${user.email} ${position?.name ?? ''}`.toLowerCase();
-    if (search.trim() && !haystack.includes(search.trim().toLowerCase())) return false;
-    if (chip === 'working') return ['work', 'trip'].includes(stateToday(user.id)?.type ?? '');
-    if (chip === 'absent') return ['vacation', 'sick'].includes(stateToday(user.id)?.type ?? '');
-    return true;
+  const visibleUsers = filterScheduleUsers(staffUsers, {
+    search,
+    chip,
+    positionById,
+    stateToday,
   });
 
   // Группировка по отделам в порядке дерева
@@ -1763,17 +1761,23 @@ function GroupRows({
                 return (
                   <td
                     key={day}
-                    onMouseDown={(event) => onCellMouseDown(user.id, day, event)}
-                    onMouseEnter={() => onCellMouseEnter(user.id, day)}
-                    onClick={() => onCellClick(user.id, day)}
-                    title={shiftCellTitle(state, plan)}
+                    onMouseDown={(event) => schedule && onCellMouseDown(user.id, day, event)}
+                    onMouseEnter={() => schedule && onCellMouseEnter(user.id, day)}
+                    onClick={() =>
+                      schedule ? onCellClick(user.id, day) : onOpenUser(user.id)
+                    }
+                    title={
+                      schedule
+                        ? shiftCellTitle(state, plan)
+                        : 'График не задан — откройте карточку сотрудника'
+                    }
                     className={cn(
                       'relative w-11 min-w-11 max-w-11 overflow-hidden border-b border-l border-slate-100 text-center align-middle transition-colors',
                       rowHeight,
                       weekdayIndex(year, month, day) === 0 && 'border-l-2 border-l-slate-200',
                       state?.type === 'off' && offStripes,
                       today && 'bg-primary-50/70',
-                      mode === 'edit' ? 'cursor-cell' : 'cursor-pointer',
+                      schedule && mode === 'edit' ? 'cursor-cell' : 'cursor-pointer',
                       'hover:bg-primary-50',
                     )}
                   >
@@ -1827,7 +1831,17 @@ function GroupRows({
                   rowHeight,
                 )}
               >
-                <div className={cn('flex w-full flex-col', compact ? 'gap-px' : 'gap-0.5')}>
+                {!schedule ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenUser(user.id)}
+                    className="ml-auto flex flex-col items-end text-warning-700 hover:text-warning-800"
+                  >
+                    <span className="text-[12px] font-semibold">График не задан</span>
+                    {!compact && <span className="text-[11px] underline">Настроить</span>}
+                  </button>
+                ) : (
+                  <div className={cn('flex w-full flex-col', compact ? 'gap-px' : 'gap-0.5')}>
                   <span className="flex items-center justify-between gap-2 text-[12px] leading-tight text-slate-500">
                     {!compact && (
                       <span className="flex items-center gap-1.5 whitespace-nowrap">
@@ -1874,7 +1888,8 @@ function GroupRows({
                       {overtime > 0 ? `+${formatHours(overtime)} ч` : `${offDays} дн`}
                     </span>
                   </span>
-                </div>
+                  </div>
+                )}
               </td>
             </tr>
           );
