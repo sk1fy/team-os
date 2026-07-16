@@ -69,10 +69,11 @@ const mockAuthApi = {
   getInviteByToken: (token: string): Promise<Invite> =>
     mockRequest(() => db.invites.find((i) => i.token === token) ?? notFound('Приглашение')),
 
-  updateCompany: (input: { name?: string; logoUrl?: string }): Promise<Company> =>
+  updateCompany: (input: { name?: string; logoUrl?: string; amoAccountId?: string }): Promise<Company> =>
     mockRequest(() => {
       if (input.name !== undefined) db.company.name = input.name;
       if (input.logoUrl !== undefined) db.company.logoUrl = input.logoUrl || undefined;
+      if (input.amoAccountId !== undefined) db.company.amoAccountId = input.amoAccountId || undefined;
       return db.company;
     }),
 
@@ -361,6 +362,7 @@ const mockOrgApi = {
         phone: input.phone?.trim() || undefined,
         role: input.role,
         status: 'active',
+        source: 'local',
         positionIds: input.positionIds ?? [],
         createdAt: now(),
       };
@@ -429,6 +431,20 @@ const mockOrgApi = {
       if (input.positionIds !== undefined) user.positionIds = input.positionIds;
 
       return user;
+    }),
+
+  deleteUser: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const index = db.users.findIndex((user) => user.id === id);
+      if (index === -1) notFound('Сотрудник');
+      const user = db.users[index];
+      if (user.source === 'amo') {
+        throw new ApiError('Сотрудников amoCRM нельзя удалять в TeamOS', 409);
+      }
+      if (user.role === 'owner' || user.id === db.CURRENT_USER_ID) {
+        throw new ApiError('Нельзя удалить владельца или собственную учётную запись', 400);
+      }
+      db.users.splice(index, 1);
     }),
 };
 

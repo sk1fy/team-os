@@ -8,6 +8,7 @@ import {
   PanelRight,
   Plus,
   Square,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -224,6 +225,25 @@ export function EmployeeDrawer({
       toast.error(error instanceof Error ? error.message : 'Не удалось сохранить панель сотрудника'),
   });
 
+  const deleteUser = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Сотрудник не выбран');
+      if (!window.confirm(`Удалить пользователя «${fullName(user)}»? Это действие нельзя отменить.`)) {
+        return false;
+      }
+      await orgApi.deleteUser(user.id);
+      return true;
+    },
+    onSuccess: (deleted) => {
+      if (!deleted) return;
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Пользователь удалён');
+      onClose();
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить пользователя'),
+  });
+
   const addVacation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error('Сотрудник не выбран');
@@ -312,13 +332,24 @@ export function EmployeeDrawer({
         footer={
           user && (
             <>
-              <Button
-                variant={user.status === 'deactivated' ? 'secondary' : 'danger'}
-                onClick={() => setEditOpen(true)}
-                className="mr-auto"
-              >
-                {user.status === 'deactivated' ? 'Восстановить' : 'Уволить'}
-              </Button>
+              <div className="mr-auto flex items-center gap-2">
+                <Button
+                  variant={user.status === 'deactivated' ? 'secondary' : 'danger'}
+                  onClick={() => setEditOpen(true)}
+                >
+                  {user.status === 'deactivated' ? 'Восстановить' : 'Уволить'}
+                </Button>
+                {user.source !== 'amo' && user.role !== 'owner' && (
+                  <Button
+                    variant="danger"
+                    onClick={() => deleteUser.mutate()}
+                    disabled={deleteUser.isPending}
+                  >
+                    <Trash2 className="size-4" />
+                    Удалить
+                  </Button>
+                )}
+              </div>
               <Button onClick={() => savePanel.mutate()} disabled={savePanel.isPending}>
                 {savePanel.isPending ? 'Сохраняю' : 'Сохранить'}
               </Button>
@@ -364,6 +395,7 @@ export function EmployeeDrawer({
               <div className="flex flex-wrap gap-2 pt-0.5">
                 <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
                 <Badge variant={userStatusVariants[user.status]}>{userStatusLabels[user.status]}</Badge>
+                <Badge variant="neutral">{user.source === 'amo' ? 'amoCRM' : 'TeamOS'}</Badge>
                 {primaryDepartment && <Badge variant="neutral">{primaryDepartment.name}</Badge>}
               </div>
             </PanelSection>

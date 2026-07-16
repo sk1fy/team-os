@@ -279,6 +279,11 @@ export function EmployeesPage() {
                         {fullName(user)}
                       </p>
                       <p className="truncate text-xs text-slate-500">{user.email}</p>
+                      {user.source === 'amo' && (
+                        <Badge variant="neutral" className="mt-1">
+                          amoCRM
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </td>

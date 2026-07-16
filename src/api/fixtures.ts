@@ -59,6 +59,7 @@ export const company: Company = {
   name: 'Ромашка Digital',
   ownerId: 'user-1',
   createdAt: daysAgo(180),
+  amoAccountId: '31355990',
 };
 
 /** Текущий залогиненный пользователь (пока авторизации нет — всегда владелец). */

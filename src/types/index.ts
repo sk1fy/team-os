@@ -30,10 +30,13 @@ export interface Company {
   logoUrl?: string;
   ownerId: ID;
   createdAt: ISODate;
+  /** ID аккаунта amoCRM для синхронизации сотрудников. */
+  amoAccountId?: string;
 }
 
 export type UserRole = 'owner' | 'admin' | 'employee' | 'partner';
 export type UserStatus = 'active' | 'invited' | 'deactivated';
+export type UserSource = 'local' | 'amo';
 
 export interface User {
   id: ID;
@@ -44,6 +47,8 @@ export interface User {
   phone?: string;
   role: UserRole;
   status: UserStatus;
+  /** Источник учётной записи: TeamOS или синхронизация с amoCRM. */
+  source?: UserSource;
   /** Не более одной должности; массив сохранён для совместимости API. */
   positionIds: ID[];
   /** Дата рождения — отметки 🎂 в графике и поздравления. */

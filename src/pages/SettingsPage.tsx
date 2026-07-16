@@ -338,23 +338,34 @@ function CompanyProfileSection() {
 
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [amoAccountId, setAmoAccountId] = useState('31355990');
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (companyQuery.data) {
       setName(companyQuery.data.name);
       setLogoUrl(companyQuery.data.logoUrl ?? '');
+      setAmoAccountId(companyQuery.data.amoAccountId ?? '');
     }
   }, [companyQuery.data]);
 
   const isDirty = useMemo(() => {
     const data = companyQuery.data;
     if (!data) return false;
-    return name.trim() !== data.name || (logoUrl.trim() || '') !== (data.logoUrl ?? '');
-  }, [companyQuery.data, name, logoUrl]);
+    return (
+      name.trim() !== data.name ||
+      (logoUrl.trim() || '') !== (data.logoUrl ?? '') ||
+      amoAccountId.trim() !== (data.amoAccountId ?? '')
+    );
+  }, [companyQuery.data, name, logoUrl, amoAccountId]);
 
   const save = useMutation({
-    mutationFn: () => authApi.updateCompany({ name: name.trim(), logoUrl: logoUrl.trim() }),
+    mutationFn: () =>
+      authApi.updateCompany({
+        name: name.trim(),
+        logoUrl: logoUrl.trim(),
+        amoAccountId: amoAccountId.trim(),
+      }),
     onSuccess: (company) => {
       queryClient.setQueryData(['company'], company);
       queryClient.invalidateQueries({ queryKey: ['company'] });
@@ -413,6 +424,16 @@ function CompanyProfileSection() {
           placeholder="Ромашка Digital"
           hint="Используется в шапке, уведомлениях и приглашениях."
           required
+          disabled={busy}
+        />
+
+        <Input
+          label="amo_account_id"
+          value={amoAccountId}
+          onChange={(event) => setAmoAccountId(event.target.value.replace(/\D/g, ''))}
+          placeholder="31355990"
+          hint="По этому ID TeamOS получает и синхронизирует сотрудников из amoCRM. Пустое значение отключает синхронизацию."
+          inputMode="numeric"
           disabled={busy}
         />
 

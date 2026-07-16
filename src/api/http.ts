@@ -57,7 +57,7 @@ export const httpAuthApi = {
   getCurrentUser: (): Promise<User> => request('/auth/me'),
   getCompany: (): Promise<Company> => request('/company'),
   getInviteByToken: (token: string): Promise<Invite> => publicRequest(`/auth/invites/${id(token)}`),
-  updateCompany: (input: { name?: string; logoUrl?: string }): Promise<Company> =>
+  updateCompany: (input: { name?: string; logoUrl?: string; amoAccountId?: string }): Promise<Company> =>
     request('/company', 'PATCH', input),
   updateCurrentUser: (input: {
     firstName?: string;
@@ -169,6 +169,7 @@ export const httpOrgApi = {
     const { id: userId, ...body } = input;
     return request(`/org/users/${id(userId)}`, 'PATCH', body);
   },
+  deleteUser: (userId: ID): Promise<void> => request(`/org/users/${id(userId)}`, 'DELETE'),
 };
 
 export const httpKbApi = {
