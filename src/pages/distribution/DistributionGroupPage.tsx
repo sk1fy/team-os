@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Activity, ArrowLeft, Clock3, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { distributionApi, orgApi, scheduleApi } from '@/api';
+import { scheduleQueryKeys } from '@/api/queryKeys';
 import type {
   DealDistributionGroup,
   DistributionAlgorithm,
@@ -138,7 +139,10 @@ export function DistributionGroupPage() {
     queryFn: distributionApi.getGroups,
   });
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const schedulesQuery = useQuery({ queryKey: ['schedules'], queryFn: scheduleApi.getSchedules });
+  const schedulesQuery = useQuery({
+    queryKey: scheduleQueryKeys.templates,
+    queryFn: scheduleApi.getSchedules,
+  });
   const eventsQuery = useQuery({
     queryKey: ['distribution', 'events', groupId],
     queryFn: () => distributionApi.getEvents(groupId),

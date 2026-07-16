@@ -18,6 +18,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { orgApi, scheduleApi } from '@/api';
+import { scheduleQueryKeys } from '@/api/queryKeys';
 import type { ID, ShiftException, ShiftType, User, UserSchedule } from '@/types';
 import {
   MONTH_LABELS,
@@ -450,12 +451,12 @@ export function SchedulePage() {
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: orgApi.getDepartments });
   const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
   const schedulesQuery = useQuery({
-    queryKey: ['schedule', 'templates'],
+    queryKey: scheduleQueryKeys.templates,
     queryFn: scheduleApi.getSchedules,
   });
   const key = monthKey(year, month);
   const exceptionsQuery = useQuery({
-    queryKey: ['schedule', 'exceptions', key],
+    queryKey: scheduleQueryKeys.exceptionsForMonth(key),
     queryFn: () => scheduleApi.getExceptions(key),
   });
 
@@ -469,7 +470,7 @@ export function SchedulePage() {
       ),
     onSuccess: () => {
       setDrafts(new Map());
-      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all });
       toast.success('График опубликован', 'Правки сохранены и видны команде.');
     },
     onError: () => toast.error('Не удалось опубликовать', 'Мок-API имитирует сбой — попробуйте ещё раз.'),

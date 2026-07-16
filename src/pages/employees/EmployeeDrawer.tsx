@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { orgApi, scheduleApi } from '@/api';
+import { scheduleQueryKeys } from '@/api/queryKeys';
 import type { ID, ScheduleTemplate, ShiftException } from '@/types';
 import {
   fullName,
@@ -87,12 +88,12 @@ export function EmployeeDrawer({
     queryFn: orgApi.getDepartments,
   });
   const { data: schedules = [] } = useQuery({
-    queryKey: ['schedules'],
+    queryKey: scheduleQueryKeys.templates,
     queryFn: scheduleApi.getSchedules,
     enabled: open,
   });
   const { data: monthExceptions = [] } = useQuery({
-    queryKey: ['shiftExceptions', currentMonth],
+    queryKey: scheduleQueryKeys.exceptionsForMonth(currentMonth),
     queryFn: () => scheduleApi.getExceptions(currentMonth),
     enabled: open,
   });
@@ -217,7 +218,7 @@ export function EmployeeDrawer({
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['users', updated.id] });
-      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates });
       toast.success('Панель сотрудника сохранена');
       onClose();
     },
@@ -256,7 +257,7 @@ export function EmployeeDrawer({
       );
     },
     onSuccess: (saved) => {
-      queryClient.invalidateQueries({ queryKey: ['shiftExceptions'] });
+      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.exceptions });
       setVacationDraft({ from: '', to: '' });
       toast.success('Отпуск добавлен в график', `${saved.length} ${pluralRu(saved.length, 'день', 'дня', 'дней')}`);
     },
