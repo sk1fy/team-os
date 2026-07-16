@@ -225,23 +225,18 @@ export function EmployeeDrawer({
       toast.error(error instanceof Error ? error.message : 'Не удалось сохранить панель сотрудника'),
   });
 
-  const deleteUser = useMutation({
-    mutationFn: async () => {
+  const deleteMutation = useMutation({
+    mutationFn: () => {
       if (!user) throw new Error('Сотрудник не выбран');
-      if (!window.confirm(`Удалить пользователя «${fullName(user)}»? Это действие нельзя отменить.`)) {
-        return false;
-      }
-      await orgApi.deleteUser(user.id);
-      return true;
+      return orgApi.deleteUser(user.id);
     },
-    onSuccess: (deleted) => {
-      if (!deleted) return;
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('Пользователь удалён');
+      toast.success('Сотрудник удалён');
       onClose();
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : 'Не удалось удалить пользователя'),
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить сотрудника'),
   });
 
   const addVacation = useMutation({
@@ -339,14 +334,18 @@ export function EmployeeDrawer({
                 >
                   {user.status === 'deactivated' ? 'Восстановить' : 'Уволить'}
                 </Button>
-                {user.source !== 'amo' && user.role !== 'owner' && (
+                {user.source !== 'amo' && (
                   <Button
                     variant="danger"
-                    onClick={() => deleteUser.mutate()}
-                    disabled={deleteUser.isPending}
+                    onClick={() => {
+                      if (confirm(`Удалить сотрудника ${fullName(user)}? Это действие необратимо.`)) {
+                        deleteMutation.mutate();
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
                   >
                     <Trash2 className="size-4" />
-                    Удалить
+                    {deleteMutation.isPending ? 'Удаляю' : 'Удалить'}
                   </Button>
                 )}
               </div>
@@ -395,7 +394,7 @@ export function EmployeeDrawer({
               <div className="flex flex-wrap gap-2 pt-0.5">
                 <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
                 <Badge variant={userStatusVariants[user.status]}>{userStatusLabels[user.status]}</Badge>
-                <Badge variant="neutral">{user.source === 'amo' ? 'amoCRM' : 'TeamOS'}</Badge>
+                {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
                 {primaryDepartment && <Badge variant="neutral">{primaryDepartment.name}</Badge>}
               </div>
             </PanelSection>

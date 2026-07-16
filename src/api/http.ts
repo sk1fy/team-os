@@ -154,6 +154,8 @@ export const httpOrgApi = {
     request(`/org/invites/${id(inviteId)}/resend`, 'POST'),
   revokeInvite: (inviteId: ID): Promise<void> =>
     request(`/org/invites/${id(inviteId)}/revoke`, 'POST'),
+  deleteUser: (userId: ID): Promise<void> =>
+    request(`/org/users/${id(userId)}`, 'DELETE'),
   updateUser: (input: {
     id: ID;
     firstName?: string;
@@ -169,7 +171,6 @@ export const httpOrgApi = {
     const { id: userId, ...body } = input;
     return request(`/org/users/${id(userId)}`, 'PATCH', body);
   },
-  deleteUser: (userId: ID): Promise<void> => request(`/org/users/${id(userId)}`, 'DELETE'),
 };
 
 export const httpKbApi = {

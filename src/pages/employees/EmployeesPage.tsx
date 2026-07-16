@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import {
   ArrowDown,
@@ -21,7 +21,8 @@ import {
   userStatusVariants,
 } from '@/lib/labels';
 import { plural } from '@/lib/format';
-import { Avatar, Badge, Button, Select, Tabs } from '@/components/ui';
+import { toast } from '@/stores/toast';
+import { Avatar, Badge, Button, Modal, Select, Tabs } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AddUserModal } from './AddUserModal';
 import { EmployeeDrawer } from './EmployeeDrawer';
@@ -87,6 +88,7 @@ function SortIcon({
 export function EmployeesPage() {
   useTitle('Сотрудники — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   const tab = oneOf(searchParams.get('tab'), tabs, 'employees');
   const search = searchParams.get('q') ?? '';
@@ -98,6 +100,7 @@ export function EmployeesPage() {
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const addUserOpen = searchParams.get('addUser') === '1';
   const selectedEmployeeId = searchParams.get('drawer') as ID | null;
+  const deleteUserId = searchParams.get('deleteUser') as ID | null;
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>, resetPage = false) => {
@@ -117,12 +120,29 @@ export function EmployeesPage() {
     [setSearchParams],
   );
 
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const usersQuery = useQuery({
+    queryKey: ['users'],
+    queryFn: orgApi.getUsers,
+    refetchOnMount: true,
+  });
   const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
   const departmentsQuery = useQuery({
     queryKey: ['departments'],
     queryFn: orgApi.getDepartments,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: ID) => orgApi.deleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Сотрудник удалён');
+      updateParams({ deleteUser: null });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить сотрудника'),
+  });
+
+  const deleteUser = usersQuery.data?.find((u) => u.id === deleteUserId) ?? null;
 
   const lookups = useMemo(
     () => ({
@@ -275,15 +295,17 @@ export function EmployeesPage() {
                   <div className="flex items-center gap-3">
                     <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900">
-                        {fullName(user)}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {fullName(user)}
+                        </p>
+                        {user.source === 'amo' && (
+                          <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                            amoCRM
+                          </Badge>
+                        )}
+                      </div>
                       <p className="truncate text-xs text-slate-500">{user.email}</p>
-                      {user.source === 'amo' && (
-                        <Badge variant="neutral" className="mt-1">
-                          amoCRM
-                        </Badge>
-                      )}
                     </div>
                   </div>
                 </td>
@@ -379,6 +401,26 @@ export function EmployeesPage() {
         userId={selectedEmployeeId}
         onClose={() => updateParams({ drawer: null })}
       />
+      <Modal
+        open={Boolean(deleteUserId)}
+        onOpenChange={(open) => !open && updateParams({ deleteUser: null })}
+        title="Удалить сотрудника"
+        description={deleteUser ? `${fullName(deleteUser)} (${deleteUser.email}) будет безвозвратно удалён.` : undefined}
+        size="sm"
+      >
+        <div className="flex justify-end gap-3">
+          <Button variant="ghost" onClick={() => updateParams({ deleteUser: null })}>
+            Отмена
+          </Button>
+          <Button
+            variant="danger"
+            loading={deleteMutation.isPending}
+            onClick={() => deleteUserId && deleteMutation.mutate(deleteUserId)}
+          >
+            Удалить
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

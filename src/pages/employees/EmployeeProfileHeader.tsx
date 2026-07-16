@@ -39,6 +39,7 @@ export function EmployeeProfileHeader({
             </Heading>
             <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
             <Badge variant={userStatusVariants[user.status]}>{userStatusLabels[user.status]}</Badge>
+            {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
           </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-slate-600">
             <span className="flex items-center gap-1.5">

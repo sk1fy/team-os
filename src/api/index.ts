@@ -395,6 +395,20 @@ const mockOrgApi = {
       }
     }),
 
+  deleteUser: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const user = db.users.find((u) => u.id === id);
+      if (!user) notFound('Сотрудник');
+      if (user.source === 'amo') {
+        throw new ApiError(
+          'Нельзя удалить пользователя, импортированного из amoCRM. Сначала отключите интеграцию.',
+          400,
+        );
+      }
+      const index = db.users.findIndex((u) => u.id === id);
+      db.users.splice(index, 1);
+    }),
+
   updateUser: (input: {
     id: ID;
     firstName?: string;
@@ -433,19 +447,6 @@ const mockOrgApi = {
       return user;
     }),
 
-  deleteUser: (id: ID): Promise<void> =>
-    mockRequest(() => {
-      const index = db.users.findIndex((user) => user.id === id);
-      if (index === -1) notFound('Сотрудник');
-      const user = db.users[index];
-      if (user.source === 'amo') {
-        throw new ApiError('Сотрудников amoCRM нельзя удалять в TeamOS', 409);
-      }
-      if (user.role === 'owner' || user.id === db.CURRENT_USER_ID) {
-        throw new ApiError('Нельзя удалить владельца или собственную учётную запись', 400);
-      }
-      db.users.splice(index, 1);
-    }),
 };
 
 // ============================================================================

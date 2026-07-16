@@ -29,9 +29,9 @@ export interface Company {
   name: string;
   logoUrl?: string;
   ownerId: ID;
-  createdAt: ISODate;
-  /** ID аккаунта amoCRM для синхронизации сотрудников. */
+  /** ID аккаунта amoCRM для интеграции. */
   amoAccountId?: string;
+  createdAt: ISODate;
 }
 
 export type UserRole = 'owner' | 'admin' | 'employee' | 'partner';
@@ -47,8 +47,6 @@ export interface User {
   phone?: string;
   role: UserRole;
   status: UserStatus;
-  /** Источник учётной записи: TeamOS или синхронизация с amoCRM. */
-  source?: UserSource;
   /** Не более одной должности; массив сохранён для совместимости API. */
   positionIds: ID[];
   /** Дата рождения — отметки 🎂 в графике и поздравления. */
@@ -57,6 +55,8 @@ export interface User {
   hiredAt?: ISODate;
   /** Базовая норма отпуска сотрудника в днях за год. */
   vacationAllowance?: number;
+  /** Источник пользователя: local — создан в TeamOS, amo — импортирован из amoCRM. */
+  source?: UserSource;
   createdAt: ISODate;
 }
 

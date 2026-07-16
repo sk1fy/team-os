@@ -338,7 +338,7 @@ function CompanyProfileSection() {
 
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
-  const [amoAccountId, setAmoAccountId] = useState('31355990');
+  const [amoAccountId, setAmoAccountId] = useState('');
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
@@ -355,7 +355,7 @@ function CompanyProfileSection() {
     return (
       name.trim() !== data.name ||
       (logoUrl.trim() || '') !== (data.logoUrl ?? '') ||
-      amoAccountId.trim() !== (data.amoAccountId ?? '')
+      (amoAccountId.trim() || '') !== (data.amoAccountId ?? '')
     );
   }, [companyQuery.data, name, logoUrl, amoAccountId]);
 
@@ -369,6 +369,7 @@ function CompanyProfileSection() {
     onSuccess: (company) => {
       queryClient.setQueryData(['company'], company);
       queryClient.invalidateQueries({ queryKey: ['company'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       setSavedAt(Date.now());
       toast.success('Название и логотип компании обновлены');
     },
@@ -428,12 +429,11 @@ function CompanyProfileSection() {
         />
 
         <Input
-          label="amo_account_id"
+          label="amoCRM Account ID"
           value={amoAccountId}
-          onChange={(event) => setAmoAccountId(event.target.value.replace(/\D/g, ''))}
+          onChange={(event) => setAmoAccountId(event.target.value)}
           placeholder="31355990"
-          hint="По этому ID TeamOS получает и синхронизирует сотрудников из amoCRM. Пустое значение отключает синхронизацию."
-          inputMode="numeric"
+          hint="ID аккаунта amoCRM для интеграции сотрудников и сделок."
           disabled={busy}
         />
 
