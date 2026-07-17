@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   KeyRound,
   Link2,
+  LockKeyhole,
   PanelRight,
   Plus,
   Square,
@@ -24,7 +25,14 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, orgApi, scheduleApi } from '@/api';
 import { scheduleQueryKeys } from '@/api/queryKeys';
-import type { ID, ScheduleTemplate, ShiftException, User } from '@/types';
+import type {
+  EmployeeAccess,
+  EmployeeAccessMode,
+  ID,
+  ScheduleTemplate,
+  ShiftException,
+  User,
+} from '@/types';
 import {
   fullName,
   pluralRu,
@@ -65,6 +73,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [absenceOpen, setAbsenceOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
   const [view, setView] = useState<'side' | 'center'>('side');
   const [profileDraft, setProfileDraft] = useState({
     fullName: '',
@@ -105,6 +114,13 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     enabled: open,
   });
   const currentUserQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
+  const accessVisible =
+    canManageAccess(currentUserQuery.data?.role) && Boolean(userQuery.data?.role !== 'owner');
+  const accessQuery = useQuery({
+    queryKey: ['userAccess', userId],
+    queryFn: () => orgApi.getUserAccess(userId!),
+    enabled: open && accessVisible,
+  });
   const { data: positions = [] } = useQuery({
     queryKey: ['positions'],
     queryFn: orgApi.getPositions,
@@ -178,6 +194,10 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     });
     setVacationNorm(user.vacationAllowance ?? 28);
   }, [open, user, primaryPosition?.id]);
+
+  useEffect(() => {
+    setAccessOpen(false);
+  }, [userId]);
 
   useEffect(() => {
     if (!open) return;
@@ -428,7 +448,19 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 </div>
               )}
 
-              <PanelSection title="Профиль сотрудника">
+              <PanelSection
+                title="Профиль сотрудника"
+                action={
+                  accessVisible ? (
+                    <AccessToggle
+                      mode={accessQuery.data?.mode ?? 'none'}
+                      loading={accessQuery.isPending}
+                      open={accessOpen}
+                      onClick={() => setAccessOpen((value) => !value)}
+                    />
+                  ) : undefined
+                }
+              >
                 <PanelInput
                   label="Имя"
                   value={profileDraft.fullName}
@@ -466,8 +498,12 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 </div>
               </PanelSection>
 
-              {canManageAccess(currentUserQuery.data?.role) && user.role !== 'owner' && (
-                <EmployeeAccessSection user={user} />
+              {accessVisible && accessOpen && (
+                <EmployeeAccessSection
+                  user={user}
+                  access={accessQuery.data}
+                  loading={accessQuery.isPending}
+                />
               )}
 
               <PanelSection title="Рабочий шаблон">
@@ -683,14 +719,55 @@ const accessLabels = {
   link: 'По ссылке',
 } as const;
 
-function EmployeeAccessSection({ user }: { user: User }) {
+function AccessToggle({
+  mode,
+  loading,
+  open,
+  onClick,
+}: {
+  mode: EmployeeAccessMode;
+  loading: boolean;
+  open: boolean;
+  onClick: () => void;
+}) {
+  const Icon = mode === 'password' ? KeyRound : mode === 'link' ? Link2 : LockKeyhole;
+  const label = loading ? 'Загрузка режима доступа' : accessLabels[mode];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label={`${label}. ${open ? 'Скрыть' : 'Показать'} настройки доступа`}
+      title={`${label} — ${open ? 'скрыть' : 'показать'} настройки`}
+      className={cn(
+        'flex size-8 cursor-pointer items-center justify-center rounded-md border transition-colors',
+        mode === 'none'
+          ? 'border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300 hover:text-slate-600'
+          : mode === 'password'
+            ? 'border-primary-200 bg-primary-50 text-primary-600 hover:border-primary-300'
+            : 'border-success-200 bg-success-50 text-success-700 hover:border-success-300',
+        open && 'ring-2 ring-primary-100',
+        loading && 'animate-pulse',
+      )}
+    >
+      <Icon className="size-4" />
+    </button>
+  );
+}
+
+function EmployeeAccessSection({
+  user,
+  access: loadedAccess,
+  loading,
+}: {
+  user: User;
+  access?: EmployeeAccess;
+  loading: boolean;
+}) {
   const queryClient = useQueryClient();
   const [customPassword, setCustomPassword] = useState('');
   const [shownPassword, setShownPassword] = useState<string>();
-  const accessQuery = useQuery({
-    queryKey: ['userAccess', user.id],
-    queryFn: () => orgApi.getUserAccess(user.id),
-  });
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['userAccess', user.id] });
@@ -728,13 +805,14 @@ function EmployeeAccessSection({ user }: { user: User }) {
       toast.error(error instanceof Error ? error.message : 'Не удалось отозвать доступ'),
   });
 
-  const access = accessQuery.data ?? { mode: 'none' as const };
+  const access = loadedAccess ?? { mode: 'none' as const };
   const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
   const confirmSessionReset = () =>
     access.mode === 'none' || confirm('Текущие сессии сотрудника будут завершены. Продолжить?');
 
   return (
     <PanelSection title="Доступ в систему">
+      {loading && <p className="text-sm text-slate-500">Загружаю настройки доступа…</p>}
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm text-slate-500">Текущий режим</span>
         <Badge variant={access.mode === 'none' ? 'neutral' : 'success'}>
@@ -930,10 +1008,23 @@ function AbsenceYearCard({
   );
 }
 
-function PanelSection({ title, children }: { title: string; children: ReactNode }) {
+function PanelSection({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-3 border-t border-slate-200 pt-5 first:border-t-0 first:pt-0">
-      <div className="text-[11px] font-bold tracking-[1.4px] text-slate-500 uppercase">{title}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] font-bold tracking-[1.4px] text-slate-500 uppercase">
+          {title}
+        </div>
+        {action}
+      </div>
       {children}
     </section>
   );
