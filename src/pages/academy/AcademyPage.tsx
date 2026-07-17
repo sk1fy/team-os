@@ -1835,6 +1835,7 @@ export function AcademyPage() {
           {
             value: 'builder',
             label: 'Конструктор',
+            hideTrigger: true,
             content: (
               <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
                 <div className="space-y-4">
@@ -2000,6 +2001,7 @@ export function AcademyPage() {
           {
             value: 'player',
             label: 'Прохождение',
+            hideTrigger: true,
             content: selectedCourse ? (
               <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
                 <aside className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">

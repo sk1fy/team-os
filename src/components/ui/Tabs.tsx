@@ -7,6 +7,7 @@ export interface TabItem {
   label: string;
   content: ReactNode;
   disabled?: boolean;
+  hideTrigger?: boolean;
 }
 
 export interface TabsProps {
@@ -26,7 +27,7 @@ export function Tabs({ items, value, onValueChange, defaultValue, className }: T
       className={className}
     >
       <TabsPrimitive.List className="inline-flex flex-wrap gap-1 rounded-md bg-surface-sunken p-1">
-        {items.map((item) => (
+        {items.filter((item) => !item.hideTrigger).map((item) => (
           <TabsPrimitive.Trigger
             key={item.value}
             value={item.value}
