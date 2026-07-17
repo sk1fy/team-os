@@ -878,7 +878,7 @@ export function KnowledgePage() {
             {activeArticle ? (
               <article className="mx-auto grid max-w-6xl gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
-                  <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                  <div className="mb-5">
                     <div>
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         <Badge
@@ -896,7 +896,7 @@ export function KnowledgePage() {
                         Обновлено {formatRelativeDate(activeArticle.updatedAt)}
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {activeArticle.status === 'published' && (
                         <Button
                           variant="secondary"
