@@ -79,6 +79,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { cn } from '@/lib/cn';
+import { canManageContent } from '@/lib/permissions';
 
 const emptyCourses: Course[] = [];
 const emptySections: CourseSection[] = [];
@@ -148,6 +149,7 @@ function CourseCard({
   onSelect,
   onOpenBuilder,
   onOpenPlayer,
+  canEdit,
 }: {
   course: Course;
   lessons: Lesson[];
@@ -156,6 +158,7 @@ function CourseCard({
   onSelect: () => void;
   onOpenBuilder: () => void;
   onOpenPlayer: () => void;
+  canEdit: boolean;
 }) {
   const percent = progressPercent(course.id, lessons, progress);
   const courseLessons = lessons.filter((lesson) => lesson.courseId === course.id);
@@ -213,18 +216,20 @@ function CourseCard({
         </div>
       </div>
       <div className="flex items-center gap-1 border-t border-slate-100 px-2 py-1.5">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="min-w-0 flex-1 px-2"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenBuilder();
-          }}
-        >
-          <Pencil className="size-4 shrink-0" />
-          <span className="truncate">Конструктор</span>
-        </Button>
+        {canEdit && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="min-w-0 flex-1 px-2"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenBuilder();
+            }}
+          >
+            <Pencil className="size-4 shrink-0" />
+            <span className="truncate">Конструктор</span>
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -1498,6 +1503,7 @@ export function AcademyPage() {
   const quizzes = quizzesQuery.data ?? emptyQuizzes;
   const selectedCourse = courses.find((course) => course.id === selectedCourseId);
   const currentUser = currentUserQuery.data;
+  const canEdit = canManageContent(currentUser?.role);
   const allLessons = allLessonsQuery.data ?? lessons;
 
   /** Уроки в порядке разделов курса — для плеера и последовательного режима. */
@@ -1695,20 +1701,22 @@ export function AcademyPage() {
         title="Академия"
         description="Создавайте курсы с нуля или из базы знаний, назначайте команде и следите за прогрессом."
         actions={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => setAssignmentOpen(true)}
-              disabled={!selectedCourse}
-            >
-              <Send className="size-4" />
-              Назначить
-            </Button>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" />
-              Курс
-            </Button>
-          </>
+          canEdit ? (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setAssignmentOpen(true)}
+                disabled={!selectedCourse}
+              >
+                <Send className="size-4" />
+                Назначить
+              </Button>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="size-4" />
+                Курс
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -1772,6 +1780,7 @@ export function AcademyPage() {
                               setSelectedCourseId(course.id);
                               setTab('player');
                             }}
+                            canEdit={canEdit}
                           />
                         ))}
                       </div>
@@ -1785,11 +1794,13 @@ export function AcademyPage() {
                             : 'Попробуйте изменить запрос или фильтр по статусу.'
                         }
                         action={
-                          courses.length === 0 ? (
-                            <Button onClick={() => setCreateOpen(true)}>
-                              <Plus className="size-4" />
-                              Создать курс
-                            </Button>
+                          canEdit ? (
+                            courses.length === 0 ? (
+                              <Button onClick={() => setCreateOpen(true)}>
+                                <Plus className="size-4" />
+                                Создать курс
+                              </Button>
+                            ) : undefined
                           ) : undefined
                         }
                       />
@@ -1830,19 +1841,21 @@ export function AcademyPage() {
                           })}
                       </div>
                     </div>
-                    <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
-                      <div className="mb-3 flex items-center gap-2 font-semibold text-slate-950">
-                        <Sparkles className="size-5 text-warning-500" />
-                        Черновик с AI
+                    {canEdit && (
+                      <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
+                        <div className="mb-3 flex items-center gap-2 font-semibold text-slate-950">
+                          <Sparkles className="size-5 text-warning-500" />
+                          Черновик с AI
+                        </div>
+                        <p className="text-sm text-slate-500">
+                          Место под генерацию структуры курса оставлено в конструкторе. Сейчас
+                          кнопка готова как UI-заглушка.
+                        </p>
+                        <Button className="mt-3" variant="secondary" size="sm" disabled>
+                          Сгенерировать черновик
+                        </Button>
                       </div>
-                      <p className="text-sm text-slate-500">
-                        Место под генерацию структуры курса оставлено в конструкторе. Сейчас кнопка
-                        готова как UI-заглушка.
-                      </p>
-                      <Button className="mt-3" variant="secondary" size="sm" disabled>
-                        Сгенерировать черновик
-                      </Button>
-                    </div>
+                    )}
                   </aside>
                 </div>
               </div>
@@ -2303,69 +2316,79 @@ export function AcademyPage() {
         ]}
       />
 
-      <CreateCourseModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={(course) => {
-          setCreateOpen(false);
-          setSelectedCourseId(course.id);
-          setTab('builder');
-        }}
-      />
+      {canEdit && (
+        <CreateCourseModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(course) => {
+            setCreateOpen(false);
+            setSelectedCourseId(course.id);
+            setTab('builder');
+          }}
+        />
+      )}
 
-      <NameModal
-        open={Boolean(namePrompt)}
-        title={
-          namePrompt?.kind === 'section-create'
-            ? 'Новый раздел'
-            : namePrompt?.kind === 'section-rename'
-              ? 'Переименовать раздел'
-              : 'Новый урок'
-        }
-        initial={namePrompt?.kind === 'section-rename' ? namePrompt.initial : ''}
-        loading={createSection.isPending || renameSection.isPending || createLesson.isPending}
-        onClose={() => setNamePrompt(null)}
-        onSubmit={handleNameSubmit}
-      />
+      {canEdit && (
+        <NameModal
+          open={Boolean(namePrompt)}
+          title={
+            namePrompt?.kind === 'section-create'
+              ? 'Новый раздел'
+              : namePrompt?.kind === 'section-rename'
+                ? 'Переименовать раздел'
+                : 'Новый урок'
+          }
+          initial={namePrompt?.kind === 'section-rename' ? namePrompt.initial : ''}
+          loading={createSection.isPending || renameSection.isPending || createLesson.isPending}
+          onClose={() => setNamePrompt(null)}
+          onSubmit={handleNameSubmit}
+        />
+      )}
 
-      <ConfirmModal
-        open={Boolean(confirmTarget)}
-        title={
-          confirmTarget?.kind === 'course'
-            ? 'Удалить курс?'
-            : confirmTarget?.kind === 'section'
-              ? 'Удалить раздел?'
-              : 'Удалить урок?'
-        }
-        description={
-          confirmTarget?.kind === 'course'
-            ? `Курс «${confirmTarget.title}» будет удалён вместе с разделами, уроками, тестами и прогрессом.`
-            : confirmTarget?.kind === 'section'
-              ? `Раздел «${confirmTarget.title}» будет удалён вместе со всеми уроками.`
-              : `Урок «${confirmTarget?.title ?? ''}» будет удалён вместе с тестом.`
-        }
-        loading={deleteCourse.isPending || deleteSection.isPending || deleteLesson.isPending}
-        onClose={() => setConfirmTarget(null)}
-        onConfirm={handleConfirmDelete}
-      />
+      {canEdit && (
+        <ConfirmModal
+          open={Boolean(confirmTarget)}
+          title={
+            confirmTarget?.kind === 'course'
+              ? 'Удалить курс?'
+              : confirmTarget?.kind === 'section'
+                ? 'Удалить раздел?'
+                : 'Удалить урок?'
+          }
+          description={
+            confirmTarget?.kind === 'course'
+              ? `Курс «${confirmTarget.title}» будет удалён вместе с разделами, уроками, тестами и прогрессом.`
+              : confirmTarget?.kind === 'section'
+                ? `Раздел «${confirmTarget.title}» будет удалён вместе со всеми уроками.`
+                : `Урок «${confirmTarget?.title ?? ''}» будет удалён вместе с тестом.`
+          }
+          loading={deleteCourse.isPending || deleteSection.isPending || deleteLesson.isPending}
+          onClose={() => setConfirmTarget(null)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
 
-      <ImportArticleModal
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onImport={(articleId, mode) => {
-          if (!selectedLesson) return;
-          importArticle.mutate({
-            id: selectedLesson.id,
-            sourceArticleId: articleId,
-            sourceMode: mode,
-          });
-        }}
-      />
-      <AssignmentModal
-        course={selectedCourse}
-        open={assignmentOpen}
-        onClose={() => setAssignmentOpen(false)}
-      />
+      {canEdit && (
+        <ImportArticleModal
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          onImport={(articleId, mode) => {
+            if (!selectedLesson) return;
+            importArticle.mutate({
+              id: selectedLesson.id,
+              sourceArticleId: articleId,
+              sourceMode: mode,
+            });
+          }}
+        />
+      )}
+      {canEdit && (
+        <AssignmentModal
+          course={selectedCourse}
+          open={assignmentOpen}
+          onClose={() => setAssignmentOpen(false)}
+        />
+      )}
       <CertificateDrawer
         course={selectedCourse}
         user={currentUser}

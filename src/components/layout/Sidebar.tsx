@@ -19,6 +19,9 @@ import { Tooltip } from '@/components/ui';
 import { BrandMark } from './BrandMark';
 import { cn } from '@/lib/cn';
 import { useLogout } from '@/components/auth/useLogout';
+import { useQuery } from '@tanstack/react-query';
+import { authApi } from '@/api';
+import { canAccessRoute } from '@/lib/permissions';
 
 const navItems = [
   { to: '/', label: 'Главная', icon: Home, end: true },
@@ -80,6 +83,11 @@ function SidebarContent({
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const logout = useLogout();
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: authApi.getCurrentUser,
+  });
+  const visibleNavItems = navItems.filter((item) => canAccessRoute(currentUser?.role, item.to));
 
   const logoutButton = (
     <button
@@ -131,7 +139,7 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
         ))}
       </nav>

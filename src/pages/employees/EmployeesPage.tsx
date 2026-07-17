@@ -215,7 +215,9 @@ export function EmployeesPage() {
         <Select
           options={departmentOptions}
           value={departmentFilter}
-          onValueChange={(value) => updateParams({ department: value === 'all' ? null : value }, true)}
+          onValueChange={(value) =>
+            updateParams({ department: value === 'all' ? null : value }, true)
+          }
           className="sm:w-52"
         />
         <Select
@@ -302,6 +304,11 @@ export function EmployeesPage() {
                         {user.source === 'amo' && (
                           <Badge variant="warning" className="text-[10px] px-1.5 py-0">
                             amoCRM
+                          </Badge>
+                        )}
+                        {user.accessMode && user.accessMode !== 'none' && (
+                          <Badge variant="success" className="px-1.5 py-0 text-[10px]">
+                            {user.accessMode === 'link' ? 'По ссылке' : 'Есть вход'}
                           </Badge>
                         )}
                       </div>
@@ -393,19 +400,17 @@ export function EmployeesPage() {
         ]}
       />
 
-      <AddUserModal
-        open={addUserOpen}
-        onClose={() => updateParams({ addUser: null })}
-      />
-      <EmployeeDrawer
-        userId={selectedEmployeeId}
-        onClose={() => updateParams({ drawer: null })}
-      />
+      <AddUserModal open={addUserOpen} onClose={() => updateParams({ addUser: null })} />
+      <EmployeeDrawer userId={selectedEmployeeId} onClose={() => updateParams({ drawer: null })} />
       <Modal
         open={Boolean(deleteUserId)}
         onOpenChange={(open) => !open && updateParams({ deleteUser: null })}
         title="Удалить сотрудника"
-        description={deleteUser ? `${fullName(deleteUser)} (${deleteUser.email}) будет безвозвратно удалён.` : undefined}
+        description={
+          deleteUser
+            ? `${fullName(deleteUser)} (${deleteUser.email}) будет безвозвратно удалён.`
+            : undefined
+        }
         size="sm"
       >
         <div className="flex justify-end gap-3">

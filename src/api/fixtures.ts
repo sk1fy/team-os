@@ -19,6 +19,7 @@ import type {
   Department,
   DealDistributionGroup,
   DistributionEvent,
+  EmployeeAccess,
   Invite,
   Label,
   Lesson,
@@ -63,7 +64,42 @@ export const company: Company = {
 };
 
 /** Текущий залогиненный пользователь (пока авторизации нет — всегда владелец). */
-export const CURRENT_USER_ID = 'user-1';
+const mockSessionKey = 'teamos-mock-current-user';
+const mockAccessKey = 'teamos-mock-employee-access';
+const mockPasswordsKey = 'teamos-mock-employee-passwords';
+
+function readStored<T>(key: string, fallback: T): T {
+  if (typeof localStorage === 'undefined') return fallback;
+  try {
+    const value = localStorage.getItem(key);
+    return value ? (JSON.parse(value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function store(key: string, value: unknown) {
+  if (typeof localStorage !== 'undefined') localStorage.setItem(key, JSON.stringify(value));
+}
+
+export let CURRENT_USER_ID = readStored(mockSessionKey, 'user-1');
+
+export function setCurrentUserId(userId: string) {
+  CURRENT_USER_ID = userId;
+  store(mockSessionKey, userId);
+}
+
+export const employeeAccess = new Map<string, EmployeeAccess>(
+  readStored<Array<[string, EmployeeAccess]>>(mockAccessKey, []),
+);
+export const employeePasswords = new Map<string, string>(
+  readStored<Array<[string, string]>>(mockPasswordsKey, []),
+);
+
+export function persistEmployeeAccess() {
+  store(mockAccessKey, [...employeeAccess]);
+  store(mockPasswordsKey, [...employeePasswords]);
+}
 
 export const users: User[] = [
   {
@@ -190,6 +226,10 @@ export const users: User[] = [
     createdAt: daysAgo(400),
   },
 ];
+
+for (const user of users) {
+  user.accessMode = employeeAccess.get(user.id)?.mode ?? 'none';
+}
 
 export const departments: Department[] = [
   { id: 'department-1', name: 'Ромашка Digital', parentId: null, headUserId: 'user-1', order: 0 },

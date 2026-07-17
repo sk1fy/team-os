@@ -60,6 +60,7 @@ export function Topbar() {
   const tasksQuery = useQuery({
     queryKey: ['tasks', 'global'],
     queryFn: () => tasksApi.getTasks(),
+    enabled: Boolean(currentUser && currentUser.role !== 'employee'),
   });
   const coursesQuery = useQuery({
     queryKey: ['academy', 'courses'],
@@ -73,7 +74,7 @@ export function Topbar() {
     if (!query) return [];
 
     const results: SearchResult[] = [];
-    for (const user of usersQuery.data ?? []) {
+    for (const user of currentUser?.role === 'employee' ? [] : (usersQuery.data ?? [])) {
       const haystack = `${formatFullName(user)} ${user.email}`.toLowerCase();
       if (haystack.includes(query)) {
         results.push({
@@ -102,7 +103,7 @@ export function Topbar() {
       }
     }
 
-    for (const task of tasksQuery.data ?? []) {
+    for (const task of currentUser?.role === 'employee' ? [] : (tasksQuery.data ?? [])) {
       const haystack = `${task.title} ${richTextToPlainText(task.description)}`.toLowerCase();
       if (haystack.includes(query)) {
         results.push({
@@ -131,7 +132,14 @@ export function Topbar() {
     }
 
     return results.slice(0, 10);
-  }, [articlesQuery.data, coursesQuery.data, query, tasksQuery.data, usersQuery.data]);
+  }, [
+    articlesQuery.data,
+    coursesQuery.data,
+    currentUser?.role,
+    query,
+    tasksQuery.data,
+    usersQuery.data,
+  ]);
 
   const openResult = (result: SearchResult) => {
     if (result.employeeId) setSelectedEmployeeId(result.employeeId);
@@ -143,7 +151,7 @@ export function Topbar() {
   const isSearching =
     usersQuery.isPending ||
     articlesQuery.isPending ||
-    tasksQuery.isPending ||
+    (currentUser?.role !== 'employee' && tasksQuery.isPending) ||
     coursesQuery.isPending;
 
   return (

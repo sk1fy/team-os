@@ -17,7 +17,7 @@ import {
   Trash2,
   UsersRound,
 } from 'lucide-react';
-import { kbApi, orgApi } from '@/api';
+import { authApi, kbApi, orgApi } from '@/api';
 import type { AccessSettings, Article, ArticleSection, ID, RichTextContent } from '@/types';
 import { formatDate, formatRelativeDate } from '@/lib/format';
 import { fullName } from '@/lib/labels';
@@ -38,6 +38,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { cn } from '@/lib/cn';
+import { canManageContent } from '@/lib/permissions';
 
 const emptyDoc: RichTextContent = { type: 'doc', content: [{ type: 'paragraph' }] };
 const emptySections: ArticleSection[] = [];
@@ -694,6 +695,7 @@ export function KnowledgePage() {
     queryFn: () => kbApi.getArticles(),
   });
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const currentUserQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
   const acknowledgementsQuery = useQuery({
     queryKey: ['kb', 'acknowledgements', activeArticleId],
     queryFn: () => kbApi.getAcknowledgements(activeArticleId!),
@@ -708,6 +710,8 @@ export function KnowledgePage() {
   const headings = getRichTextHeadings(activeArticle?.content);
   const requestedArticleId = searchParams.get('article');
   const isKnowledgeLoading = sectionsQuery.isPending || articlesQuery.isPending;
+  const currentUser = currentUserQuery.data;
+  const canEdit = canManageContent(currentUser?.role);
 
   useEffect(() => {
     if (!requestedArticleId) return;
@@ -779,6 +783,15 @@ export function KnowledgePage() {
       toast.error(error instanceof Error ? error.message : 'Не удалось удалить раздел'),
   });
 
+  const acknowledge = useMutation({
+    mutationFn: kbApi.acknowledgeArticle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kb', 'acknowledgements', activeArticleId] });
+      toast.success('Ознакомление подтверждено');
+    },
+    onError: () => toast.error('Не удалось подтвердить ознакомление'),
+  });
+
   const acknowledgedUserIds = new Set(
     (acknowledgementsQuery.data ?? []).map((item) => item.userId),
   );
@@ -796,16 +809,18 @@ export function KnowledgePage() {
           title="База знаний"
           description="Разделы, регламенты, версии и подтверждение ознакомления."
           actions={
-            <>
-              <Button variant="secondary" onClick={() => setSectionDialog('create')}>
-                <FolderPlus className="size-4" />
-                Раздел
-              </Button>
-              <Button onClick={() => setArticleDrawer('create')}>
-                <Plus className="size-4" />
-                Статья
-              </Button>
-            </>
+            canEdit ? (
+              <>
+                <Button variant="secondary" onClick={() => setSectionDialog('create')}>
+                  <FolderPlus className="size-4" />
+                  Раздел
+                </Button>
+                <Button onClick={() => setArticleDrawer('create')}>
+                  <Plus className="size-4" />
+                  Статья
+                </Button>
+              </>
+            ) : undefined
           }
         />
       </div>
@@ -822,10 +837,12 @@ export function KnowledgePage() {
               title="База знаний пока пуста"
               description="Создайте первый раздел, а затем добавьте в него регламенты, инструкции и другие материалы."
               action={
-                <Button onClick={() => setSectionDialog('create')}>
-                  <FolderPlus className="size-4" />
-                  Создать раздел
-                </Button>
+                canEdit ? (
+                  <Button onClick={() => setSectionDialog('create')}>
+                    <FolderPlus className="size-4" />
+                    Создать раздел
+                  </Button>
+                ) : undefined
               }
             />
           </div>
@@ -929,14 +946,27 @@ export function KnowledgePage() {
                         <History className="size-4" />
                         Версии
                       </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setArticleDrawer('edit')}
-                      >
-                        <Pencil className="size-4" />
-                        Изменить
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setArticleDrawer('edit')}
+                        >
+                          <Pencil className="size-4" />
+                          Изменить
+                        </Button>
+                      )}
+                      {activeArticle.requiresAcknowledgement &&
+                        currentUser &&
+                        !acknowledgedUserIds.has(currentUser.id) && (
+                          <Button
+                            size="sm"
+                            loading={acknowledge.isPending}
+                            onClick={() => acknowledge.mutate(activeArticle.id)}
+                          >
+                            Ознакомился
+                          </Button>
+                        )}
                     </div>
                   </div>
 
@@ -1005,27 +1035,29 @@ export function KnowledgePage() {
                       </div>
                       <h1>{activeSection.name}</h1>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => setAccessOpen(true)}>
-                        <LockKeyhole className="size-4" />
-                        Доступ
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setSectionDialog('rename')}
-                      >
-                        <Pencil className="size-4" />
-                        Название
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteSection.mutate(activeSection.id)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
+                    {canEdit && (
+                      <div className="flex gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => setAccessOpen(true)}>
+                          <LockKeyhole className="size-4" />
+                          Доступ
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSectionDialog('rename')}
+                        >
+                          <Pencil className="size-4" />
+                          Название
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteSection.mutate(activeSection.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <p className="text-sm text-slate-500">
                     В разделе{' '}
@@ -1043,29 +1075,35 @@ export function KnowledgePage() {
         </div>
       )}
 
-      <SectionDialog
-        open={sectionDialog === 'create' || sectionDialog === 'rename'}
-        mode={sectionDialog ?? 'create'}
-        parentId={activeSectionId}
-        section={activeSection}
-        onClose={() => setSectionDialog(null)}
-      />
-      <AccessDialog
-        section={activeSection}
-        open={accessOpen}
-        onClose={() => setAccessOpen(false)}
-      />
-      <ArticleDrawer
-        open={articleDrawer === 'create' || articleDrawer === 'edit'}
-        article={articleDrawer === 'edit' ? activeArticle : undefined}
-        sectionId={activeSectionId}
-        sections={sections}
-        onClose={() => setArticleDrawer(null)}
-        onCreateSection={() => {
-          setArticleDrawer(null);
-          setSectionDialog('create');
-        }}
-      />
+      {canEdit && (
+        <SectionDialog
+          open={sectionDialog === 'create' || sectionDialog === 'rename'}
+          mode={sectionDialog ?? 'create'}
+          parentId={activeSectionId}
+          section={activeSection}
+          onClose={() => setSectionDialog(null)}
+        />
+      )}
+      {canEdit && (
+        <AccessDialog
+          section={activeSection}
+          open={accessOpen}
+          onClose={() => setAccessOpen(false)}
+        />
+      )}
+      {canEdit && (
+        <ArticleDrawer
+          open={articleDrawer === 'create' || articleDrawer === 'edit'}
+          article={articleDrawer === 'edit' ? activeArticle : undefined}
+          sectionId={activeSectionId}
+          sections={sections}
+          onClose={() => setArticleDrawer(null)}
+          onCreateSection={() => {
+            setArticleDrawer(null);
+            setSectionDialog('create');
+          }}
+        />
+      )}
       <VersionsDialog
         article={activeArticle}
         open={versionsOpen}

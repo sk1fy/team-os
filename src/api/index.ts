@@ -37,6 +37,7 @@ import type {
   Department,
   DealDistributionGroup,
   DistributionEvent,
+  EmployeeAccess,
   ID,
   Invite,
   Label,
@@ -104,13 +105,32 @@ const mockAuthApi = {
       return user;
     }),
 
-  login: (input: { email: string; password: string }): Promise<AuthSession<User>> => {
-    void input;
-    return mockRequest(() => ({
-      accessToken: 'mock-access-token',
-      user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
-    }));
-  },
+  login: (input: { email: string; password: string }): Promise<AuthSession<User>> =>
+    mockRequest(() => {
+      const user = db.users.find((item) => item.email.toLowerCase() === input.email.toLowerCase());
+      const isOwner = user?.role === 'owner';
+      if (
+        !user ||
+        user.status !== 'active' ||
+        (!isOwner && db.employeePasswords.get(user.id) !== input.password)
+      ) {
+        throw new ApiError('Неверный email или пароль', 401);
+      }
+      db.setCurrentUserId(user.id);
+      return { accessToken: 'mock-access-token', user };
+    }),
+
+  loginWithAccessLink: (token: string): Promise<AuthSession<User>> =>
+    mockRequest(() => {
+      const entry = [...db.employeeAccess.entries()].find(
+        ([, access]) => access.mode === 'link' && access.linkToken === token,
+      );
+      const user = entry && db.users.find((item) => item.id === entry[0]);
+      if (!user || user.status !== 'active')
+        throw new ApiError('Ссылка недействительна или отозвана', 401);
+      db.setCurrentUserId(user.id);
+      return { accessToken: 'mock-access-token', user };
+    }),
 
   refresh: (): Promise<boolean> => mockRequest(() => true, { noFail: true }),
 
@@ -161,6 +181,64 @@ const mockOrgApi = {
 
   getUser: (id: ID): Promise<User> =>
     mockRequest(() => db.users.find((u) => u.id === id) ?? notFound('Сотрудник')),
+
+  getUserAccess: (userId: ID): Promise<EmployeeAccess> =>
+    mockRequest(() => db.employeeAccess.get(userId) ?? { mode: 'none' }, { noFail: true }),
+
+  setUserPasswordAccess: (
+    userId: ID,
+    input: { password?: string },
+  ): Promise<{ password: string }> =>
+    mockRequest(() => {
+      const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
+      if (actor?.role !== 'owner')
+        throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
+      const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
+      if (user.role === 'owner') throw new ApiError('Нельзя изменить доступ владельца', 400);
+      const password =
+        input.password?.trim() ||
+        Array.from(
+          crypto.getRandomValues(new Uint8Array(14)),
+          (value) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'[value % 57],
+        ).join('');
+      db.employeePasswords.set(userId, password);
+      db.employeeAccess.set(userId, { mode: 'password' });
+      db.persistEmployeeAccess();
+      user.accessMode = 'password';
+      return { password };
+    }),
+
+  setUserLinkAccess: (userId: ID): Promise<{ token: string; createdAt: string }> =>
+    mockRequest(() => {
+      const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
+      if (actor?.role !== 'owner')
+        throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
+      const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
+      if (user.role === 'owner') throw new ApiError('Нельзя изменить доступ владельца', 400);
+      const bytes = crypto.getRandomValues(new Uint8Array(24));
+      const token = btoa(String.fromCharCode(...bytes))
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replace(/=+$/, '');
+      const createdAt = now();
+      db.employeePasswords.delete(userId);
+      db.employeeAccess.set(userId, { mode: 'link', linkToken: token, linkCreatedAt: createdAt });
+      db.persistEmployeeAccess();
+      user.accessMode = 'link';
+      return { token, createdAt };
+    }),
+
+  revokeUserAccess: (userId: ID): Promise<void> =>
+    mockRequest(() => {
+      const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
+      if (actor?.role !== 'owner')
+        throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
+      const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
+      db.employeePasswords.delete(userId);
+      db.employeeAccess.delete(userId);
+      db.persistEmployeeAccess();
+      user.accessMode = 'none';
+    }),
 
   createDepartment: (input: {
     name: string;

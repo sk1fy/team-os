@@ -17,7 +17,7 @@ import {
   Send,
   Share2,
 } from 'lucide-react';
-import { orgApi, scheduleApi } from '@/api';
+import { authApi, orgApi, scheduleApi } from '@/api';
 import { scheduleQueryKeys } from '@/api/queryKeys';
 import type { ID, ShiftException, ShiftType, User, UserSchedule } from '@/types';
 import {
@@ -43,6 +43,7 @@ import { ErrorState } from '@/components/layout/ErrorState';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
 import { filterScheduleUsers } from './scheduleUsers';
+import { canManageContent } from '@/lib/permissions';
 
 /** Черновик правки одной ячейки (до публикации). */
 type Draft = { type: ShiftType; start?: string; end?: string; note?: string };
@@ -174,11 +175,17 @@ function shiftCellTitle(state: DayState | undefined, plan: DayState) {
           `Рабочий день по графику: ${state.start}–${state.end} (${formatHours(factHours)} ч), факт = план.`,
         );
       } else if (factHours > planHours) {
-        lines.push(`Переработка: ${formatHours(factHours)} ч вместо нормы ${formatHours(planHours)} ч.`);
+        lines.push(
+          `Переработка: ${formatHours(factHours)} ч вместо нормы ${formatHours(planHours)} ч.`,
+        );
       } else if (factHours === planHours) {
-        lines.push(`Другое время: ${state.start}–${state.end} (${formatHours(factHours)} ч) — по норме часов.`);
+        lines.push(
+          `Другое время: ${state.start}–${state.end} (${formatHours(factHours)} ч) — по норме часов.`,
+        );
       } else {
-        lines.push(`Недоработка: ${formatHours(factHours)} ч из нормы ${formatHours(planHours)} ч.`);
+        lines.push(
+          `Недоработка: ${formatHours(factHours)} ч из нормы ${formatHours(planHours)} ч.`,
+        );
       }
     }
   } else if (state.type === 'off') {
@@ -245,14 +252,18 @@ function formatRub(value: number) {
 }
 
 function formatShortRub(value: number) {
-  if (value >= 1_000_000) return `${String(Math.round((value / 1_000_000) * 10) / 10).replace('.', ',')} млн`;
+  if (value >= 1_000_000)
+    return `${String(Math.round((value / 1_000_000) * 10) / 10).replace('.', ',')} млн`;
   return `${Math.round(value / 1000)} тыс`;
 }
 
 function salesStatus(row: SalesDashboardRow) {
-  if (row.attainment >= 1) return { label: 'план закрыт', className: 'bg-success-50 text-success-700' };
-  if (row.attainment >= 0.6) return { label: 'опережает план', className: 'bg-success-50 text-success-700' };
-  if (row.attainment >= 0.5) return { label: 'в графике', className: 'bg-primary-50 text-primary-700' };
+  if (row.attainment >= 1)
+    return { label: 'план закрыт', className: 'bg-success-50 text-success-700' };
+  if (row.attainment >= 0.6)
+    return { label: 'опережает план', className: 'bg-success-50 text-success-700' };
+  if (row.attainment >= 0.5)
+    return { label: 'в графике', className: 'bg-primary-50 text-primary-700' };
   return { label: 'нужно внимание', className: 'bg-warning-50 text-warning-700' };
 }
 
@@ -441,10 +452,13 @@ export function SchedulePage() {
   const [chip, setChip] = useState<'all' | 'working' | 'absent'>('all');
   const [staff, setStaff] = useState<'active' | 'fired'>('active');
   const [compact, setCompact] = useState(false);
-  const [panelCell, setPanelCell] = useState<{ userId: ID; date: string; day: number } | null>(null);
+  const [panelCell, setPanelCell] = useState<{ userId: ID; date: string; day: number } | null>(
+    null,
+  );
   const [employeePanelId, setEmployeePanelId] = useState<ID | null>(null);
 
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const currentUserQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
   const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: orgApi.getDepartments });
   const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
   const schedulesQuery = useQuery({
@@ -462,7 +476,14 @@ export function SchedulePage() {
       scheduleApi.saveExceptions(
         [...drafts].map(([draftId, draft]) => {
           const [userId = '', date = ''] = draftId.split('|');
-          return { userId, date, type: draft.type, start: draft.start, end: draft.end, note: draft.note };
+          return {
+            userId,
+            date,
+            type: draft.type,
+            start: draft.start,
+            end: draft.end,
+            note: draft.note,
+          };
         }),
       ),
     onSuccess: () => {
@@ -470,10 +491,12 @@ export function SchedulePage() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all });
       toast.success('График опубликован', 'Правки сохранены и видны команде.');
     },
-    onError: () => toast.error('Не удалось опубликовать', 'Мок-API имитирует сбой — попробуйте ещё раз.'),
+    onError: () =>
+      toast.error('Не удалось опубликовать', 'Мок-API имитирует сбой — попробуйте ещё раз.'),
   });
 
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
+  const canEdit = canManageContent(currentUserQuery.data?.role);
   const positionById = useMemo(
     () => new Map((positionsQuery.data ?? []).map((position) => [position.id, position])),
     [positionsQuery.data],
@@ -517,7 +540,13 @@ export function SchedulePage() {
     const draft = drafts.get(draftKey(userId, todayIso));
     if (draft) return draft;
     const exception = exceptionByCell.get(draftKey(userId, todayIso));
-    return dayState(schedule.template, isCurrentMonth ? exception : undefined, now.getFullYear(), now.getMonth() + 1, todayDay);
+    return dayState(
+      schedule.template,
+      isCurrentMonth ? exception : undefined,
+      now.getFullYear(),
+      now.getMonth() + 1,
+      todayDay,
+    );
   };
 
   // Активные (включая приглашённых) или уволенные — как в справочнике сотрудников
@@ -530,8 +559,12 @@ export function SchedulePage() {
     [staff, users],
   );
 
-  const workingToday = staffUsers.filter((user) => ['work', 'trip'].includes(stateToday(user.id)?.type ?? '')).length;
-  const absentToday = staffUsers.filter((user) => ['vacation', 'sick'].includes(stateToday(user.id)?.type ?? '')).length;
+  const workingToday = staffUsers.filter((user) =>
+    ['work', 'trip'].includes(stateToday(user.id)?.type ?? ''),
+  ).length;
+  const absentToday = staffUsers.filter((user) =>
+    ['vacation', 'sick'].includes(stateToday(user.id)?.type ?? ''),
+  ).length;
 
   // Поиск + чипы
   const visibleUsers = filterScheduleUsers(staffUsers, {
@@ -554,7 +587,8 @@ export function SchedulePage() {
     const result: Array<{ id: ID; name: string; users: User[] }> = [];
     for (const department of departments) {
       const members = byDepartment.get(department.id);
-      if (members?.length) result.push({ id: department.id, name: department.name, users: members });
+      if (members?.length)
+        result.push({ id: department.id, name: department.name, users: members });
     }
     const rest = byDepartment.get('none');
     if (rest?.length) result.push({ id: 'none', name: 'Без отдела', users: rest });
@@ -609,7 +643,10 @@ export function SchedulePage() {
       return;
     }
     setDrafts(next);
-    toast.success('Неделя скопирована', `${copied} смен в черновике — опубликуйте, когда закончите.`);
+    toast.success(
+      'Неделя скопирована',
+      `${copied} смен в черновике — опубликуйте, когда закончите.`,
+    );
   };
 
   const shiftMonth = (delta: number) => {
@@ -626,7 +663,10 @@ export function SchedulePage() {
     }
     const cell = gridRef.current?.querySelector<HTMLElement>('[data-today="true"]');
     if (cell && gridRef.current) {
-      gridRef.current.scrollTo({ left: cell.offsetLeft - gridRef.current.clientWidth / 2, behavior: 'smooth' });
+      gridRef.current.scrollTo({
+        left: cell.offsetLeft - gridRef.current.clientWidth / 2,
+        behavior: 'smooth',
+      });
     }
   };
 
@@ -638,7 +678,9 @@ export function SchedulePage() {
     }, 0),
   );
   const statsUsers = useMemo(() => {
-    const departmentById = new Map((departmentsQuery.data ?? []).map((department) => [department.id, department]));
+    const departmentById = new Map(
+      (departmentsQuery.data ?? []).map((department) => [department.id, department]),
+    );
     return staffUsers
       .filter((user) => scheduleByUser.has(user.id))
       .map((user): UserMonthStats => {
@@ -659,7 +701,8 @@ export function SchedulePage() {
           const state = resolve(user.id, day);
           if (!state) continue;
           const plan = baseState(schedule.template, year, month, day);
-          const planDayHours = plan.type === 'work' && plan.start && plan.end ? shiftHours(plan.start, plan.end) : 0;
+          const planDayHours =
+            plan.type === 'work' && plan.start && plan.end ? shiftHours(plan.start, plan.end) : 0;
           planHours += planDayHours;
 
           if (state.type === 'work' && state.start && state.end) {
@@ -699,16 +742,7 @@ export function SchedulePage() {
           utilization: planHours ? Math.min(140, Math.round((workHours / planHours) * 100)) : 0,
         };
       });
-  }, [
-    staffUsers,
-    days,
-    year,
-    month,
-    scheduleByUser,
-    positionById,
-    departmentsQuery.data,
-    resolve,
-  ]);
+  }, [staffUsers, days, year, month, scheduleByUser, positionById, departmentsQuery.data, resolve]);
 
   const panelUser = panelCell ? users.find((user) => user.id === panelCell.userId) : undefined;
   const hasError = usersQuery.isError || schedulesQuery.isError || exceptionsQuery.isError;
@@ -769,69 +803,77 @@ export function SchedulePage() {
                 <ChevronRight className="size-4" />
               </button>
 
-              <div className="inline-flex gap-1 rounded-md bg-surface-sunken p-1">
-                {(
-                  [
-                    { value: 'plan', label: 'План', icon: Eye },
-                    { value: 'edit', label: 'Правка', icon: Pencil },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setMode(option.value)}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-1 rounded-[9px] px-2.5 py-1.5 text-[13px] font-semibold transition-colors',
-                      mode === option.value
-                        ? 'bg-primary-600 text-white shadow-[0_1px_3px_rgba(47,126,120,0.35)]'
-                        : 'text-slate-500 hover:text-slate-700',
-                    )}
-                  >
-                    <option.icon className="size-3.5" />
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-
-              {drafts.size > 0 ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setDrafts(new Map());
-                      toast.info('Правки отменены');
-                    }}
-                    className="border-warning-100 bg-warning-50 text-warning-700 hover:border-warning-500 hover:text-warning-700"
-                  >
-                    <RotateCcw className="size-4" />
-                    Сбросить правки
-                  </Button>
-                  <Button onClick={() => publish.mutate()} loading={publish.isPending}>
-                    <Send className="size-4" />
-                    Опубликовать
-                    <span className="rounded-full bg-white/25 px-1.5 font-mono text-xs">
-                      {drafts.size}
-                    </span>
-                  </Button>
-                </>
-              ) : (
-                <div className="flex">
-                  <Button
-                    size="sm"
-                    onClick={() => toast.info('Ссылка на график', 'Демо-действие: окно публикации появится на следующем этапе.')}
-                    className="rounded-r-none"
-                  >
-                    <Share2 className="size-4" />
-                    Поделиться
-                  </Button>
-                  <button
-                    type="button"
-                    className="flex size-8 cursor-pointer items-center justify-center rounded-r-md bg-primary-700 text-white transition-colors hover:bg-primary-800"
-                    aria-label="Быстрые сценарии публикации"
-                  >
-                    <ChevronDown className="size-4" />
-                  </button>
+              {canEdit && (
+                <div className="inline-flex gap-1 rounded-md bg-surface-sunken p-1">
+                  {(
+                    [
+                      { value: 'plan', label: 'План', icon: Eye },
+                      { value: 'edit', label: 'Правка', icon: Pencil },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setMode(option.value)}
+                      className={cn(
+                        'flex cursor-pointer items-center gap-1 rounded-[9px] px-2.5 py-1.5 text-[13px] font-semibold transition-colors',
+                        mode === option.value
+                          ? 'bg-primary-600 text-white shadow-[0_1px_3px_rgba(47,126,120,0.35)]'
+                          : 'text-slate-500 hover:text-slate-700',
+                      )}
+                    >
+                      <option.icon className="size-3.5" />
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               )}
+
+              {canEdit &&
+                (drafts.size > 0 ? (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setDrafts(new Map());
+                        toast.info('Правки отменены');
+                      }}
+                      className="border-warning-100 bg-warning-50 text-warning-700 hover:border-warning-500 hover:text-warning-700"
+                    >
+                      <RotateCcw className="size-4" />
+                      Сбросить правки
+                    </Button>
+                    <Button onClick={() => publish.mutate()} loading={publish.isPending}>
+                      <Send className="size-4" />
+                      Опубликовать
+                      <span className="rounded-full bg-white/25 px-1.5 font-mono text-xs">
+                        {drafts.size}
+                      </span>
+                    </Button>
+                  </>
+                ) : (
+                  <div className="flex">
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        toast.info(
+                          'Ссылка на график',
+                          'Демо-действие: окно публикации появится на следующем этапе.',
+                        )
+                      }
+                      className="rounded-r-none"
+                    >
+                      <Share2 className="size-4" />
+                      Поделиться
+                    </Button>
+                    <button
+                      type="button"
+                      className="flex size-8 cursor-pointer items-center justify-center rounded-r-md bg-primary-700 text-white transition-colors hover:bg-primary-800"
+                      aria-label="Быстрые сценарии публикации"
+                    >
+                      <ChevronDown className="size-4" />
+                    </button>
+                  </div>
+                ))}
             </div>
           </div>
 
@@ -869,7 +911,9 @@ export function SchedulePage() {
                   <span
                     className={cn(
                       'flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono text-[13px] font-bold',
-                      chip === item.value ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-500',
+                      chip === item.value
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-slate-100 text-slate-500',
                     )}
                   >
                     {item.count}
@@ -895,7 +939,9 @@ export function SchedulePage() {
                     )}
                   >
                     {option.label}
-                    <span className="font-mono text-[13px] font-bold text-slate-400">{option.count}</span>
+                    <span className="font-mono text-[13px] font-bold text-slate-400">
+                      {option.count}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -966,7 +1012,12 @@ export function SchedulePage() {
             monthLabel={`${MONTH_LABELS[month - 1]} ${year}`}
             daysCount={totalDays}
             todayDay={isCurrentMonth ? todayDay : totalDays}
-            lowCoverageDays={coverage.filter((count, index) => !isWeekend(year, month, index + 1) && count < coverageNorm).length}
+            lowCoverageDays={
+              coverage.filter(
+                (count, index) => !isWeekend(year, month, index + 1) && count < coverageNorm,
+              ).length
+            }
+            canEdit={canEdit}
           />
         ) : hasError ? (
           <ErrorState
@@ -1062,16 +1113,18 @@ export function SchedulePage() {
                       resolve={resolve}
                       scheduleByUser={scheduleByUser}
                       positionName={(user) =>
-                        user.positionIds[0] ? positionById.get(user.positionIds[0])?.name : undefined
+                        user.positionIds[0]
+                          ? positionById.get(user.positionIds[0])?.name
+                          : undefined
                       }
-                      onOpenUser={setEmployeePanelId}
+                      onOpenUser={canEdit ? setEmployeePanelId : () => undefined}
                       onCellMouseDown={(userId, day, event) => {
-                        if (mode !== 'edit') return;
+                        if (!canEdit || mode !== 'edit') return;
                         event.preventDefault();
                         stroke.current = { userId, day, active: true, painted: false };
                       }}
                       onCellMouseEnter={(userId, day) => {
-                        if (mode !== 'edit' || !stroke.current?.active) return;
+                        if (!canEdit || mode !== 'edit' || !stroke.current?.active) return;
                         if (!stroke.current.painted) {
                           stroke.current.painted = true;
                           applyBrush(stroke.current.userId, stroke.current.day);
@@ -1079,6 +1132,7 @@ export function SchedulePage() {
                         applyBrush(userId, day);
                       }}
                       onCellClick={(userId, day) => {
+                        if (!canEdit) return;
                         // В режиме правки клик без движения тоже открывает карточку смены.
                         const painted = mode === 'edit' && stroke.current?.painted;
                         stroke.current = null;
@@ -1104,7 +1158,9 @@ export function SchedulePage() {
                           key={day}
                           className={cn(
                             'sticky bottom-0 z-20 w-11 min-w-11 max-w-11 overflow-hidden border-t border-slate-700 bg-ink text-center font-mono text-sm font-bold',
-                            !weekend && count < coverageNorm && 'bg-warning-500/25 text-warning-500',
+                            !weekend &&
+                              count < coverageNorm &&
+                              'bg-warning-500/25 text-warning-500',
                             !weekend && count >= coverageNorm && 'text-primary-400',
                             weekend && 'text-slate-500',
                           )}
@@ -1155,20 +1211,29 @@ export function SchedulePage() {
         )}
       </div>
 
-      <ShiftDrawer
-        cell={panelCell ? { ...panelCell, year, month } : null}
-        user={panelUser}
-        schedule={panelCell ? scheduleByUser.get(panelCell.userId) : undefined}
-        state={panelCell ? resolve(panelCell.userId, panelCell.day) : undefined}
-        onClose={() => setPanelCell(null)}
-        onSave={(draft) => {
-          if (!panelCell) return;
-          setDrafts((prev) => new Map(prev).set(draftKey(panelCell.userId, panelCell.date), draft));
-          setPanelCell(null);
-          toast.success('Смена обновлена', 'Изменение в черновике — опубликуйте, когда закончите.');
-        }}
-      />
-      <EmployeeDrawer userId={employeePanelId} onClose={() => setEmployeePanelId(null)} />
+      {canEdit && (
+        <ShiftDrawer
+          cell={panelCell ? { ...panelCell, year, month } : null}
+          user={panelUser}
+          schedule={panelCell ? scheduleByUser.get(panelCell.userId) : undefined}
+          state={panelCell ? resolve(panelCell.userId, panelCell.day) : undefined}
+          onClose={() => setPanelCell(null)}
+          onSave={(draft) => {
+            if (!panelCell) return;
+            setDrafts((prev) =>
+              new Map(prev).set(draftKey(panelCell.userId, panelCell.date), draft),
+            );
+            setPanelCell(null);
+            toast.success(
+              'Смена обновлена',
+              'Изменение в черновике — опубликуйте, когда закончите.',
+            );
+          }}
+        />
+      )}
+      {canEdit && (
+        <EmployeeDrawer userId={employeePanelId} onClose={() => setEmployeePanelId(null)} />
+      )}
     </div>
   );
 }
@@ -1179,14 +1244,18 @@ function ScheduleStatsPanel({
   daysCount,
   todayDay,
   lowCoverageDays,
+  canEdit,
 }: {
   stats: UserMonthStats[];
   monthLabel: string;
   daysCount: number;
   todayDay: number;
   lowCoverageDays: number;
+  canEdit: boolean;
 }) {
-  const [sortBy, setSortBy] = useState<'attainment' | 'factRub' | 'deals' | 'avgCheck' | 'conversion' | 'calls' | 'perHour'>('attainment');
+  const [sortBy, setSortBy] = useState<
+    'attainment' | 'factRub' | 'deals' | 'avgCheck' | 'conversion' | 'calls' | 'perHour'
+  >('attainment');
   const statsDay = Math.min(daysCount, Math.max(todayDay, Math.round(daysCount * 0.48)));
   const pace = statsDay / daysCount;
 
@@ -1243,7 +1312,17 @@ function ScheduleStatsPanel({
           acc.meetings += row.meetings;
           return acc;
         },
-        { planRub: 0, factRub: 0, deals: 0, inWork: 0, leads: 0, won: 0, workHours: 0, calls: 0, meetings: 0 },
+        {
+          planRub: 0,
+          factRub: 0,
+          deals: 0,
+          inWork: 0,
+          leads: 0,
+          won: 0,
+          workHours: 0,
+          calls: 0,
+          meetings: 0,
+        },
       ),
     [rows],
   );
@@ -1252,16 +1331,24 @@ function ScheduleStatsPanel({
   const groupAvg = total.deals ? total.factRub / total.deals : 0;
   const groupPerHour = total.workHours ? total.factRub / total.workHours : 0;
   const topRows = sorted.slice(0, 3);
-  const riskRow = [...rows].sort((a, b) => a.attainment - b.attainment || b.absentDays - a.absentDays)[0];
+  const riskRow = [...rows].sort(
+    (a, b) => a.attainment - b.attainment || b.absentDays - a.absentDays,
+  )[0];
   const topByFact = [...rows].sort((a, b) => b.factRub - a.factRub);
-  const topShare = total.factRub ? Math.round(((topByFact[0]?.factRub ?? 0) + (topByFact[1]?.factRub ?? 0)) / total.factRub * 100) : 0;
+  const topShare = total.factRub
+    ? Math.round(
+        (((topByFact[0]?.factRub ?? 0) + (topByFact[1]?.factRub ?? 0)) / total.factRub) * 100,
+      )
+    : 0;
 
   if (!rows.length) {
     return (
       <div className="flex min-h-80 items-center justify-center rounded-lg border border-slate-200 bg-surface text-center shadow-card">
         <div>
           <p className="font-semibold text-ink">Нет данных для статистики</p>
-          <p className="mt-1 text-sm text-slate-500">Добавьте сотрудников в график, чтобы увидеть отчёт.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Добавьте сотрудников в график, чтобы увидеть отчёт.
+          </p>
         </div>
       </div>
     );
@@ -1274,22 +1361,44 @@ function ScheduleStatsPanel({
           <div>
             <h2 className="text-xl font-bold text-ink">Статистика · Отдел продаж</h2>
             <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-500">
-              Руководитель — <b className="font-semibold text-slate-700">{fullName(rows[1]?.user ?? rows[0]!.user)}</b>. {rows.length} чел. под контролем.
-              Показатели каждого и общий план группы система считает сама: продажи — из CRM, дисциплина — из графика работы.
+              Руководитель —{' '}
+              <b className="font-semibold text-slate-700">
+                {fullName(rows[1]?.user ?? rows[0]!.user)}
+              </b>
+              . {rows.length} чел. под контролем. Показатели каждого и общий план группы система
+              считает сама: продажи — из CRM, дисциплина — из графика работы.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700">
               {monthLabel} · {statsDay} из {daysCount} дня
             </span>
-            <Button variant="secondary" size="sm" onClick={() => toast.info('Группа контроля', 'Демо: здесь открывается настройка состава и планов.')}>
-              <Pencil className="size-3.5" />
-              Изменить группу
-            </Button>
-            <Button size="sm" onClick={() => toast.info('Отчёт подготовлен', 'Демо: выгрузка появится на следующем этапе.')}>
-              <Send className="size-3.5" />
-              Выгрузить отчёт
-            </Button>
+            {canEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  toast.info(
+                    'Группа контроля',
+                    'Демо: здесь открывается настройка состава и планов.',
+                  )
+                }
+              >
+                <Pencil className="size-3.5" />
+                Изменить группу
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                size="sm"
+                onClick={() =>
+                  toast.info('Отчёт подготовлен', 'Демо: выгрузка появится на следующем этапе.')
+                }
+              >
+                <Send className="size-3.5" />
+                Выгрузить отчёт
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -1298,15 +1407,20 @@ function ScheduleStatsPanel({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-slate-500">Группа контроля:</span>
           <span className="inline-flex items-center gap-2 rounded-full bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white">
-            Отдел продаж <span className="rounded-full bg-white/20 px-1.5 font-mono">{rows.length}</span>
+            Отдел продаж{' '}
+            <span className="rounded-full bg-white/20 px-1.5 font-mono">{rows.length}</span>
           </span>
-          <button
-            type="button"
-            onClick={() => toast.info('Новая группа', 'Демо: настройка групп появится после подключения CRM.')}
-            className="cursor-pointer rounded-full border border-dashed border-primary-300 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700"
-          >
-            + Добавить группу
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() =>
+                toast.info('Новая группа', 'Демо: настройка групп появится после подключения CRM.')
+              }
+              className="cursor-pointer rounded-full border border-dashed border-primary-300 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700"
+            >
+              + Добавить группу
+            </button>
+          )}
         </div>
       </div>
 
@@ -1324,7 +1438,7 @@ function ScheduleStatsPanel({
           value={String(total.deals)}
           hint={`в работе ~${total.inWork} · средний чек ${formatShortRub(groupAvg)} ₽`}
           accent="neutral"
-          spark={[(total.deals * 0.7), (total.deals * 0.85), total.deals]}
+          spark={[total.deals * 0.7, total.deals * 0.85, total.deals]}
           footer="май–июль"
         />
         <SalesKpiCard
@@ -1355,7 +1469,9 @@ function ScheduleStatsPanel({
       <div className="rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
         <div className="flex items-baseline gap-2">
           <h3 className="font-bold text-ink">Кто тянет план</h3>
-          <span className="text-xs text-slate-500">участники группы по выполнению плана · «сегодня» = {statsDay} июля</span>
+          <span className="text-xs text-slate-500">
+            участники группы по выполнению плана · «сегодня» = {statsDay} июля
+          </span>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-4">
           {topRows.map((row, index) => (
@@ -1393,7 +1509,9 @@ function ScheduleStatsPanel({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <h3 className="font-bold text-ink">Каждый сотрудник под контролем</h3>
-            <p className="mt-1 text-xs text-slate-500">клик по заголовку — сортировка · продажи связаны с дисциплиной по графику</p>
+            <p className="mt-1 text-xs text-slate-500">
+              клик по заголовку — сортировка · продажи связаны с дисциплиной по графику
+            </p>
           </div>
           <div className="flex flex-wrap gap-1 rounded-md bg-surface-sunken p-1">
             {(
@@ -1410,7 +1528,9 @@ function ScheduleStatsPanel({
                 onClick={() => setSortBy(option.value)}
                 className={cn(
                   'cursor-pointer rounded-[9px] px-3 py-1.5 text-xs font-semibold transition-colors',
-                  sortBy === option.value ? 'bg-surface text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+                  sortBy === option.value
+                    ? 'bg-surface text-primary-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700',
                 )}
               >
                 {option.label}
@@ -1440,22 +1560,36 @@ function ScheduleStatsPanel({
               {sorted.map((row, index) => {
                 const status = salesStatus(row);
                 return (
-                  <tr key={row.user.id} className={cn(index === sorted.length - 1 && 'bg-danger-50/40')}>
-                    <td className="border-t border-slate-100 px-4 py-3 font-mono text-xs font-bold text-slate-500">{index + 1}</td>
+                  <tr
+                    key={row.user.id}
+                    className={cn(index === sorted.length - 1 && 'bg-danger-50/40')}
+                  >
+                    <td className="border-t border-slate-100 px-4 py-3 font-mono text-xs font-bold text-slate-500">
+                      {index + 1}
+                    </td>
                     <td className="border-t border-slate-100 px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar name={fullName(row.user)} src={row.user.avatarUrl} size="sm" />
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-ink">{fullName(row.user)}</p>
-                          <span className={cn('mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold', status.className)}>
+                          <span
+                            className={cn(
+                              'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold',
+                              status.className,
+                            )}
+                          >
                             {status.label}
                           </span>
                         </div>
                       </div>
                     </td>
                     <td className="border-t border-slate-100 px-4 py-3 text-right">
-                      <div className="font-mono font-bold text-ink">{formatShortRub(row.factRub)} ₽</div>
-                      <div className="text-xs text-slate-500">план {formatShortRub(row.planRub)}</div>
+                      <div className="font-mono font-bold text-ink">
+                        {formatShortRub(row.factRub)} ₽
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        план {formatShortRub(row.planRub)}
+                      </div>
                     </td>
                     <td className="border-t border-slate-100 px-4 py-3 text-right">
                       <SalesProgress value={row.attainment * 100} pace={pace * 100} />
@@ -1464,16 +1598,26 @@ function ScheduleStatsPanel({
                       <b>{row.deals}</b>
                       <div className="text-xs text-slate-500">в работе {row.inWork}</div>
                     </td>
-                    <td className="border-t border-slate-100 px-4 py-3 text-right font-mono">{formatShortRub(row.avgCheck)} ₽</td>
-                    <td className="border-t border-slate-100 px-4 py-3 text-right font-mono">{Math.round(row.conversion)}%</td>
+                    <td className="border-t border-slate-100 px-4 py-3 text-right font-mono">
+                      {formatShortRub(row.avgCheck)} ₽
+                    </td>
+                    <td className="border-t border-slate-100 px-4 py-3 text-right font-mono">
+                      {Math.round(row.conversion)}%
+                    </td>
                     <td className="border-t border-slate-100 px-4 py-3 text-right font-mono">
                       {row.calls}
                       <div className="text-xs text-slate-500">встреч {row.meetings}</div>
                     </td>
                     <td className="border-t border-slate-100 px-4 py-3 text-right font-mono">
                       {roundedHours(row.workHours)} ч
-                      <div className={cn('text-xs', row.utilization < 90 ? 'text-danger-600' : 'text-slate-500')}>
-                        загрузка {row.utilization}%{row.absentDays ? ` · пропуск ${row.absentDays} дн` : ''}
+                      <div
+                        className={cn(
+                          'text-xs',
+                          row.utilization < 90 ? 'text-danger-600' : 'text-slate-500',
+                        )}
+                      >
+                        загрузка {row.utilization}%
+                        {row.absentDays ? ` · пропуск ${row.absentDays} дн` : ''}
                       </div>
                     </td>
                     <td className="border-t border-primary-100 bg-primary-50 px-4 py-3 text-right font-mono font-bold text-primary-700">
@@ -1513,20 +1657,52 @@ function SalesKpiCard({
   badge?: string;
 }) {
   return (
-    <div className={cn('rounded-lg border bg-surface p-4 shadow-card', accent === 'primary' && 'border-primary-200 bg-primary-50/30')}>
+    <div
+      className={cn(
+        'rounded-lg border bg-surface p-4 shadow-card',
+        accent === 'primary' && 'border-primary-200 bg-primary-50/30',
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-bold tracking-wide text-slate-500 uppercase">{label}</p>
-        {badge && <span className="rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[10px] font-bold text-primary-700 uppercase">{badge}</span>}
+        {badge && (
+          <span className="rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[10px] font-bold text-primary-700 uppercase">
+            {badge}
+          </span>
+        )}
       </div>
       <p className="mt-2 font-mono text-2xl font-black text-ink">{value}</p>
       <p className="mt-1 text-xs text-slate-500">{hint}</p>
       {progress !== undefined && (
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <span className={cn('block h-full rounded-full', accent === 'warning' ? 'bg-warning-500' : 'bg-primary-500')} style={{ width: `${Math.min(100, progress)}%` }} />
+          <span
+            className={cn(
+              'block h-full rounded-full',
+              accent === 'warning' ? 'bg-warning-500' : 'bg-primary-500',
+            )}
+            style={{ width: `${Math.min(100, progress)}%` }}
+          />
         </div>
       )}
-      {spark && <div className="mt-3"><MiniTrend values={spark} /></div>}
-      {footer && <p className={cn('mt-2 text-xs font-semibold', accent === 'success' ? 'text-success-700' : accent === 'warning' ? 'text-warning-700' : 'text-slate-500')}>{footer}</p>}
+      {spark && (
+        <div className="mt-3">
+          <MiniTrend values={spark} />
+        </div>
+      )}
+      {footer && (
+        <p
+          className={cn(
+            'mt-2 text-xs font-semibold',
+            accent === 'success'
+              ? 'text-success-700'
+              : accent === 'warning'
+                ? 'text-warning-700'
+                : 'text-slate-500',
+          )}
+        >
+          {footer}
+        </p>
+      )}
     </div>
   );
 }
@@ -1535,21 +1711,33 @@ function LeaderCard({ row, place }: { row: SalesDashboardRow; place: number | 'r
   const danger = place === 'risk';
   const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : '⚠️';
   return (
-    <div className={cn('rounded-md border p-4', danger ? 'border-danger-200 bg-danger-50' : 'border-slate-200 bg-surface')}>
+    <div
+      className={cn(
+        'rounded-md border p-4',
+        danger ? 'border-danger-200 bg-danger-50' : 'border-slate-200 bg-surface',
+      )}
+    >
       <div className="flex items-center gap-3">
         <span className="text-lg">{medal}</span>
         <Avatar name={fullName(row.user)} src={row.user.avatarUrl} size="sm" />
         <div className="min-w-0">
           <p className="truncate font-semibold text-ink">{fullName(row.user)}</p>
-          <p className="truncate text-xs text-slate-500">{danger ? 'нужно внимание руководителя' : row.positionName ?? 'Менеджер по продажам'}</p>
+          <p className="truncate text-xs text-slate-500">
+            {danger ? 'нужно внимание руководителя' : (row.positionName ?? 'Менеджер по продажам')}
+          </p>
         </div>
       </div>
       <div className="mt-4 font-mono text-2xl font-black text-ink">
         {pct(row.attainment * 100)}
-        <span className="ml-1 text-xs font-semibold text-slate-500">плана · {formatShortRub(row.factRub)} ₽</span>
+        <span className="ml-1 text-xs font-semibold text-slate-500">
+          плана · {formatShortRub(row.factRub)} ₽
+        </span>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-        <span className={cn('block h-full rounded-full', danger ? 'bg-warning-500' : 'bg-success-600')} style={{ width: `${Math.min(100, row.attainment * 100)}%` }} />
+        <span
+          className={cn('block h-full rounded-full', danger ? 'bg-warning-500' : 'bg-success-600')}
+          style={{ width: `${Math.min(100, row.attainment * 100)}%` }}
+        />
       </div>
     </div>
   );
@@ -1558,7 +1746,9 @@ function LeaderCard({ row, place }: { row: SalesDashboardRow; place: number | 'r
 function OwnerInsight({ icon, title, text }: { icon: string; title: string; text: string }) {
   return (
     <div className="flex gap-3 rounded-md border border-slate-200 p-4">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary-50 text-lg">{icon}</span>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary-50 text-lg">
+        {icon}
+      </span>
       <div>
         <p className="text-[11px] font-bold tracking-wide text-slate-500 uppercase">{title}</p>
         <p className="mt-1 text-sm leading-relaxed text-slate-700">{text}</p>
@@ -1571,10 +1761,26 @@ function SalesProgress({ value, pace }: { value: number; pace: number }) {
   return (
     <div className="ml-auto flex min-w-32 items-center justify-end gap-2">
       <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-slate-100">
-        <span className="absolute top-0 bottom-0 w-px bg-ink/60" style={{ left: `${Math.min(100, pace)}%` }} />
-        <span className={cn('block h-full rounded-full', value < pace ? 'bg-warning-500' : 'bg-success-600')} style={{ width: `${Math.min(100, value)}%` }} />
+        <span
+          className="absolute top-0 bottom-0 w-px bg-ink/60"
+          style={{ left: `${Math.min(100, pace)}%` }}
+        />
+        <span
+          className={cn(
+            'block h-full rounded-full',
+            value < pace ? 'bg-warning-500' : 'bg-success-600',
+          )}
+          style={{ width: `${Math.min(100, value)}%` }}
+        />
       </div>
-      <span className={cn('font-mono text-xs font-bold', value < pace ? 'text-warning-700' : 'text-success-700')}>{Math.round(value)}%</span>
+      <span
+        className={cn(
+          'font-mono text-xs font-bold',
+          value < pace ? 'text-warning-700' : 'text-success-700',
+        )}
+      >
+        {Math.round(value)}%
+      </span>
     </div>
   );
 }
@@ -1593,7 +1799,14 @@ function MiniTrend({ values }: { values: number[] | [number, number, number] }) 
 
   return (
     <svg viewBox="0 0 52 26" className="mx-auto h-6 w-14 text-primary-700" aria-hidden="true">
-      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <circle cx="48" cy={points.split(' ').at(-1)?.split(',')[1] ?? 12} r="1.4" fill="#F59E0B" />
     </svg>
   );
@@ -1646,7 +1859,12 @@ function GroupRows({
       <tr className="cursor-pointer" onClick={onToggle}>
         <td className="sticky left-0 z-10 w-[270px] min-w-[270px] max-w-[270px] border-r border-b border-slate-100 bg-surface-muted px-5 py-2">
           <span className="flex items-center gap-1.5 text-xs font-bold tracking-[0.6px] text-primary-600 uppercase">
-            <ChevronDown className={cn('size-3.5 text-slate-400 transition-transform', collapsed && '-rotate-90')} />
+            <ChevronDown
+              className={cn(
+                'size-3.5 text-slate-400 transition-transform',
+                collapsed && '-rotate-90',
+              )}
+            />
             {group.name}
             <span className="font-mono font-semibold text-slate-400">{group.users.length}</span>
           </span>
@@ -1671,7 +1889,8 @@ function GroupRows({
             const state = resolve(user.id, day);
             if (!state || !schedule) continue;
             const plan = baseState(schedule.template, year, month, day);
-            const planDayHours = plan.type === 'work' && plan.start && plan.end ? shiftHours(plan.start, plan.end) : 0;
+            const planDayHours =
+              plan.type === 'work' && plan.start && plan.end ? shiftHours(plan.start, plan.end) : 0;
             planHours += planDayHours;
             if (state.type === 'work' && state.start && state.end) {
               workDays += 1;
@@ -1714,7 +1933,9 @@ function GroupRows({
                 >
                   <Avatar name={fullName(user)} src={user.avatarUrl} size={compact ? 'sm' : 'md'} />
                   <div className="min-w-0">
-                    <div className="truncate text-[15px] font-semibold text-ink">{fullName(user)}</div>
+                    <div className="truncate text-[15px] font-semibold text-ink">
+                      {fullName(user)}
+                    </div>
                     {!compact && (
                       <>
                         {positionName(user) && (
@@ -1747,7 +1968,9 @@ function GroupRows({
               {/* Дни */}
               {days.map((day) => {
                 const state = resolve(user.id, day);
-                const plan = schedule ? baseState(schedule.template, year, month, day) : { type: 'off' as const };
+                const plan = schedule
+                  ? baseState(schedule.template, year, month, day)
+                  : { type: 'off' as const };
                 const today = isCurrentMonth && day === todayDay;
                 const isDraft = drafts.has(draftKey(user.id, isoDate(year, month, day)));
                 const isExtraWork = state?.type === 'work' && plan.type !== 'work';
@@ -1762,9 +1985,7 @@ function GroupRows({
                     key={day}
                     onMouseDown={(event) => schedule && onCellMouseDown(user.id, day, event)}
                     onMouseEnter={() => schedule && onCellMouseEnter(user.id, day)}
-                    onClick={() =>
-                      schedule ? onCellClick(user.id, day) : onOpenUser(user.id)
-                    }
+                    onClick={() => (schedule ? onCellClick(user.id, day) : onOpenUser(user.id))}
                     title={
                       schedule
                         ? shiftCellTitle(state, plan)
@@ -1841,52 +2062,52 @@ function GroupRows({
                   </button>
                 ) : (
                   <div className={cn('flex w-full flex-col', compact ? 'gap-px' : 'gap-0.5')}>
-                  <span className="flex items-center justify-between gap-2 text-[12px] leading-tight text-slate-500">
-                    {!compact && (
-                      <span className="flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="size-1.5 rounded-full bg-primary-500" />
-                        Отработано
-                      </span>
-                    )}
-                    <span className="ml-auto font-mono font-semibold whitespace-nowrap text-ink">
-                      {workDays} дн · {Math.round(workHours)} ч
-                    </span>
-                  </span>
-                  <span
-                    className="flex items-center justify-between gap-2 text-[12px] leading-tight text-slate-400"
-                    title={`отпуск ${vacationDays} дн, больничный ${sickDays} дн`}
-                  >
-                    {!compact && (
-                      <span className="flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="size-1.5 rounded-full bg-slate-400" />
-                        Не отработано
-                      </span>
-                    )}
-                    <span className="ml-auto font-mono font-semibold whitespace-nowrap text-slate-500">
-                      {absentDays ? `${absentDays} дн · ${Math.round(absentHours)} ч` : '0 дн'}
-                    </span>
-                  </span>
-                  <span className="flex items-center justify-between gap-2 text-[12px] leading-tight text-slate-400">
-                    {!compact && (
-                      <span className="flex items-center gap-1.5 whitespace-nowrap">
-                        <span
-                          className={cn(
-                            'size-1.5 rounded-full',
-                            overtime > 0 ? 'bg-success-500' : 'bg-slate-300',
-                          )}
-                        />
-                        {overtime > 0 ? 'Переработка' : 'Выходных'}
-                      </span>
-                    )}
-                    <span
-                      className={cn(
-                        'ml-auto font-mono font-semibold whitespace-nowrap',
-                        overtime > 0 ? 'text-success-600' : 'text-slate-500',
+                    <span className="flex items-center justify-between gap-2 text-[12px] leading-tight text-slate-500">
+                      {!compact && (
+                        <span className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="size-1.5 rounded-full bg-primary-500" />
+                          Отработано
+                        </span>
                       )}
-                    >
-                      {overtime > 0 ? `+${formatHours(overtime)} ч` : `${offDays} дн`}
+                      <span className="ml-auto font-mono font-semibold whitespace-nowrap text-ink">
+                        {workDays} дн · {Math.round(workHours)} ч
+                      </span>
                     </span>
-                  </span>
+                    <span
+                      className="flex items-center justify-between gap-2 text-[12px] leading-tight text-slate-400"
+                      title={`отпуск ${vacationDays} дн, больничный ${sickDays} дн`}
+                    >
+                      {!compact && (
+                        <span className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="size-1.5 rounded-full bg-slate-400" />
+                          Не отработано
+                        </span>
+                      )}
+                      <span className="ml-auto font-mono font-semibold whitespace-nowrap text-slate-500">
+                        {absentDays ? `${absentDays} дн · ${Math.round(absentHours)} ч` : '0 дн'}
+                      </span>
+                    </span>
+                    <span className="flex items-center justify-between gap-2 text-[12px] leading-tight text-slate-400">
+                      {!compact && (
+                        <span className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              overtime > 0 ? 'bg-success-500' : 'bg-slate-300',
+                            )}
+                          />
+                          {overtime > 0 ? 'Переработка' : 'Выходных'}
+                        </span>
+                      )}
+                      <span
+                        className={cn(
+                          'ml-auto font-mono font-semibold whitespace-nowrap',
+                          overtime > 0 ? 'text-success-600' : 'text-slate-500',
+                        )}
+                      >
+                        {overtime > 0 ? `+${formatHours(overtime)} ч` : `${offDays} дн`}
+                      </span>
+                    </span>
                   </div>
                 )}
               </td>

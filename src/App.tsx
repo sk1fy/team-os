@@ -1,4 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireAuth } from '@/components/auth/AuthBootstrap';
 import { AuthLayout } from '@/components/layout/AuthLayout';
@@ -17,8 +19,23 @@ import { EmployeeProfilePage } from '@/pages/employees/EmployeeProfilePage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { InvitePage } from '@/pages/auth/InvitePage';
+import { AccessLinkPage } from '@/pages/auth/AccessLinkPage';
 import { DistributionPage } from '@/pages/distribution/DistributionPage';
 import { DistributionGroupPage } from '@/pages/distribution/DistributionGroupPage';
+import { authApi } from '@/api';
+import { canAccessRoute, employeeHomePath } from '@/lib/permissions';
+
+function RequireModule({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: authApi.getCurrentUser,
+  });
+  if (currentUser && !canAccessRoute(currentUser.role, pathname)) {
+    return <Navigate to={employeeHomePath} replace />;
+  }
+  return children;
+}
 
 export function App() {
   return (
@@ -27,7 +44,9 @@ export function App() {
       <Route
         element={
           <RequireAuth>
-            <AppLayout />
+            <RequireModule>
+              <AppLayout />
+            </RequireModule>
           </RequireAuth>
         }
       >
@@ -56,6 +75,7 @@ export function App() {
 
       <Route path="/learn/:courseId" element={<LearnPage />} />
       <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
+      <Route path="/access/:token" element={<AccessLinkPage />} />
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

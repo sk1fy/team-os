@@ -623,6 +623,7 @@ export function SettingsPage() {
   const userQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
 
   const previewLoading = companyQuery.isPending || userQuery.isPending;
+  const readOnly = userQuery.data?.role === 'employee';
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-6">
@@ -644,8 +645,17 @@ export function SettingsPage() {
       </div>
 
       <div className="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
-        <CompanyProfileSection />
-        <MyProfileSection />
+        {readOnly ? (
+          <div className="rounded-xl border border-slate-200 bg-surface p-5 text-sm text-slate-600 shadow-card">
+            Профиль доступен только для просмотра. Изменения вносит владелец или администратор
+            компании.
+          </div>
+        ) : (
+          <>
+            <CompanyProfileSection />
+            <MyProfileSection />
+          </>
+        )}
       </div>
     </div>
   );

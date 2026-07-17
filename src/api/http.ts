@@ -15,6 +15,7 @@ import type {
   DealDistributionGroup,
   Department,
   DistributionEvent,
+  EmployeeAccess,
   ID,
   Invite,
   Label,
@@ -57,8 +58,11 @@ export const httpAuthApi = {
   getCurrentUser: (): Promise<User> => request('/auth/me'),
   getCompany: (): Promise<Company> => request('/company'),
   getInviteByToken: (token: string): Promise<Invite> => publicRequest(`/auth/invites/${id(token)}`),
-  updateCompany: (input: { name?: string; logoUrl?: string; amoAccountId?: string }): Promise<Company> =>
-    request('/company', 'PATCH', input),
+  updateCompany: (input: {
+    name?: string;
+    logoUrl?: string;
+    amoAccountId?: string;
+  }): Promise<Company> => request('/company', 'PATCH', input),
   updateCurrentUser: (input: {
     firstName?: string;
     lastName?: string;
@@ -67,6 +71,8 @@ export const httpAuthApi = {
   }): Promise<User> => request('/auth/me', 'PATCH', input),
   login: async (input: { email: string; password: string }): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest('/auth/login', 'POST', input)),
+  loginWithAccessLink: async (token: string): Promise<AuthSession<User>> =>
+    rememberSession(await publicRequest(`/auth/access-link/${id(token)}`, 'POST')),
   refresh: async (): Promise<boolean> => refreshAccessToken<User>(),
   logout: async (): Promise<void> => {
     try {
@@ -96,6 +102,17 @@ export const httpOrgApi = {
   getPosition: (positionId: ID): Promise<Position> => request(`/org/positions/${id(positionId)}`),
   getUsers: (): Promise<User[]> => request('/org/users'),
   getUser: (userId: ID): Promise<User> => request(`/org/users/${id(userId)}`),
+  getUserAccess: (userId: ID): Promise<EmployeeAccess> =>
+    request(`/org/users/${id(userId)}/access`),
+  setUserPasswordAccess: (
+    userId: ID,
+    input: { password?: string },
+  ): Promise<{ password: string }> =>
+    request(`/org/users/${id(userId)}/access/password`, 'PUT', input),
+  setUserLinkAccess: (userId: ID): Promise<{ token: string; createdAt: string }> =>
+    request(`/org/users/${id(userId)}/access/link`, 'PUT'),
+  revokeUserAccess: (userId: ID): Promise<void> =>
+    request(`/org/users/${id(userId)}/access`, 'DELETE'),
   createDepartment: (input: {
     name: string;
     parentId: ID | null;
@@ -154,8 +171,7 @@ export const httpOrgApi = {
     request(`/org/invites/${id(inviteId)}/resend`, 'POST'),
   revokeInvite: (inviteId: ID): Promise<void> =>
     request(`/org/invites/${id(inviteId)}/revoke`, 'POST'),
-  deleteUser: (userId: ID): Promise<void> =>
-    request(`/org/users/${id(userId)}`, 'DELETE'),
+  deleteUser: (userId: ID): Promise<void> => request(`/org/users/${id(userId)}`, 'DELETE'),
   updateUser: (input: {
     id: ID;
     firstName?: string;

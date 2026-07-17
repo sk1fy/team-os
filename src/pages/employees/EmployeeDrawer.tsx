@@ -11,7 +11,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Copy,
   Image as ImageIcon,
+  KeyRound,
+  Link2,
   PanelRight,
   Plus,
   Square,
@@ -19,9 +22,9 @@ import {
   X,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { orgApi, scheduleApi } from '@/api';
+import { authApi, orgApi, scheduleApi } from '@/api';
 import { scheduleQueryKeys } from '@/api/queryKeys';
-import type { ID, ScheduleTemplate, ShiftException } from '@/types';
+import type { ID, ScheduleTemplate, ShiftException, User } from '@/types';
 import {
   fullName,
   pluralRu,
@@ -33,11 +36,13 @@ import {
 import { cn } from '@/lib/cn';
 import { MONTH_LABELS, MONTH_LABELS_GENITIVE } from '@/lib/schedule';
 import { toast } from '@/stores/toast';
-import { Avatar, Badge, Button, Drawer, Modal, Select } from '@/components/ui';
+import { Avatar, Badge, Button, Drawer, Input, Modal, Select } from '@/components/ui';
 import { EmployeeEditModal } from './EmployeeEditModal';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
 import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
+import { canManageAccess } from '@/lib/permissions';
+import { copyText } from '@/lib/clipboard';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const monthShortNames = [
@@ -99,6 +104,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     queryFn: () => orgApi.getUser(userId!),
     enabled: open,
   });
+  const currentUserQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
   const { data: positions = [] } = useQuery({
     queryKey: ['positions'],
     queryFn: orgApi.getPositions,
@@ -460,6 +466,10 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 </div>
               </PanelSection>
 
+              {canManageAccess(currentUserQuery.data?.role) && user.role !== 'owner' && (
+                <EmployeeAccessSection user={user} />
+              )}
+
               <PanelSection title="Рабочий шаблон">
                 <p className="text-[13px] leading-relaxed text-slate-500">
                   Выберите базовый режим, который будет применён к календарю сотрудника.
@@ -664,6 +674,149 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
 
       <EmployeeEditModal user={user ?? null} open={editOpen} onClose={() => setEditOpen(false)} />
     </>
+  );
+}
+
+const accessLabels = {
+  none: 'Нет доступа',
+  password: 'Email и пароль',
+  link: 'По ссылке',
+} as const;
+
+function EmployeeAccessSection({ user }: { user: User }) {
+  const queryClient = useQueryClient();
+  const [customPassword, setCustomPassword] = useState('');
+  const [shownPassword, setShownPassword] = useState<string>();
+  const accessQuery = useQuery({
+    queryKey: ['userAccess', user.id],
+    queryFn: () => orgApi.getUserAccess(user.id),
+  });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['userAccess', user.id] });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    queryClient.invalidateQueries({ queryKey: ['users', user.id] });
+  };
+  const setPassword = useMutation({
+    mutationFn: (password?: string) => orgApi.setUserPasswordAccess(user.id, { password }),
+    onSuccess: ({ password }) => {
+      setShownPassword(password);
+      setCustomPassword('');
+      refresh();
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось выдать пароль'),
+  });
+  const setLink = useMutation({
+    mutationFn: () => orgApi.setUserLinkAccess(user.id),
+    onSuccess: () => {
+      setShownPassword(undefined);
+      refresh();
+      toast.success('Ссылка доступа создана');
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось создать ссылку'),
+  });
+  const revoke = useMutation({
+    mutationFn: () => orgApi.revokeUserAccess(user.id),
+    onSuccess: () => {
+      setShownPassword(undefined);
+      refresh();
+      toast.success('Доступ отозван');
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось отозвать доступ'),
+  });
+
+  const access = accessQuery.data ?? { mode: 'none' as const };
+  const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
+  const confirmSessionReset = () =>
+    access.mode === 'none' || confirm('Текущие сессии сотрудника будут завершены. Продолжить?');
+
+  return (
+    <PanelSection title="Доступ в систему">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-slate-500">Текущий режим</span>
+        <Badge variant={access.mode === 'none' ? 'neutral' : 'success'}>
+          {accessLabels[access.mode]}
+        </Badge>
+      </div>
+      {user.email.endsWith('@users.invalid') && (
+        <p className="rounded-md bg-warning-50 px-3 py-2 text-xs text-warning-700">
+          Это служебный email amoCRM. Для сотрудника удобнее вход по ссылке.
+        </p>
+      )}
+      {shownPassword && (
+        <div className="rounded-md border border-warning-200 bg-warning-50 p-3 text-sm">
+          <p className="font-semibold text-warning-800">Пароль показывается один раз</p>
+          <p className="mt-1 font-mono text-slate-900">{user.email}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="min-w-0 flex-1 overflow-hidden rounded bg-white px-2 py-1.5 text-ellipsis">
+              {shownPassword}
+            </code>
+            <Button size="sm" variant="secondary" onClick={() => void copyText(shownPassword)}>
+              <Copy className="size-4" /> Копировать
+            </Button>
+          </div>
+        </div>
+      )}
+      {access.mode === 'link' && accessUrl && (
+        <div className="flex items-center gap-2">
+          <Input label="Ссылка доступа" value={accessUrl} readOnly />
+          <Button
+            className="mt-6"
+            size="sm"
+            variant="secondary"
+            onClick={() => void copyText(accessUrl)}
+          >
+            <Copy className="size-4" />
+          </Button>
+        </div>
+      )}
+      <div className="space-y-2">
+        <Input
+          label="Задать свой пароль"
+          type="password"
+          value={customPassword}
+          onChange={(event) => setCustomPassword(event.target.value)}
+          placeholder="Оставьте пустым для генерации"
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={setPassword.isPending}
+            onClick={() =>
+              confirmSessionReset() && setPassword.mutate(customPassword.trim() || undefined)
+            }
+          >
+            <KeyRound className="size-4" />
+            {customPassword.trim() ? 'Установить пароль' : 'Сгенерировать пароль'}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={setLink.isPending}
+            onClick={() => confirmSessionReset() && setLink.mutate()}
+          >
+            <Link2 className="size-4" />
+            {access.mode === 'link' ? 'Перевыпустить ссылку' : 'Выдать ссылку'}
+          </Button>
+          {access.mode !== 'none' && (
+            <Button
+              size="sm"
+              variant="danger"
+              loading={revoke.isPending}
+              onClick={() =>
+                confirm('Отозвать доступ и завершить все сессии сотрудника?') && revoke.mutate()
+              }
+            >
+              Отозвать доступ
+            </Button>
+          )}
+        </div>
+      </div>
+    </PanelSection>
   );
 }
 

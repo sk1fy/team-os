@@ -37,6 +37,13 @@ export interface Company {
 export type UserRole = 'owner' | 'admin' | 'employee' | 'partner';
 export type UserStatus = 'active' | 'invited' | 'deactivated';
 export type UserSource = 'local' | 'amo';
+export type EmployeeAccessMode = 'none' | 'password' | 'link';
+
+export interface EmployeeAccess {
+  mode: EmployeeAccessMode;
+  linkToken?: string;
+  linkCreatedAt?: ISODate;
+}
 
 export interface User {
   id: ID;
@@ -57,6 +64,8 @@ export interface User {
   vacationAllowance?: number;
   /** Источник пользователя: local — создан в TeamOS, amo — импортирован из amoCRM. */
   source?: UserSource;
+  /** Способ входа сотрудника, если доступ уже выдан владельцем. */
+  accessMode?: EmployeeAccessMode;
   createdAt: ISODate;
 }
 
