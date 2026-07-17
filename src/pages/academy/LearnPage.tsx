@@ -5,9 +5,10 @@ import { useTitle } from '@reactuses/core';
 import { Award, Check, ChevronLeft, Lock } from 'lucide-react';
 import { academyApi } from '@/api';
 import { ApiError } from '@/api/client';
-import type { ID, Lesson } from '@/types';
+import type { CourseProgress, ID, Lesson } from '@/types';
 import { RichTextView, Button, Badge, Textarea } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { upsertCourseProgress } from './progressCache';
 
 const emptyLessons: Lesson[] = [];
 
@@ -57,7 +58,18 @@ export function LearnPage() {
 
   const markComplete = useMutation({
     mutationFn: academyApi.markLessonComplete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['academy', 'learn', 'progress'] }),
+    onSuccess: (updatedProgress) => {
+      queryClient.setQueryData<CourseProgress[]>(
+        ['academy', 'learn', 'progress', courseId],
+        (current) => upsertCourseProgress(current, updatedProgress),
+      );
+      queryClient.setQueryData<CourseProgress[]>(['academy', 'progress'], (current) =>
+        upsertCourseProgress(current, updatedProgress),
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ['academy', 'learn', 'progress', courseId],
+      });
+    },
   });
 
   if (courseQuery.isPending) {
@@ -164,11 +176,15 @@ export function LearnPage() {
                 </div>
                 <Button
                   size="sm"
+                  variant={
+                    progress?.completedLessonIds.includes(lesson.id) ? 'secondary' : 'primary'
+                  }
+                  disabled={progress?.completedLessonIds.includes(lesson.id)}
                   loading={markComplete.isPending}
                   onClick={() => markComplete.mutate({ courseId, lessonId: lesson.id })}
                 >
                   <Check className="size-4" />
-                  Готово
+                  {progress?.completedLessonIds.includes(lesson.id) ? 'Урок завершён' : 'Готово'}
                 </Button>
               </div>
               <RichTextView content={lesson.content} />

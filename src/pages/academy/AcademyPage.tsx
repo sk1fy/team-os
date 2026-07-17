@@ -61,6 +61,7 @@ import { fullName } from '@/lib/labels';
 import { plainTextToRichText } from '@/lib/richText';
 import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
+import { upsertCourseProgress } from './progressCache';
 import {
   Avatar,
   Badge,
@@ -502,7 +503,11 @@ function CreateCourseModal({
   };
 
   const handleCreated = (course: Course) => {
-    queryClient.invalidateQueries({ queryKey: ['academy'] });
+    queryClient.setQueryData<Course[]>(['academy', 'courses'], (current = []) => [
+      ...current.filter((item) => item.id !== course.id),
+      course,
+    ]);
+    void queryClient.invalidateQueries({ queryKey: ['academy'] });
     toast.success('Курс создан');
     onCreated(course);
   };
@@ -1613,8 +1618,11 @@ export function AcademyPage() {
 
   const markComplete = useMutation({
     mutationFn: academyApi.markLessonComplete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'progress'] });
+    onSuccess: (updatedProgress) => {
+      queryClient.setQueryData<CourseProgress[]>(['academy', 'progress'], (current) =>
+        upsertCourseProgress(current, updatedProgress),
+      );
+      void queryClient.invalidateQueries({ queryKey: ['academy', 'progress'] });
       toast.success('Прогресс обновлён');
     },
     onError: showApiError,
@@ -1735,7 +1743,11 @@ export function AcademyPage() {
 
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                   <div>
-                    {visibleCourses.length > 0 ? (
+                    {coursesQuery.isPending ? (
+                      <div className="flex min-h-56 items-center justify-center rounded-lg border border-slate-200 bg-surface p-6 text-sm text-slate-500 shadow-card">
+                        Загружаем каталог курсов…
+                      </div>
+                    ) : visibleCourses.length > 0 ? (
                       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {visibleCourses.map((course) => (
                           <CourseCard
@@ -2081,6 +2093,14 @@ export function AcademyPage() {
                         </div>
                         <Button
                           size="sm"
+                          variant={
+                            selectedProgress?.completedLessonIds.includes(selectedLesson.id)
+                              ? 'secondary'
+                              : 'primary'
+                          }
+                          disabled={selectedProgress?.completedLessonIds.includes(
+                            selectedLesson.id,
+                          )}
                           loading={markComplete.isPending}
                           onClick={() =>
                             selectedCourse &&
@@ -2091,7 +2111,9 @@ export function AcademyPage() {
                           }
                         >
                           <Check className="size-4" />
-                          Завершить урок
+                          {selectedProgress?.completedLessonIds.includes(selectedLesson.id)
+                            ? 'Урок завершён'
+                            : 'Завершить урок'}
                         </Button>
                       </div>
                       <RichTextView content={selectedLesson.content} />

@@ -178,8 +178,12 @@ function SectionDialog({
 
   const createSection = useMutation({
     mutationFn: kbApi.createSection,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'sections'] });
+    onSuccess: (createdSection) => {
+      queryClient.setQueryData<ArticleSection[]>(['kb', 'sections'], (current = []) => [
+        ...current.filter((item) => item.id !== createdSection.id),
+        createdSection,
+      ]);
+      void queryClient.invalidateQueries({ queryKey: ['kb', 'sections'] });
       toast.success('Раздел создан');
       onClose();
     },
@@ -421,8 +425,12 @@ function ArticleDrawer({
 
   const createArticle = useMutation({
     mutationFn: kbApi.createArticle,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'articles'] });
+    onSuccess: (createdArticle) => {
+      queryClient.setQueryData<Article[]>(['kb', 'articles'], (current = []) => [
+        ...current.filter((item) => item.id !== createdArticle.id),
+        createdArticle,
+      ]);
+      void queryClient.invalidateQueries({ queryKey: ['kb', 'articles'] });
       toast.success('Статья создана');
       onClose();
     },
@@ -430,9 +438,12 @@ function ArticleDrawer({
 
   const updateArticle = useMutation({
     mutationFn: kbApi.updateArticle,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'articles'] });
-      queryClient.invalidateQueries({ queryKey: ['kb', 'versions'] });
+    onSuccess: (updatedArticle) => {
+      queryClient.setQueryData<Article[]>(['kb', 'articles'], (current = []) =>
+        current.map((item) => (item.id === updatedArticle.id ? updatedArticle : item)),
+      );
+      void queryClient.invalidateQueries({ queryKey: ['kb', 'articles'] });
+      void queryClient.invalidateQueries({ queryKey: ['kb', 'versions'] });
       toast.success('Статья сохранена');
       onClose();
     },
