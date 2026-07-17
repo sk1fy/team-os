@@ -21,6 +21,7 @@ import { canMoveDepartment } from '@/lib/orgTree';
 import { validateInviteEmail } from '@/lib/inviteRules';
 import { validatePositionAssignment, validateUserUpdate } from '@/lib/userGuards';
 import { pickDistributionMember } from '@/lib/dealDistribution';
+import { createId } from '@/lib/id';
 import type {
   AppNotification,
   Article,
@@ -50,7 +51,7 @@ import type {
   UserSchedule,
 } from '@/types';
 
-const uid = () => crypto.randomUUID();
+const uid = createId;
 const now = () => new Date().toISOString();
 
 // ============================================================================

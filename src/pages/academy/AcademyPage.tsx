@@ -59,6 +59,7 @@ import { formatDate, formatRelativeDate } from '@/lib/format';
 import { copyText } from '@/lib/clipboard';
 import { fullName } from '@/lib/labels';
 import { plainTextToRichText } from '@/lib/richText';
+import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import {
   Avatar,
@@ -1052,12 +1053,12 @@ function QuizBuilder({ lesson, quiz }: { lesson?: Lesson; quiz?: Quiz }) {
             setQuestions((current) => [
               ...current,
               {
-                id: crypto.randomUUID(),
+                id: createId(),
                 type: 'single',
                 text: 'Новый вопрос',
                 options: [
-                  { id: crypto.randomUUID(), text: 'Вариант 1', correct: true },
-                  { id: crypto.randomUUID(), text: 'Вариант 2', correct: false },
+                  { id: createId(), text: 'Вариант 1', correct: true },
+                  { id: createId(), text: 'Вариант 2', correct: false },
                 ],
               },
             ])

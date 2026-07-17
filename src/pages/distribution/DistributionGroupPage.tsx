@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
-import { Activity, ArrowLeft, Clock3, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { Activity, ArrowLeft, Clock3, Pencil, RotateCcw } from 'lucide-react';
 import { distributionApi, orgApi, scheduleApi } from '@/api';
 import { scheduleQueryKeys } from '@/api/queryKeys';
 import type {
@@ -183,17 +183,6 @@ export function DistributionGroupPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['distribution', 'groups'] }),
   });
 
-  const simulateDeal = useMutation({
-    mutationFn: () => distributionApi.simulateDeal(groupId),
-    onSuccess: (event) => {
-      queryClient.invalidateQueries({ queryKey: ['distribution', 'events', groupId] });
-      const user = usersById.get(event.userId);
-      toast.success(`Сделка #${event.dealNumber} передана`, user ? fullName(user) : undefined);
-    },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : 'Не удалось распределить сделку'),
-  });
-
   const resetEvents = useMutation({
     mutationFn: () => distributionApi.resetEvents(groupId),
     onSuccess: () => {
@@ -250,9 +239,6 @@ export function DistributionGroupPage() {
   });
   const onShiftCount = members.filter(
     (user) => user.status === 'active' && !group.disabledMemberIds.includes(user.id),
-  ).length;
-  const enabledMemberCount = members.filter(
-    (user) => !group.disabledMemberIds.includes(user.id),
   ).length;
   const todayCounts = new Map(
     members.map((user) => [
@@ -352,15 +338,6 @@ export function DistributionGroupPage() {
                 {onShiftCount} на смене из {members.length}
               </span>
             </h2>
-            <Button
-              size="sm"
-              loading={simulateDeal.isPending}
-              disabled={!group.active || enabledMemberCount === 0}
-              onClick={() => simulateDeal.mutate()}
-            >
-              <Plus className="size-4" />
-              Сделка пришла
-            </Button>
           </div>
 
           <div className="mt-4 space-y-2">

@@ -227,8 +227,8 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
 
   const done = (queryKey: string, message: string) => {
     queryClient.invalidateQueries({ queryKey: [queryKey] });
-    toast.success(message);
     onClose();
+    toast.success(message);
   };
 
   const createDepartment = useMutation({
