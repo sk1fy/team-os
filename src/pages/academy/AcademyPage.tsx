@@ -39,7 +39,7 @@ import {
   Unlink,
   UsersRound,
 } from 'lucide-react';
-import { academyApi, kbApi, orgApi } from '@/api';
+import { academyApi, authApi, kbApi, orgApi } from '@/api';
 import type {
   Article,
   ArticleSection,
@@ -1481,6 +1481,10 @@ export function AcademyPage() {
     queryFn: academyApi.getAssignments,
   });
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const currentUserQuery = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: authApi.getCurrentUser,
+  });
   const quizzesQuery = useQuery({
     queryKey: ['academy', 'quizzes'],
     queryFn: () => academyApi.getQuizzes(),
@@ -1493,7 +1497,7 @@ export function AcademyPage() {
   const users = usersQuery.data ?? emptyUsers;
   const quizzes = quizzesQuery.data ?? emptyQuizzes;
   const selectedCourse = courses.find((course) => course.id === selectedCourseId);
-  const currentUser = users.find((user) => user.id === 'user-1') ?? users[0];
+  const currentUser = currentUserQuery.data;
   const allLessons = allLessonsQuery.data ?? lessons;
 
   /** Уроки в порядке разделов курса — для плеера и последовательного режима. */
@@ -1509,7 +1513,7 @@ export function AcademyPage() {
   const selectedLesson =
     orderedLessons.find((lesson) => lesson.id === selectedLessonId) ?? orderedLessons[0];
   const selectedProgress = progress.find(
-    (item) => item.courseId === selectedCourseId && item.userId === (currentUser?.id ?? 'user-1'),
+    (item) => item.courseId === selectedCourseId && item.userId === currentUser?.id,
   );
   const selectedQuiz = quizzes.find((quiz) => quiz.id === selectedLesson?.quizId);
 

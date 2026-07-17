@@ -721,8 +721,15 @@ export function KnowledgePage() {
 
   useEffect(() => {
     if (requestedArticleId) return;
-    if (!activeSectionId && sections[0]) setActiveSectionId(sections[0].id);
-    if (!activeArticleId && articles[0]) setActiveArticleId(articles[0].id);
+    if (activeSectionId || activeArticleId) return;
+
+    const initialArticle = articles[0];
+    if (initialArticle) {
+      setActiveSectionId(initialArticle.sectionId);
+      setActiveArticleId(initialArticle.id);
+    } else if (sections[0]) {
+      setActiveSectionId(sections[0].id);
+    }
   }, [activeArticleId, activeSectionId, articles, requestedArticleId, sections]);
 
   const selectArticle = (id: ID) => {

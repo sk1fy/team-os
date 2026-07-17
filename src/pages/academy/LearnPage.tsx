@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Award, Check, ChevronLeft, Lock } from 'lucide-react';
-import { academyApi } from '@/api';
+import { academyApi, authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import type { CourseProgress, ID, Lesson } from '@/types';
 import { RichTextView, Button, Badge, Textarea } from '@/components/ui';
@@ -32,6 +32,10 @@ export function LearnPage() {
     queryFn: () => academyApi.getProgress(courseId),
     enabled: Boolean(courseId),
   });
+  const currentUserQuery = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: authApi.getCurrentUser,
+  });
   const quizzesQuery = useQuery({
     queryKey: ['academy', 'quizzes'],
     queryFn: () => academyApi.getQuizzes(),
@@ -39,7 +43,7 @@ export function LearnPage() {
 
   const course = courseQuery.data;
   const lessons = lessonsQuery.data ?? emptyLessons;
-  const progress = progressQuery.data?.find((item) => item.userId === 'user-1');
+  const progress = progressQuery.data?.find((item) => item.userId === currentUserQuery.data?.id);
   const lesson = lessons.find((item) => item.id === lessonId) ?? lessons[0];
   const quiz = quizzesQuery.data?.find((item) => item.id === lesson?.quizId);
   const courseNotFound = courseQuery.error instanceof ApiError && courseQuery.error.status === 404;
