@@ -22,6 +22,7 @@ import { validateInviteEmail } from '@/lib/inviteRules';
 import { validatePositionAssignment, validateUserUpdate } from '@/lib/userGuards';
 import { pickDistributionMember } from '@/lib/dealDistribution';
 import { createId } from '@/lib/id';
+import { EMAIL_ERROR, PHONE_ERROR, isValidEmail, isValidPhone } from '@/lib/formValidation';
 import type {
   AppNotification,
   Article,
@@ -54,6 +55,10 @@ import type {
 const uid = createId;
 const now = () => new Date().toISOString();
 
+function assertValidPhone(phone?: string) {
+  if (phone !== undefined && !isValidPhone(phone)) throw new ApiError(PHONE_ERROR, 400);
+}
+
 // ============================================================================
 // Аутентификация и компания (пока моки без реальной авторизации)
 // ============================================================================
@@ -70,11 +75,16 @@ const mockAuthApi = {
   getInviteByToken: (token: string): Promise<Invite> =>
     mockRequest(() => db.invites.find((i) => i.token === token) ?? notFound('Приглашение')),
 
-  updateCompany: (input: { name?: string; logoUrl?: string; amoAccountId?: string }): Promise<Company> =>
+  updateCompany: (input: {
+    name?: string;
+    logoUrl?: string;
+    amoAccountId?: string;
+  }): Promise<Company> =>
     mockRequest(() => {
       if (input.name !== undefined) db.company.name = input.name;
       if (input.logoUrl !== undefined) db.company.logoUrl = input.logoUrl || undefined;
-      if (input.amoAccountId !== undefined) db.company.amoAccountId = input.amoAccountId || undefined;
+      if (input.amoAccountId !== undefined)
+        db.company.amoAccountId = input.amoAccountId || undefined;
       return db.company;
     }),
 
@@ -86,6 +96,7 @@ const mockAuthApi = {
   }): Promise<User> =>
     mockRequest(() => {
       const user = db.users.find((u) => u.id === db.CURRENT_USER_ID) ?? notFound('Пользователь');
+      assertValidPhone(input.phone);
       if (input.firstName !== undefined) user.firstName = input.firstName;
       if (input.lastName !== undefined) user.lastName = input.lastName;
       if (input.phone !== undefined) user.phone = input.phone || undefined;
@@ -351,6 +362,8 @@ const mockOrgApi = {
       if (!input.firstName.trim()) throw new ApiError('Укажите имя пользователя', 400);
       if (!input.lastName.trim()) throw new ApiError('Укажите фамилию пользователя', 400);
       if (!email) throw new ApiError('Укажите email пользователя', 400);
+      if (!isValidEmail(email)) throw new ApiError(EMAIL_ERROR, 400);
+      assertValidPhone(input.phone);
       if (db.users.some((user) => user.email.toLowerCase() === email)) {
         throw new ApiError('Пользователь с таким email уже существует', 400);
       }
@@ -434,6 +447,7 @@ const mockOrgApi = {
         const positionError = validatePositionAssignment(input.positionIds);
         if (positionError) throw new ApiError(positionError, 400);
       }
+      assertValidPhone(input.phone);
 
       if (input.firstName !== undefined) user.firstName = input.firstName.trim();
       if (input.lastName !== undefined) user.lastName = input.lastName.trim();
@@ -447,7 +461,6 @@ const mockOrgApi = {
 
       return user;
     }),
-
 };
 
 // ============================================================================

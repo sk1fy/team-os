@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { useSearchParams } from 'react-router-dom';
@@ -53,19 +53,21 @@ const articleTemplates = [
   {
     value: 'instruction',
     label: 'Инструкция',
-    content: plainTextToRichText(
-      'Перед началом\n\nШаг 1\n\nШаг 2\n\nШаг 3\n\nЧастые ошибки',
-    ),
+    content: plainTextToRichText('Перед началом\n\nШаг 1\n\nШаг 2\n\nШаг 3\n\nЧастые ошибки'),
   },
   {
     value: 'checklist',
     label: 'Чек-лист',
-    content: plainTextToRichText('Проверить вводные\n\nСогласовать ответственного\n\nЗафиксировать результат'),
+    content: plainTextToRichText(
+      'Проверить вводные\n\nСогласовать ответственного\n\nЗафиксировать результат',
+    ),
   },
 ];
 
 function sectionChildren(sections: ArticleSection[], parentId: ID | null) {
-  return sections.filter((section) => section.parentId === parentId).sort((a, b) => a.order - b.order);
+  return sections
+    .filter((section) => section.parentId === parentId)
+    .sort((a, b) => a.order - b.order);
 }
 
 function SectionBranch({
@@ -307,7 +309,9 @@ function AccessDialog({
           />
           <span>
             <span className="block text-sm font-medium text-slate-900">Выборочно</span>
-            <span className="text-xs text-slate-500">Отделы, должности и отдельные сотрудники.</span>
+            <span className="text-xs text-slate-500">
+              Отделы, должности и отдельные сотрудники.
+            </span>
           </span>
         </label>
 
@@ -390,6 +394,12 @@ function ArticleDrawer({
   const [status, setStatus] = useState<Article['status']>('published');
   const [requiresAcknowledgement, setRequiresAcknowledgement] = useState(false);
   const [content, setContent] = useState<RichTextContent>(emptyDoc);
+  const [errors, setErrors] = useState<Partial<Record<'title' | 'section' | 'content', string>>>(
+    {},
+  );
+  const titleRef = useRef<HTMLInputElement>(null);
+  const sectionRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -398,6 +408,7 @@ function ArticleDrawer({
     setStatus(article?.status ?? 'published');
     setRequiresAcknowledgement(article?.requiresAcknowledgement ?? false);
     setContent(article?.content ?? emptyDoc);
+    setErrors({});
   }, [article, open, sectionId, sections]);
 
   const createArticle = useMutation({
@@ -421,7 +432,17 @@ function ArticleDrawer({
 
   const save = () => {
     const trimmed = title.trim();
-    if (!trimmed || !selectedSectionId) return;
+    const nextErrors: typeof errors = {};
+    if (!trimmed) nextErrors.title = 'Укажите название статьи';
+    if (!selectedSectionId) nextErrors.section = 'Сначала создайте и выберите раздел';
+    if (!richTextToPlainText(content).trim()) nextErrors.content = 'Добавьте содержание статьи';
+    setErrors(nextErrors);
+    if (nextErrors.title) titleRef.current?.focus();
+    else if (nextErrors.section) sectionRef.current?.focus();
+    else if (nextErrors.content) {
+      editorRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
+    }
+    if (Object.keys(nextErrors).length > 0) return;
     if (article) {
       updateArticle.mutate({
         id: article.id,
@@ -460,12 +481,26 @@ function ArticleDrawer({
       }
     >
       <div className="space-y-4">
-        <Input label="Название" value={title} onChange={(event) => setTitle(event.target.value)} />
+        <Input
+          ref={titleRef}
+          label="Название"
+          value={title}
+          error={errors.title}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setErrors((current) => ({ ...current, title: undefined }));
+          }}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <Select
             label="Раздел"
+            triggerRef={sectionRef}
             value={selectedSectionId}
-            onValueChange={setSelectedSectionId}
+            onValueChange={(value) => {
+              setSelectedSectionId(value);
+              setErrors((current) => ({ ...current, section: undefined }));
+            }}
+            error={errors.section}
             options={sections.map((section) => ({ value: section.id, label: section.name }))}
           />
           <Select
@@ -495,7 +530,21 @@ function ArticleDrawer({
           />
           Требуется отметка ознакомления
         </label>
-        <RichTextEditor value={content} onChange={setContent} minHeight={420} />
+        <div ref={editorRef}>
+          <RichTextEditor
+            value={content}
+            onChange={(value) => {
+              setContent(value);
+              setErrors((current) => ({ ...current, content: undefined }));
+            }}
+            minHeight={420}
+          />
+        </div>
+        {errors.content && (
+          <p role="alert" className="text-xs text-danger-600">
+            {errors.content}
+          </p>
+        )}
       </div>
     </Drawer>
   );
@@ -554,7 +603,9 @@ function VersionsDialog({
             </button>
           ))}
           {versionsQuery.isSuccess && versionsQuery.data.length === 0 && (
-            <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">Старых версий пока нет.</p>
+            <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">
+              Старых версий пока нет.
+            </p>
           )}
         </div>
         <div className="min-h-80 rounded-md border border-slate-200 p-4">
@@ -601,7 +652,10 @@ export function KnowledgePage() {
   const [versionsOpen, setVersionsOpen] = useState(false);
 
   const sectionsQuery = useQuery({ queryKey: ['kb', 'sections'], queryFn: kbApi.getSections });
-  const articlesQuery = useQuery({ queryKey: ['kb', 'articles'], queryFn: () => kbApi.getArticles() });
+  const articlesQuery = useQuery({
+    queryKey: ['kb', 'articles'],
+    queryFn: () => kbApi.getArticles(),
+  });
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
   const acknowledgementsQuery = useQuery({
     queryKey: ['kb', 'acknowledgements', activeArticleId],
@@ -676,10 +730,13 @@ export function KnowledgePage() {
       toast.success('Раздел удалён');
       setActiveSectionId(null);
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Не удалось удалить раздел'),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить раздел'),
   });
 
-  const acknowledgedUserIds = new Set((acknowledgementsQuery.data ?? []).map((item) => item.userId));
+  const acknowledgedUserIds = new Set(
+    (acknowledgementsQuery.data ?? []).map((item) => item.userId),
+  );
 
   const copyArticleLink = async (articleId: ID) => {
     const copied = await copyText(`${window.location.origin}/share/article/${articleId}`);
@@ -745,7 +802,9 @@ export function KnowledgePage() {
                   </button>
                 ))}
                 {searchResults.length === 0 && (
-                  <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">Ничего не найдено.</p>
+                  <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">
+                    Ничего не найдено.
+                  </p>
                 )}
               </div>
             ) : (
@@ -789,7 +848,11 @@ export function KnowledgePage() {
                   </div>
                   <div className="flex gap-2">
                     {activeArticle.status === 'published' && (
-                      <Button variant="secondary" size="sm" onClick={() => copyArticleLink(activeArticle.id)}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => copyArticleLink(activeArticle.id)}
+                      >
                         <Share2 className="size-4" />
                         Поделиться
                       </Button>
@@ -860,7 +923,9 @@ export function KnowledgePage() {
                   <div>
                     <div className="mb-2 flex items-center gap-2">
                       <Folder className="size-5 text-primary-500" />
-                      <Badge variant={activeSection.access.scope === 'company' ? 'success' : 'warning'}>
+                      <Badge
+                        variant={activeSection.access.scope === 'company' ? 'success' : 'warning'}
+                      >
                         {activeSection.access.scope === 'company' ? 'Вся компания' : 'Ограничен'}
                       </Badge>
                     </div>
@@ -871,7 +936,11 @@ export function KnowledgePage() {
                       <LockKeyhole className="size-4" />
                       Доступ
                     </Button>
-                    <Button variant="secondary" size="sm" onClick={() => setSectionDialog('rename')}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSectionDialog('rename')}
+                    >
                       <Pencil className="size-4" />
                       Название
                     </Button>
@@ -885,13 +954,16 @@ export function KnowledgePage() {
                   </div>
                 </div>
                 <p className="text-sm text-slate-500">
-                  В разделе {articles.filter((article) => article.sectionId === activeSection.id).length}{' '}
+                  В разделе{' '}
+                  {articles.filter((article) => article.sectionId === activeSection.id).length}{' '}
                   статей. Создайте новую статью или настройте доступ для команды.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="p-10 text-center text-sm text-slate-500">Выберите раздел или статью.</div>
+            <div className="p-10 text-center text-sm text-slate-500">
+              Выберите раздел или статью.
+            </div>
           )}
         </main>
       </div>
@@ -903,7 +975,11 @@ export function KnowledgePage() {
         section={activeSection}
         onClose={() => setSectionDialog(null)}
       />
-      <AccessDialog section={activeSection} open={accessOpen} onClose={() => setAccessOpen(false)} />
+      <AccessDialog
+        section={activeSection}
+        open={accessOpen}
+        onClose={() => setAccessOpen(false)}
+      />
       <ArticleDrawer
         open={articleDrawer === 'create' || articleDrawer === 'edit'}
         article={articleDrawer === 'edit' ? activeArticle : undefined}
@@ -911,7 +987,11 @@ export function KnowledgePage() {
         sections={sections}
         onClose={() => setArticleDrawer(null)}
       />
-      <VersionsDialog article={activeArticle} open={versionsOpen} onClose={() => setVersionsOpen(false)} />
+      <VersionsDialog
+        article={activeArticle}
+        open={versionsOpen}
+        onClose={() => setVersionsOpen(false)}
+      />
     </div>
   );
 }

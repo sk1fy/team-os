@@ -2,7 +2,6 @@ import { useEffect, type ReactNode } from 'react';
 import { EditorContent, useEditor, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Table } from '@tiptap/extension-table';
 import TableCell from '@tiptap/extension-table-cell';
@@ -27,8 +26,7 @@ import type { RichTextContent } from '@/types';
 import { cn } from '@/lib/cn';
 
 const extensions = [
-  StarterKit,
-  Link.configure({ openOnClick: false }),
+  StarterKit.configure({ link: { openOnClick: false } }),
   Image.configure({ allowBase64: true }),
   Youtube.configure({ controls: true, nocookie: true }),
   Placeholder.configure({ placeholder: 'Начните писать...' }),

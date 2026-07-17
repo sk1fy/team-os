@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { cn } from '@/lib/cn';
 import { preventDismissOnPopoverClick } from './dismissGuard';
 
@@ -13,6 +13,7 @@ export interface ModalProps {
   /** Футер с кнопками действий. */
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }
 
 const sizeClasses = {
@@ -29,12 +30,18 @@ export function Modal({
   children,
   footer,
   size = 'md',
+  restoreFocusRef,
 }: ModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="animate-overlay-in fixed inset-0 z-40 bg-ink/35" />
         <Dialog.Content
+          onCloseAutoFocus={(event) => {
+            if (!restoreFocusRef?.current) return;
+            event.preventDefault();
+            restoreFocusRef.current.focus();
+          }}
           onPointerDownOutside={preventDismissOnPopoverClick}
           onInteractOutside={preventDismissOnPopoverClick}
           className={cn(

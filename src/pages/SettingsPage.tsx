@@ -27,6 +27,7 @@ import { toast } from '@/stores/toast';
 import { Avatar, Badge, Button, Input } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
 
 function PreviewSkeleton() {
   return (
@@ -118,8 +119,7 @@ function SettingsPreview({
                 <p className="truncate text-base font-semibold text-slate-900">{companyName}</p>
                 {company?.createdAt && (
                   <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
-                    <CalendarDays className="size-3.5 shrink-0" />
-                    С {formatDate(company.createdAt)}
+                    <CalendarDays className="size-3.5 shrink-0" />С {formatDate(company.createdAt)}
                   </p>
                 )}
               </>
@@ -135,9 +135,7 @@ function SettingsPreview({
             className="shrink-0 ring-2 ring-surface"
           />
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-600">
-              Вы
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-600">Вы</p>
             {userError ? (
               <div className="mt-1">
                 <p className="text-sm font-medium text-slate-700">Профиль не загрузился</p>
@@ -268,9 +266,7 @@ function ImageField({
           hint={hint}
           disabled={disabled}
         />
-        {value && (
-          <ClearImageButton onClick={onClear} disabled={disabled} />
-        )}
+        {value && <ClearImageButton onClick={onClear} disabled={disabled} />}
       </div>
     </div>
   );
@@ -450,12 +446,7 @@ function CompanyProfileSection() {
           </div>
         )}
 
-        <SaveBar
-          isDirty={isDirty}
-          isSaving={save.isPending}
-          savedAt={savedAt}
-          label="Компания"
-        />
+        <SaveBar isDirty={isDirty} isSaving={save.isPending} savedAt={savedAt} label="Компания" />
       </form>
     </FormPanel>
   );
@@ -470,6 +461,7 @@ function MyProfileSection() {
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [phoneError, setPhoneError] = useState<string>();
 
   useEffect(() => {
     if (userQuery.data) {
@@ -515,12 +507,20 @@ function MyProfileSection() {
       toast.error('Заполните имя и фамилию');
       return;
     }
+    if (!isValidPhone(phone)) {
+      setPhoneError(PHONE_ERROR);
+      return;
+    }
     save.mutate();
   };
 
   const busy = userQuery.isPending;
   const displayName =
-    firstName || lastName ? `${firstName} ${lastName}`.trim() : userQuery.data ? fullName(userQuery.data) : 'Профиль';
+    firstName || lastName
+      ? `${firstName} ${lastName}`.trim()
+      : userQuery.data
+        ? fullName(userQuery.data)
+        : 'Профиль';
 
   if (userQuery.isError) {
     return (
@@ -575,17 +575,23 @@ function MyProfileSection() {
           label="Телефон"
           type="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => {
+            setPhone(e.target.value);
+            setPhoneError(undefined);
+          }}
           placeholder="+7 900 000-00-00"
           hint="Необязательно. Поможет коллегам связаться с вами."
           disabled={busy}
+          error={phoneError}
         />
 
         {userQuery.data && (
           <div className="grid gap-3 sm:grid-cols-2">
             <MetaItem icon={Mail} label="Email">
               <p>{userQuery.data.email}</p>
-              <p className="mt-1 text-xs text-slate-500">Изменить email можно только через поддержку.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Изменить email можно только через поддержку.
+              </p>
             </MetaItem>
             <MetaItem icon={UserRound} label="Роль">
               <Badge variant={roleVariants[userQuery.data.role]}>
@@ -604,12 +610,7 @@ function MyProfileSection() {
           </div>
         )}
 
-        <SaveBar
-          isDirty={isDirty}
-          isSaving={save.isPending}
-          savedAt={savedAt}
-          label="Профиль"
-        />
+        <SaveBar isDirty={isDirty} isSaving={save.isPending} savedAt={savedAt} label="Профиль" />
       </form>
     </FormPanel>
   );

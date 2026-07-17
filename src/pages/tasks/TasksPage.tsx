@@ -8,6 +8,7 @@ import {
   CheckSquare,
   CircleDot,
   FileText,
+  KanbanSquare,
   LinkIcon,
   MessageSquare,
   Paperclip,
@@ -30,6 +31,7 @@ import {
   Button,
   Drawer,
   Input,
+  Modal,
   MultiSelect,
   RichTextView,
   Select,
@@ -37,6 +39,8 @@ import {
   Textarea,
 } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { cn } from '@/lib/cn';
 import { createId } from '@/lib/id';
 
@@ -84,7 +88,12 @@ function StatChip({
   } satisfies Record<typeof variant, string>;
 
   return (
-    <div className={cn('inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm', variantClasses[variant])}>
+    <div
+      className={cn(
+        'inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm',
+        variantClasses[variant],
+      )}
+    >
       <span className="text-xs font-medium text-slate-600">{label}</span>
       <span className="font-mono font-bold">{value}</span>
     </div>
@@ -201,12 +210,14 @@ function KanbanColumn({
   usersById,
   workIds,
   onOpenTask,
+  onCreateTask,
 }: {
   column: TaskColumn;
   tasks: Task[];
   usersById: Map<ID, User>;
   workIds: ReadonlySet<ID>;
   onOpenTask: (id: ID) => void;
+  onCreateTask: (columnId: ID) => void;
 }) {
   return (
     <section className="flex max-h-full min-h-80 w-80 shrink-0 flex-col rounded-lg border border-slate-200 bg-slate-50">
@@ -216,6 +227,14 @@ function KanbanColumn({
           <h3 className="truncate text-sm font-semibold text-slate-900">{column.name}</h3>
           <Badge variant="neutral">{tasks.length}</Badge>
         </div>
+        <button
+          type="button"
+          aria-label={`Добавить задачу в колонку ${column.name}`}
+          onClick={() => onCreateTask(column.id)}
+          className="rounded-md p-1 text-slate-400 hover:bg-white hover:text-primary-600"
+        >
+          <Plus className="size-4" />
+        </button>
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {tasks.map((task) => (
@@ -237,7 +256,13 @@ function KanbanColumn({
   );
 }
 
-function SectionLabel({ icon: Icon, children }: { icon: typeof FileText; children: React.ReactNode }) {
+function SectionLabel({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof FileText;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-2 text-[11px] font-bold tracking-[0.5px] text-slate-400 uppercase">
       <Icon className="size-3.5" />
@@ -259,7 +284,10 @@ function TaskDrawer({
 }) {
   const queryClient = useQueryClient();
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const articlesQuery = useQuery({ queryKey: ['kb', 'articles'], queryFn: () => kbApi.getArticles() });
+  const articlesQuery = useQuery({
+    queryKey: ['kb', 'articles'],
+    queryFn: () => kbApi.getArticles(),
+  });
   const commentsQuery = useQuery({
     queryKey: ['tasks', 'comments', task?.id],
     queryFn: () => tasksApi.getComments(task!.id),
@@ -311,7 +339,9 @@ function TaskDrawer({
 
   const checklistDone = checklist.filter((item) => item.done).length;
   const overdue =
-    Boolean(dueDate) && !task?.completedAt && new Date(`${dueDate}T23:59:59`).getTime() < Date.now();
+    Boolean(dueDate) &&
+    !task?.completedAt &&
+    new Date(`${dueDate}T23:59:59`).getTime() < Date.now();
   const comments = commentsQuery.data ?? [];
   const currentColumnName = columns.find((column) => column.id === task?.columnId)?.name ?? '—';
   const assignee = usersQuery.data?.find((user) => user.id === task?.assigneeIds[0]);
@@ -338,7 +368,9 @@ function TaskDrawer({
       onOpenChange={(next) => !next && onClose()}
       title="Задача"
       description={
-        task ? `Создана ${formatDate(task.createdAt)} · обновлена ${formatRelativeDate(task.updatedAt)}` : undefined
+        task
+          ? `Создана ${formatDate(task.createdAt)} · обновлена ${formatRelativeDate(task.updatedAt)}`
+          : undefined
       }
       size="xl"
       footer={
@@ -476,7 +508,9 @@ function TaskDrawer({
                   variant="secondary"
                   size="sm"
                   onClick={() =>
-                    toast.success('Мок-загрузка: файл появится после подключения реального хранилища')
+                    toast.success(
+                      'Мок-загрузка: файл появится после подключения реального хранилища',
+                    )
                   }
                 >
                   <Plus className="size-4" />
@@ -499,7 +533,11 @@ function TaskDrawer({
                   const author = usersQuery.data?.find((user) => user.id === item.authorId);
                   return (
                     <div key={item.id} className="flex gap-3">
-                      <Avatar name={author ? fullName(author) : '?'} src={author?.avatarUrl} size="sm" />
+                      <Avatar
+                        name={author ? fullName(author) : '?'}
+                        src={author?.avatarUrl}
+                        size="sm"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-2">
                           <span className="text-sm font-semibold text-slate-900">
@@ -521,7 +559,8 @@ function TaskDrawer({
                     value={comment}
                     onChange={(event) => setComment(event.target.value)}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) submitComment();
+                      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey))
+                        submitComment();
                     }}
                     placeholder="Написать комментарий… (Cmd+Enter — отправить)"
                     rows={2}
@@ -558,7 +597,9 @@ function TaskDrawer({
                 value={dueDate}
                 onChange={(event) => setDueDate(event.target.value)}
               />
-              {overdue && <p className="mt-1.5 text-xs font-semibold text-danger-600">Срок истёк</p>}
+              {overdue && (
+                <p className="mt-1.5 text-xs font-semibold text-danger-600">Срок истёк</p>
+              )}
             </div>
 
             <div>
@@ -626,7 +667,8 @@ function TaskDrawer({
                   options={[
                     {
                       value: 'none',
-                      label: availableArticles.length === 0 ? 'Все статьи связаны' : 'Добавить статью',
+                      label:
+                        availableArticles.length === 0 ? 'Все статьи связаны' : 'Добавить статью',
                       disabled: true,
                     },
                     ...availableArticles.map((article) => ({
@@ -662,12 +704,20 @@ function monthDays(tasks: Task[]) {
 
 export function TasksPage() {
   useTitle('Задачи — TeamOS');
+  const queryClient = useQueryClient();
   const [view, setView] = useState('kanban');
   const [selectedTaskId, setSelectedTaskId] = useState<ID | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState<ID[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [deadlineFilter, setDeadlineFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [columnOpen, setColumnOpen] = useState(false);
+  const [columnName, setColumnName] = useState('');
+  const [columnError, setColumnError] = useState<string>();
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskColumnId, setTaskColumnId] = useState<ID>('');
+  const [taskErrors, setTaskErrors] = useState<Partial<Record<'title' | 'column', string>>>({});
 
   const boardsQuery = useQuery({ queryKey: ['tasks', 'boards'], queryFn: tasksApi.getBoards });
   const boardId = boardsQuery.data?.[0]?.id;
@@ -698,15 +748,81 @@ export function TasksPage() {
       ),
     [assigneeFilter, tasks],
   );
-  const stats = useMemo(() => boardStats(assigneeScopedTasks, columns), [assigneeScopedTasks, columns]);
+  const stats = useMemo(
+    () => boardStats(assigneeScopedTasks, columns),
+    [assigneeScopedTasks, columns],
+  );
   const workIds = useMemo(() => workColumnIds(columns), [columns]);
-  const statsLoading = tasksQuery.isPending || columnsQuery.isPending;
+  const statsLoading =
+    boardsQuery.isPending || (Boolean(boardId) && (tasksQuery.isPending || columnsQuery.isPending));
+  const boardLoading =
+    boardsQuery.isPending || (Boolean(boardId) && (columnsQuery.isPending || tasksQuery.isPending));
+  const boardError =
+    boardsQuery.isError || columnsQuery.isError || tasksQuery.isError || usersQuery.isError;
+
+  const createColumn = useMutation({
+    mutationFn: () => tasksApi.createColumn({ boardId: boardId!, name: columnName.trim() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'columns', boardId] });
+      setColumnOpen(false);
+      setColumnName('');
+      setColumnError(undefined);
+      toast.success('Колонка создана');
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось создать колонку'),
+  });
+
+  const submitColumn = () => {
+    if (!columnName.trim()) {
+      setColumnError('Укажите название колонки');
+      return;
+    }
+    createColumn.mutate();
+  };
+
+  const createTask = useMutation({
+    mutationFn: () =>
+      tasksApi.createTask({
+        boardId: boardId!,
+        columnId: taskColumnId,
+        title: taskTitle.trim(),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      setTaskOpen(false);
+      setTaskTitle('');
+      setTaskErrors({});
+      toast.success('Задача создана');
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось создать задачу'),
+  });
+
+  const openTaskCreate = (columnId = columns[0]?.id ?? '') => {
+    setTaskColumnId(columnId);
+    setTaskTitle('');
+    setTaskErrors({});
+    setTaskOpen(true);
+  };
+
+  const submitTask = () => {
+    const nextErrors: typeof taskErrors = {};
+    if (!taskTitle.trim()) nextErrors.title = 'Укажите название задачи';
+    if (!taskColumnId) nextErrors.column = 'Выберите колонку';
+    setTaskErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+    createTask.mutate();
+  };
 
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
     const now = Date.now();
     return assigneeScopedTasks.filter((task) => {
-      if (query && !`${task.title} ${richTextToPlainText(task.description)}`.toLowerCase().includes(query)) {
+      if (
+        query &&
+        !`${task.title} ${richTextToPlainText(task.description)}`.toLowerCase().includes(query)
+      ) {
         return false;
       }
       if (statusFilter === 'done' && !task.completedAt) return false;
@@ -733,6 +849,21 @@ export function TasksPage() {
         <PageHeader
           title="Задачи"
           description="Общая доска задач компании: бэклог, фокус на сегодня, работа и готовый результат."
+          actions={
+            boardId && (
+              <>
+                {columns.length > 0 && (
+                  <Button onClick={() => openTaskCreate()}>
+                    <Plus className="size-4" />
+                    Создать задачу
+                  </Button>
+                )}
+                <Button variant="secondary" onClick={() => setColumnOpen(true)}>
+                  Создать колонку
+                </Button>
+              </>
+            )
+          }
         />
 
         <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_220px_160px_160px]">
@@ -750,7 +881,9 @@ export function TasksPage() {
             values={assigneeFilter}
             onValuesChange={setAssigneeFilter}
             placeholder="Все сотрудники"
-            formatCount={(count) => `${count} ${pluralRu(count, 'сотрудник', 'сотрудника', 'сотрудников')}`}
+            formatCount={(count) =>
+              `${count} ${pluralRu(count, 'сотрудник', 'сотрудника', 'сотрудников')}`
+            }
             options={users.map((user) => ({ value: user.id, label: fullName(user) }))}
           />
           <Select
@@ -776,8 +909,16 @@ export function TasksPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <StatChip label="В работе" value={statsLoading ? '—' : stats.inWork} variant="primary" />
           <StatChip label="На сегодня" value={statsLoading ? '—' : stats.today} variant="warning" />
-          <StatChip label="Просрочено" value={statsLoading ? '—' : stats.overdue} variant="danger" />
-          <StatChip label="Готово за 7 дней" value={statsLoading ? '—' : stats.doneLast7Days} variant="success" />
+          <StatChip
+            label="Просрочено"
+            value={statsLoading ? '—' : stats.overdue}
+            variant="danger"
+          />
+          <StatChip
+            label="Готово за 7 дней"
+            value={statsLoading ? '—' : stats.doneLast7Days}
+            variant="success"
+          />
         </div>
       </div>
 
@@ -790,18 +931,57 @@ export function TasksPage() {
               value: 'kanban',
               label: 'Канбан',
               content: (
-                <div className="flex h-[calc(100dvh-260px)] gap-4 overflow-x-auto pb-3">
-                  {boardColumns.map((view) => (
-                    <KanbanColumn
-                      key={view.column.id}
-                      column={view.column}
-                      tasks={view.tasks}
-                      usersById={usersById}
-                      workIds={workIds}
-                      onOpenTask={setSelectedTaskId}
+                <>
+                  {boardLoading && (
+                    <div className="h-64 animate-pulse rounded-lg bg-slate-200/60" />
+                  )}
+                  {!boardLoading && boardError && (
+                    <ErrorState
+                      title="Не удалось загрузить доску задач"
+                      onRetry={() => {
+                        boardsQuery.refetch();
+                        columnsQuery.refetch();
+                        tasksQuery.refetch();
+                        usersQuery.refetch();
+                      }}
                     />
-                  ))}
-                </div>
+                  )}
+                  {!boardLoading && !boardError && !boardId && (
+                    <EmptyState
+                      icon={KanbanSquare}
+                      title="Доска задач не настроена"
+                      description="Обратитесь к администратору: для компании не создана основная доска задач."
+                    />
+                  )}
+                  {!boardLoading && !boardError && boardId && columns.length === 0 && (
+                    <EmptyState
+                      icon={KanbanSquare}
+                      title="Создайте первую колонку"
+                      description="Например, «Бэклог», «В работе» или «Готово». После этого на доске можно будет создавать задачи."
+                      action={
+                        <Button onClick={() => setColumnOpen(true)}>
+                          <Plus className="size-4" />
+                          Создать колонку
+                        </Button>
+                      }
+                    />
+                  )}
+                  {!boardLoading && !boardError && columns.length > 0 && (
+                    <div className="flex h-[calc(100dvh-260px)] gap-4 overflow-x-auto pb-3">
+                      {boardColumns.map((view) => (
+                        <KanbanColumn
+                          key={view.column.id}
+                          column={view.column}
+                          tasks={view.tasks}
+                          usersById={usersById}
+                          workIds={workIds}
+                          onOpenTask={setSelectedTaskId}
+                          onCreateTask={openTaskCreate}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               ),
             },
             {
@@ -847,7 +1027,9 @@ export function TasksPage() {
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2 text-slate-400">
-                                {task.linkedArticleIds.length > 0 && <FileText className="size-4" />}
+                                {task.linkedArticleIds.length > 0 && (
+                                  <FileText className="size-4" />
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -868,7 +1050,10 @@ export function TasksPage() {
                   </div>
                   <div className="grid grid-cols-7 gap-px overflow-hidden rounded-md border border-slate-200 bg-slate-200">
                     {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day) => (
-                      <div key={day} className="bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-500">
+                      <div
+                        key={day}
+                        className="bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-500"
+                      >
                         {day}
                       </div>
                     ))}
@@ -883,7 +1068,9 @@ export function TasksPage() {
                       );
                       return (
                         <div key={day.toISOString()} className="min-h-28 bg-white p-2">
-                          <div className="mb-2 text-xs font-medium text-slate-500">{day.getDate()}</div>
+                          <div className="mb-2 text-xs font-medium text-slate-500">
+                            {day.getDate()}
+                          </div>
                           <div className="space-y-1">
                             {dayTasks.map((task) => (
                               <button
@@ -913,6 +1100,93 @@ export function TasksPage() {
         onClose={() => setSelectedTaskId(null)}
         columns={columns}
       />
+      <Modal
+        open={columnOpen}
+        onOpenChange={(open) => {
+          setColumnOpen(open);
+          if (!open) {
+            setColumnName('');
+            setColumnError(undefined);
+          }
+        }}
+        title="Новая колонка"
+        description="Колонки задают этапы движения задач по доске."
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setColumnOpen(false)}>
+              Отмена
+            </Button>
+            <Button loading={createColumn.isPending} onClick={submitColumn}>
+              Создать
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Название колонки"
+          value={columnName}
+          autoFocus
+          error={columnError}
+          placeholder="Например, Бэклог"
+          onChange={(event) => {
+            setColumnName(event.target.value);
+            setColumnError(undefined);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              submitColumn();
+            }
+          }}
+        />
+      </Modal>
+      <Modal
+        open={taskOpen}
+        onOpenChange={(open) => {
+          setTaskOpen(open);
+          if (!open) {
+            setTaskTitle('');
+            setTaskErrors({});
+          }
+        }}
+        title="Новая задача"
+        description="Добавьте задачу в выбранную колонку."
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setTaskOpen(false)}>
+              Отмена
+            </Button>
+            <Button loading={createTask.isPending} onClick={submitTask}>
+              Создать
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Название задачи"
+            value={taskTitle}
+            autoFocus
+            error={taskErrors.title}
+            onChange={(event) => {
+              setTaskTitle(event.target.value);
+              setTaskErrors((current) => ({ ...current, title: undefined }));
+            }}
+          />
+          <Select
+            label="Колонка"
+            value={taskColumnId}
+            error={taskErrors.column}
+            options={columns.map((column) => ({ value: column.id, label: column.name }))}
+            onValueChange={(value) => {
+              setTaskColumnId(value);
+              setTaskErrors((current) => ({ ...current, column: undefined }));
+            }}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

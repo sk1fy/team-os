@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
 import {
   Calendar,
   ChevronLeft,
@@ -30,17 +37,25 @@ import { Avatar, Badge, Button, Drawer, Modal, Select } from '@/components/ui';
 import { EmployeeEditModal } from './EmployeeEditModal';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
+import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-const monthShortNames = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const monthShortNames = [
+  'янв',
+  'фев',
+  'мар',
+  'апр',
+  'май',
+  'июн',
+  'июл',
+  'авг',
+  'сен',
+  'окт',
+  'ноя',
+  'дек',
+];
 
-export function EmployeeDrawer({
-  userId,
-  onClose,
-}: {
-  userId: ID | null;
-  onClose: () => void;
-}) {
+export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose: () => void }) {
   const open = Boolean(userId);
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
@@ -68,11 +83,15 @@ export function EmployeeDrawer({
     end: '18:00',
     manual: {} as Record<string, 'work' | 'off'>,
   });
-  const [cycleYm, setCycleYm] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 }));
+  const [cycleYm, setCycleYm] = useState(() => ({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+  }));
   const [vacationYear, setVacationYear] = useState(() => new Date().getFullYear());
   const [vacationNorm, setVacationNorm] = useState(28);
   const [vacationDraft, setVacationDraft] = useState({ from: '', to: '' });
-  const now = new Date();
+  const [phoneError, setPhoneError] = useState<string>();
+  const now = useMemo(() => new Date(), []);
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const userQuery = useQuery({
@@ -133,7 +152,10 @@ export function EmployeeDrawer({
     remaining: vacationNorm,
   };
   const vacationRanges = useMemo(
-    () => groupVacationRanges(vacations).filter((range) => daysInYear(range.from, range.to, vacationYear) > 0),
+    () =>
+      groupVacationRanges(vacations).filter(
+        (range) => daysInYear(range.from, range.to, vacationYear) > 0,
+      ),
     [vacations, vacationYear],
   );
   const hiredYears = profileDraft.hire ? fullYearsSince(profileDraft.hire) : undefined;
@@ -149,7 +171,7 @@ export function EmployeeDrawer({
       birth: user.birthDate ?? '',
     });
     setVacationNorm(user.vacationAllowance ?? 28);
-  }, [open, user?.id, user?.firstName, user?.lastName, user?.phone, user?.hiredAt, user?.birthDate, user?.vacationAllowance, primaryPosition?.id]);
+  }, [open, user, primaryPosition?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -175,7 +197,7 @@ export function EmployeeDrawer({
       manual: {},
     });
     setCycleYm({ year: now.getFullYear(), month: now.getMonth() + 1 });
-  }, [open, schedule?.userId, schedule?.template]);
+  }, [open, schedule?.userId, schedule?.template, now]);
 
   const savePanel = useMutation({
     mutationFn: async () => {
@@ -224,7 +246,9 @@ export function EmployeeDrawer({
       onClose();
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : 'Не удалось сохранить панель сотрудника'),
+      toast.error(
+        error instanceof Error ? error.message : 'Не удалось сохранить панель сотрудника',
+      ),
   });
 
   const deleteMutation = useMutation({
@@ -260,7 +284,10 @@ export function EmployeeDrawer({
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.exceptions });
       setVacationDraft({ from: '', to: '' });
-      toast.success('Отпуск добавлен в график', `${saved.length} ${pluralRu(saved.length, 'день', 'дня', 'дней')}`);
+      toast.success(
+        'Отпуск добавлен в график',
+        `${saved.length} ${pluralRu(saved.length, 'день', 'дня', 'дней')}`,
+      );
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось добавить отпуск'),
@@ -298,7 +325,9 @@ export function EmployeeDrawer({
                   onClick={() => setView('side')}
                   className={cn(
                     'flex size-8 cursor-pointer items-center justify-center rounded-[7px] transition-colors',
-                    view === 'side' ? 'bg-surface text-primary-600 shadow-sm' : 'text-slate-400 hover:text-slate-700',
+                    view === 'side'
+                      ? 'bg-surface text-primary-600 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-700',
                   )}
                 >
                   <PanelRight className="size-4" />
@@ -309,7 +338,9 @@ export function EmployeeDrawer({
                   onClick={() => setView('center')}
                   className={cn(
                     'flex size-8 cursor-pointer items-center justify-center rounded-[7px] transition-colors',
-                    view === 'center' ? 'bg-surface text-primary-600 shadow-sm' : 'text-slate-400 hover:text-slate-700',
+                    view === 'center'
+                      ? 'bg-surface text-primary-600 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-700',
                   )}
                 >
                   <Square className="size-4" />
@@ -340,7 +371,9 @@ export function EmployeeDrawer({
                   <Button
                     variant="danger"
                     onClick={() => {
-                      if (confirm(`Удалить сотрудника ${fullName(user)}? Это действие необратимо.`)) {
+                      if (
+                        confirm(`Удалить сотрудника ${fullName(user)}? Это действие необратимо.`)
+                      ) {
                         deleteMutation.mutate();
                       }
                     }}
@@ -351,7 +384,17 @@ export function EmployeeDrawer({
                   </Button>
                 )}
               </div>
-              <Button onClick={() => savePanel.mutate()} disabled={savePanel.isPending}>
+              <Button
+                onClick={() => {
+                  if (!isValidPhone(profileDraft.phone)) {
+                    setPhoneError(PHONE_ERROR);
+                    return;
+                  }
+                  setPhoneError(undefined);
+                  savePanel.mutate();
+                }}
+                disabled={savePanel.isPending}
+              >
                 {savePanel.isPending ? 'Сохраняю' : 'Сохранить'}
               </Button>
               <Button variant="ghost" onClick={onClose}>
@@ -371,194 +414,239 @@ export function EmployeeDrawer({
 
         {user && (
           <>
-          <div className="flex flex-col gap-5">
-            {user.status === 'deactivated' && (
-              <div className="rounded-md border border-danger-100 bg-danger-50 px-3 py-2 text-sm font-semibold text-danger-700">
-                Сотрудник деактивирован. Чтобы вернуть доступ, откройте редактирование и смените статус.
-              </div>
-            )}
-
-            <PanelSection title="Профиль сотрудника">
-              <PanelInput label="Имя" value={profileDraft.fullName} onChange={(value) => setProfileDraft((draft) => ({ ...draft, fullName: value }))} />
-              <Select
-                label="Должность"
-                options={positionOptions}
-                value={profileDraft.positionId}
-                onValueChange={(positionId) =>
-                  setProfileDraft((draft) => ({ ...draft, positionId }))
-                }
-              />
-              <PanelInput label="Телефон" value={profileDraft.phone} placeholder="+7 900 000-00-00" onChange={(value) => setProfileDraft((draft) => ({ ...draft, phone: value }))} />
-              <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
-                <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />
-                <span>Фото подтягивается автоматически из amoCRM</span>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-0.5">
-                <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
-                <Badge variant={userStatusVariants[user.status]}>{userStatusLabels[user.status]}</Badge>
-                {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
-                {primaryDepartment && <Badge variant="neutral">{primaryDepartment.name}</Badge>}
-              </div>
-            </PanelSection>
-
-            <PanelSection title="Рабочий шаблон">
-              <p className="text-[13px] leading-relaxed text-slate-500">
-                Выберите базовый режим, который будет применён к календарю сотрудника.
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <ScheduleModeCard
-                  active={scheduleType === 'week'}
-                  onClick={() => setScheduleType('week')}
-                  badge="5/2"
-                  title="Рабочая неделя"
-                  description="Настройка дней недели вручную"
-                />
-                <ScheduleModeCard
-                  active={scheduleType === 'cycle'}
-                  onClick={() => setScheduleType('cycle')}
-                  badge={scheduleType === 'cycle' ? `${cycleDraft.on}/${cycleDraft.off}` : '2/2'}
-                  title="Сменный график"
-                  description="Цикл рабочих и выходных дней"
-                />
-              </div>
-              {scheduleType === 'week' ? (
-                <WeekTemplateEditor draft={weekDraft} onChange={setWeekDraft} />
-              ) : (
-                <CycleTemplateEditor
-                  draft={cycleDraft}
-                  onChange={setCycleDraft}
-                  ym={cycleYm}
-                  onYmChange={setCycleYm}
-                  todayYear={now.getFullYear()}
-                  todayMonth={now.getMonth() + 1}
-                />
+            <div className="flex flex-col gap-5">
+              {user.status === 'deactivated' && (
+                <div className="rounded-md border border-danger-100 bg-danger-50 px-3 py-2 text-sm font-semibold text-danger-700">
+                  Сотрудник деактивирован. Чтобы вернуть доступ, откройте редактирование и смените
+                  статус.
+                </div>
               )}
-            </PanelSection>
-          </div>
 
-          <div className="flex flex-col gap-5">
-            <PanelSection title="Важные даты">
-              <PanelInput
-                label="Дата найма"
-                value={profileDraft.hire}
-                type="date"
-                placeholder="дд.мм.гггг"
-                icon={<Calendar className="size-4" />}
-                onChange={(value) => setProfileDraft((draft) => ({ ...draft, hire: value }))}
-              />
-              <InfoRow
-                icon={<span className="text-lg leading-none">🎉</span>}
-                text={
-                  profileDraft.hire && hiredYears !== undefined
-                    ? `Стаж: ${hiredYears} ${pluralRu(hiredYears, 'год', 'года', 'лет')}. Годовщина — ${formatHumanDate(profileDraft.hire)}.`
-                    : 'Дата найма пока не указана.'
-                }
-              />
-              <PanelInput
-                label="Дата рождения"
-                value={profileDraft.birth}
-                type="date"
-                placeholder="дд.мм.гггг"
-                icon={<Calendar className="size-4" />}
-                onChange={(value) => setProfileDraft((draft) => ({ ...draft, birth: value }))}
-              />
-              <InfoRow
-                icon={<span className="text-lg leading-none">🎂</span>}
-                text={
-                  profileDraft.birth && age !== undefined
-                    ? `День рождения — ${formatHumanDate(profileDraft.birth)}. Исполнится ${age + 1}.`
-                    : 'Дата рождения пока не указана.'
-                }
-              />
-            </PanelSection>
-
-            <PanelSection title="Отпуска">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-700">Базовая норма:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={60}
-                  step={1}
-                  value={vacationNorm}
-                  onChange={(event) => setVacationNorm(clampVacationNorm(event.target.value))}
-                  className="h-10 w-16 rounded-md border border-slate-200 bg-surface px-3 text-center font-mono text-sm font-semibold text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
+              <PanelSection title="Профиль сотрудника">
+                <PanelInput
+                  label="Имя"
+                  value={profileDraft.fullName}
+                  onChange={(value) => setProfileDraft((draft) => ({ ...draft, fullName: value }))}
                 />
-                <span className="text-sm text-slate-500">дней в год</span>
-              </div>
-              <VacationLedger rows={vacationLedgerRows} currentYear={now.getFullYear()} />
-              <div className="flex gap-2">
-                {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((year) => (
-                  <button
-                    type="button"
-                    onClick={() => setVacationYear(year)}
-                    key={year}
-                    className={cn(
-                      'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold',
-                      year === vacationYear
-                        ? 'border-primary-600 bg-primary-600 text-white'
-                        : 'border-slate-200 bg-surface text-slate-500',
-                    )}
-                  >
-                    {year}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                <span>
-                  🌴 {vacationYear}: использовано <b className="font-mono text-ink">{selectedVacationRow.used}</b> из {selectedVacationRow.available} дн
-                  {selectedVacationRow.carry ? (
-                    <span className="text-slate-500"> (норма {selectedVacationRow.norm} + перенос {selectedVacationRow.carry})</span>
-                  ) : null}
-                </span>
-                <span className="h-1.5 w-10 rounded-full bg-slate-200">
-                  <span
-                    className="block h-full rounded-full bg-primary-600"
-                    style={{ width: `${Math.min(100, selectedVacationRow.available ? (selectedVacationRow.used / selectedVacationRow.available) * 100 : 0)}%` }}
+                <Select
+                  label="Должность"
+                  options={positionOptions}
+                  value={profileDraft.positionId}
+                  onValueChange={(positionId) =>
+                    setProfileDraft((draft) => ({ ...draft, positionId }))
+                  }
+                />
+                <PanelInput
+                  label="Телефон"
+                  value={profileDraft.phone}
+                  placeholder="+7 900 000-00-00"
+                  error={phoneError}
+                  onChange={(value) => {
+                    setProfileDraft((draft) => ({ ...draft, phone: value }));
+                    setPhoneError(undefined);
+                  }}
+                />
+                <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
+                  <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />
+                  <span>Фото подтягивается автоматически из amoCRM</span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
+                  <Badge variant={userStatusVariants[user.status]}>
+                    {userStatusLabels[user.status]}
+                  </Badge>
+                  {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
+                  {primaryDepartment && <Badge variant="neutral">{primaryDepartment.name}</Badge>}
+                </div>
+              </PanelSection>
+
+              <PanelSection title="Рабочий шаблон">
+                <p className="text-[13px] leading-relaxed text-slate-500">
+                  Выберите базовый режим, который будет применён к календарю сотрудника.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <ScheduleModeCard
+                    active={scheduleType === 'week'}
+                    onClick={() => setScheduleType('week')}
+                    badge="5/2"
+                    title="Рабочая неделя"
+                    description="Настройка дней недели вручную"
                   />
-                </span>
-              </div>
-              {vacationRanges.length ? (
-                <VacationRangeList ranges={vacationRanges} year={vacationYear} />
-              ) : (
-                <div className="py-3 text-center text-sm text-slate-500">За {vacationYear} год отпусков нет</div>
-              )}
-              <div className="text-sm font-semibold text-slate-700">Запланировать новый отпуск</div>
-              <div className="grid grid-cols-2 gap-2">
-                <PanelInput value={vacationDraft.from} type="date" placeholder="дд.мм.гггг" icon={<Calendar className="size-4" />} onChange={(value) => setVacationDraft((draft) => ({ ...draft, from: value }))} />
-                <PanelInput value={vacationDraft.to} type="date" placeholder="дд.мм.гггг" icon={<Calendar className="size-4" />} onChange={(value) => setVacationDraft((draft) => ({ ...draft, to: value }))} />
-              </div>
-              <button
-                type="button"
-                onClick={() => addVacation.mutate()}
-                disabled={addVacation.isPending}
-                className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-semibold text-slate-700 transition-colors hover:border-primary-200 hover:text-primary-600"
-              >
-                <Plus className="size-4" />
-                {addVacation.isPending ? 'Добавляю' : 'Добавить в график'}
-              </button>
-            </PanelSection>
+                  <ScheduleModeCard
+                    active={scheduleType === 'cycle'}
+                    onClick={() => setScheduleType('cycle')}
+                    badge={scheduleType === 'cycle' ? `${cycleDraft.on}/${cycleDraft.off}` : '2/2'}
+                    title="Сменный график"
+                    description="Цикл рабочих и выходных дней"
+                  />
+                </div>
+                {scheduleType === 'week' ? (
+                  <WeekTemplateEditor draft={weekDraft} onChange={setWeekDraft} />
+                ) : (
+                  <CycleTemplateEditor
+                    draft={cycleDraft}
+                    onChange={setCycleDraft}
+                    ym={cycleYm}
+                    onYmChange={setCycleYm}
+                    todayYear={now.getFullYear()}
+                    todayMonth={now.getMonth() + 1}
+                  />
+                )}
+              </PanelSection>
+            </div>
 
-            <PanelSection title="Больничные и командировки">
-              <button
-                type="button"
-                onClick={() => setAbsenceOpen(true)}
-                className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-surface px-3 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="text-lg">😉</span>
-                  <span className="text-lg">✈️</span>
-                  <span className="block text-sm font-semibold text-ink">Открыть сводку по годам</span>
-                </span>
-                <span className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                  <span>😉 <span className="font-mono">{sickDays.length}</span></span>
-                  <span>✈️ <span className="font-mono">{trips.length}</span></span>
-                  <span className="text-xs text-slate-400">за {now.getFullYear()}</span>
-                  <ChevronRight className="size-4 text-slate-400" />
-                </span>
-              </button>
-            </PanelSection>
-          </div>
+            <div className="flex flex-col gap-5">
+              <PanelSection title="Важные даты">
+                <PanelInput
+                  label="Дата найма"
+                  value={profileDraft.hire}
+                  type="date"
+                  placeholder="дд.мм.гггг"
+                  icon={<Calendar className="size-4" />}
+                  onChange={(value) => setProfileDraft((draft) => ({ ...draft, hire: value }))}
+                />
+                <InfoRow
+                  icon={<span className="text-lg leading-none">🎉</span>}
+                  text={
+                    profileDraft.hire && hiredYears !== undefined
+                      ? `Стаж: ${hiredYears} ${pluralRu(hiredYears, 'год', 'года', 'лет')}. Годовщина — ${formatHumanDate(profileDraft.hire)}.`
+                      : 'Дата найма пока не указана.'
+                  }
+                />
+                <PanelInput
+                  label="Дата рождения"
+                  value={profileDraft.birth}
+                  type="date"
+                  placeholder="дд.мм.гггг"
+                  icon={<Calendar className="size-4" />}
+                  onChange={(value) => setProfileDraft((draft) => ({ ...draft, birth: value }))}
+                />
+                <InfoRow
+                  icon={<span className="text-lg leading-none">🎂</span>}
+                  text={
+                    profileDraft.birth && age !== undefined
+                      ? `День рождения — ${formatHumanDate(profileDraft.birth)}. Исполнится ${age + 1}.`
+                      : 'Дата рождения пока не указана.'
+                  }
+                />
+              </PanelSection>
+
+              <PanelSection title="Отпуска">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-700">Базовая норма:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    step={1}
+                    value={vacationNorm}
+                    onChange={(event) => setVacationNorm(clampVacationNorm(event.target.value))}
+                    className="h-10 w-16 rounded-md border border-slate-200 bg-surface px-3 text-center font-mono text-sm font-semibold text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
+                  />
+                  <span className="text-sm text-slate-500">дней в год</span>
+                </div>
+                <VacationLedger rows={vacationLedgerRows} currentYear={now.getFullYear()} />
+                <div className="flex gap-2">
+                  {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((year) => (
+                    <button
+                      type="button"
+                      onClick={() => setVacationYear(year)}
+                      key={year}
+                      className={cn(
+                        'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold',
+                        year === vacationYear
+                          ? 'border-primary-600 bg-primary-600 text-white'
+                          : 'border-slate-200 bg-surface text-slate-500',
+                      )}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-600">
+                  <span>
+                    🌴 {vacationYear}: использовано{' '}
+                    <b className="font-mono text-ink">{selectedVacationRow.used}</b> из{' '}
+                    {selectedVacationRow.available} дн
+                    {selectedVacationRow.carry ? (
+                      <span className="text-slate-500">
+                        {' '}
+                        (норма {selectedVacationRow.norm} + перенос {selectedVacationRow.carry})
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="h-1.5 w-10 rounded-full bg-slate-200">
+                    <span
+                      className="block h-full rounded-full bg-primary-600"
+                      style={{
+                        width: `${Math.min(100, selectedVacationRow.available ? (selectedVacationRow.used / selectedVacationRow.available) * 100 : 0)}%`,
+                      }}
+                    />
+                  </span>
+                </div>
+                {vacationRanges.length ? (
+                  <VacationRangeList ranges={vacationRanges} year={vacationYear} />
+                ) : (
+                  <div className="py-3 text-center text-sm text-slate-500">
+                    За {vacationYear} год отпусков нет
+                  </div>
+                )}
+                <div className="text-sm font-semibold text-slate-700">
+                  Запланировать новый отпуск
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <PanelInput
+                    value={vacationDraft.from}
+                    type="date"
+                    placeholder="дд.мм.гггг"
+                    icon={<Calendar className="size-4" />}
+                    onChange={(value) => setVacationDraft((draft) => ({ ...draft, from: value }))}
+                  />
+                  <PanelInput
+                    value={vacationDraft.to}
+                    type="date"
+                    placeholder="дд.мм.гггг"
+                    icon={<Calendar className="size-4" />}
+                    onChange={(value) => setVacationDraft((draft) => ({ ...draft, to: value }))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addVacation.mutate()}
+                  disabled={addVacation.isPending}
+                  className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-semibold text-slate-700 transition-colors hover:border-primary-200 hover:text-primary-600"
+                >
+                  <Plus className="size-4" />
+                  {addVacation.isPending ? 'Добавляю' : 'Добавить в график'}
+                </button>
+              </PanelSection>
+
+              <PanelSection title="Больничные и командировки">
+                <button
+                  type="button"
+                  onClick={() => setAbsenceOpen(true)}
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-surface px-3 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="text-lg">😉</span>
+                    <span className="text-lg">✈️</span>
+                    <span className="block text-sm font-semibold text-ink">
+                      Открыть сводку по годам
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                    <span>
+                      😉 <span className="font-mono">{sickDays.length}</span>
+                    </span>
+                    <span>
+                      ✈️ <span className="font-mono">{trips.length}</span>
+                    </span>
+                    <span className="text-xs text-slate-400">за {now.getFullYear()}</span>
+                    <ChevronRight className="size-4 text-slate-400" />
+                  </span>
+                </button>
+              </PanelSection>
+            </div>
           </>
         )}
       </Drawer>
@@ -622,12 +710,23 @@ function AbsenceSummaryModal({
                   : 'border-slate-200 bg-surface text-slate-500 hover:border-primary-200 hover:text-primary-600',
               )}
             >
-              {item}{item === year ? ' · тек.' : ''}
+              {item}
+              {item === year ? ' · тек.' : ''}
             </button>
           ))}
         </div>
-        <AbsenceYearCard icon="😉" title="Больничный" year={selectedYear} items={selectedYear === year ? sickDays : []} />
-        <AbsenceYearCard icon="✈️" title="Командировка" year={selectedYear} items={selectedYear === year ? trips : []} />
+        <AbsenceYearCard
+          icon="😉"
+          title="Больничный"
+          year={selectedYear}
+          items={selectedYear === year ? sickDays : []}
+        />
+        <AbsenceYearCard
+          icon="✈️"
+          title="Командировка"
+          year={selectedYear}
+          items={selectedYear === year ? trips : []}
+        />
       </div>
     </Modal>
   );
@@ -693,6 +792,7 @@ function PanelInput({
   placeholder,
   icon,
   type = 'text',
+  error,
   onChange,
 }: {
   label?: string;
@@ -700,6 +800,7 @@ function PanelInput({
   placeholder?: string;
   icon?: ReactNode;
   type?: 'text' | 'date' | 'time' | 'number';
+  error?: string;
   onChange?: (value: string) => void;
 }) {
   const showIcon = Boolean(icon && type !== 'date');
@@ -715,12 +816,17 @@ function PanelInput({
           placeholder={placeholder}
           onChange={(event) => onChange?.(event.target.value)}
           className={cn(
-            'h-9.5 w-full rounded-md border border-slate-200 bg-surface px-3 text-sm font-medium text-slate-700 placeholder:text-slate-400',
+            'h-9.5 w-full rounded-md border bg-surface px-3 text-sm font-medium text-slate-700 placeholder:text-slate-400',
+            error ? 'border-danger-500' : 'border-slate-200',
             showIcon && 'pr-9',
           )}
+          aria-invalid={error ? true : undefined}
         />
-        {showIcon && <span className="absolute top-1/2 right-3 -translate-y-1/2 text-ink">{icon}</span>}
+        {showIcon && (
+          <span className="absolute top-1/2 right-3 -translate-y-1/2 text-ink">{icon}</span>
+        )}
       </span>
+      {error && <span className="text-xs text-danger-600">{error}</span>}
     </label>
   );
 }
@@ -737,7 +843,12 @@ function ToggleRow({
   children?: ReactNode;
 }) {
   return (
-    <div className={cn('flex items-center gap-3 border-b border-slate-100 py-2 last:border-b-0', !active && 'text-slate-500')}>
+    <div
+      className={cn(
+        'flex items-center gap-3 border-b border-slate-100 py-2 last:border-b-0',
+        !active && 'text-slate-500',
+      )}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -754,7 +865,11 @@ function ToggleRow({
           )}
         />
       </button>
-      <span className={cn('min-w-0 flex-1 text-sm', active ? 'font-medium text-ink' : 'text-slate-500')}>{label}</span>
+      <span
+        className={cn('min-w-0 flex-1 text-sm', active ? 'font-medium text-ink' : 'text-slate-500')}
+      >
+        {label}
+      </span>
       {children}
     </div>
   );
@@ -840,7 +955,9 @@ function WeekTemplateEditor({
   onChange,
 }: {
   draft: { uniform: boolean; days: number[]; start: string; end: string };
-  onChange: Dispatch<SetStateAction<{ uniform: boolean; days: number[]; start: string; end: string }>>;
+  onChange: Dispatch<
+    SetStateAction<{ uniform: boolean; days: number[]; start: string; end: string }>
+  >;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -851,8 +968,16 @@ function WeekTemplateEditor({
           onToggle={() => onChange((prev) => ({ ...prev, uniform: !prev.uniform }))}
         />
         <div className="flex flex-wrap gap-2">
-          <TimeBox label="С" value={draft.start} onChange={(value) => onChange((prev) => ({ ...prev, start: value }))} />
-          <TimeBox label="До" value={draft.end} onChange={(value) => onChange((prev) => ({ ...prev, end: value }))} />
+          <TimeBox
+            label="С"
+            value={draft.start}
+            onChange={(value) => onChange((prev) => ({ ...prev, start: value }))}
+          />
+          <TimeBox
+            label="До"
+            value={draft.end}
+            onChange={(value) => onChange((prev) => ({ ...prev, end: value }))}
+          />
         </div>
       </div>
       <div>
@@ -866,14 +991,22 @@ function WeekTemplateEditor({
               onToggle={() =>
                 onChange((prev) => ({
                   ...prev,
-                  days: active ? prev.days.filter((item) => item !== index) : [...prev.days, index].sort(),
+                  days: active
+                    ? prev.days.filter((item) => item !== index)
+                    : [...prev.days, index].sort(),
                 }))
               }
             >
               {!draft.uniform && active && (
                 <div className="hidden gap-1.5 sm:flex">
-                  <TimeInput value={draft.start} onChange={(value) => onChange((prev) => ({ ...prev, start: value }))} />
-                  <TimeInput value={draft.end} onChange={(value) => onChange((prev) => ({ ...prev, end: value }))} />
+                  <TimeInput
+                    value={draft.start}
+                    onChange={(value) => onChange((prev) => ({ ...prev, start: value }))}
+                  />
+                  <TimeInput
+                    value={draft.end}
+                    onChange={(value) => onChange((prev) => ({ ...prev, end: value }))}
+                  />
                 </div>
               )}
             </ToggleRow>
@@ -900,14 +1033,16 @@ function CycleTemplateEditor({
     end: string;
     manual: Record<string, 'work' | 'off'>;
   };
-  onChange: Dispatch<SetStateAction<{
-    on: number;
-    off: number;
-    cycleStart: string;
-    start: string;
-    end: string;
-    manual: Record<string, 'work' | 'off'>;
-  }>>;
+  onChange: Dispatch<
+    SetStateAction<{
+      on: number;
+      off: number;
+      cycleStart: string;
+      start: string;
+      end: string;
+      manual: Record<string, 'work' | 'off'>;
+    }>
+  >;
   ym: { year: number; month: number };
   onYmChange: Dispatch<SetStateAction<{ year: number; month: number }>>;
   todayYear: number;
@@ -920,13 +1055,17 @@ function CycleTemplateEditor({
           label="Рабочих дней:"
           type="number"
           value={String(draft.on)}
-          onChange={(value) => onChange((prev) => ({ ...prev, on: Math.max(1, Number(value) || 1) }))}
+          onChange={(value) =>
+            onChange((prev) => ({ ...prev, on: Math.max(1, Number(value) || 1) }))
+          }
         />
         <PanelInput
           label="Выходных дней:"
           type="number"
           value={String(draft.off)}
-          onChange={(value) => onChange((prev) => ({ ...prev, off: Math.max(0, Number(value) || 0) }))}
+          onChange={(value) =>
+            onChange((prev) => ({ ...prev, off: Math.max(0, Number(value) || 0) }))
+          }
         />
       </div>
       <div className="grid grid-cols-[1fr_1.35fr] gap-3">
@@ -941,8 +1080,16 @@ function CycleTemplateEditor({
         <div>
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Рабочее время:</span>
           <div className="flex gap-2">
-            <TimeBox label="С" value={draft.start} onChange={(value) => onChange((prev) => ({ ...prev, start: value }))} />
-            <TimeBox label="До" value={draft.end} onChange={(value) => onChange((prev) => ({ ...prev, end: value }))} />
+            <TimeBox
+              label="С"
+              value={draft.start}
+              onChange={(value) => onChange((prev) => ({ ...prev, start: value }))}
+            />
+            <TimeBox
+              label="До"
+              value={draft.end}
+              onChange={(value) => onChange((prev) => ({ ...prev, end: value }))}
+            />
           </div>
         </div>
       </div>
@@ -950,15 +1097,29 @@ function CycleTemplateEditor({
         <button
           className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-600"
           type="button"
-          onClick={() => onYmChange((prev) => (prev.month === 1 ? { year: prev.year - 1, month: 12 } : { ...prev, month: prev.month - 1 }))}
+          onClick={() =>
+            onYmChange((prev) =>
+              prev.month === 1
+                ? { year: prev.year - 1, month: 12 }
+                : { ...prev, month: prev.month - 1 },
+            )
+          }
         >
           <ChevronLeft className="size-4" />
         </button>
-        <span className="font-semibold text-ink capitalize">{MONTH_LABELS[ym.month - 1]} {ym.year}</span>
+        <span className="font-semibold text-ink capitalize">
+          {MONTH_LABELS[ym.month - 1]} {ym.year}
+        </span>
         <button
           className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-600"
           type="button"
-          onClick={() => onYmChange((prev) => (prev.month === 12 ? { year: prev.year + 1, month: 1 } : { ...prev, month: prev.month + 1 }))}
+          onClick={() =>
+            onYmChange((prev) =>
+              prev.month === 12
+                ? { year: prev.year + 1, month: 1 }
+                : { ...prev, month: prev.month + 1 },
+            )
+          }
         >
           <ChevronRight className="size-4" />
         </button>
@@ -1021,31 +1182,35 @@ function CycleCalendar({
       </div>
       <div className="mt-4 grid grid-cols-7 gap-1.5 text-center">
         {dayNames.map((day) => (
-          <div key={day} className="py-1 text-xs font-semibold text-slate-500">{day}</div>
+          <div key={day} className="py-1 text-xs font-semibold text-slate-500">
+            {day}
+          </div>
         ))}
         {cells.map((day, index) =>
-          day ? (() => {
-            const iso = isoDateLocal(year, month, day);
-            const baseWork = isCycleWorkday(draft, year, month, day);
-            const work = draft.manual[iso] ? draft.manual[iso] === 'work' : baseWork;
-            const manual = Boolean(draft.manual[iso]);
-            return (
-              <button
-                type="button"
-                key={day}
-                onClick={() => onToggleDay(iso)}
-                className={cn(
-                  'flex h-9 cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-colors',
-                  work
-                    ? 'border-primary-200 bg-primary-50 text-primary-700'
-                    : 'border-slate-200 bg-surface text-slate-500',
-                  manual && 'ring-2 ring-primary-600 ring-offset-1',
-                )}
-              >
-                {day}
-              </button>
-            );
-          })() : (
+          day ? (
+            (() => {
+              const iso = isoDateLocal(year, month, day);
+              const baseWork = isCycleWorkday(draft, year, month, day);
+              const work = draft.manual[iso] ? draft.manual[iso] === 'work' : baseWork;
+              const manual = Boolean(draft.manual[iso]);
+              return (
+                <button
+                  type="button"
+                  key={day}
+                  onClick={() => onToggleDay(iso)}
+                  className={cn(
+                    'flex h-9 cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-colors',
+                    work
+                      ? 'border-primary-200 bg-primary-50 text-primary-700'
+                      : 'border-slate-200 bg-surface text-slate-500',
+                    manual && 'ring-2 ring-primary-600 ring-offset-1',
+                  )}
+                >
+                  {day}
+                </button>
+              );
+            })()
+          ) : (
             <span key={`empty-${index}`} />
           ),
         )}
@@ -1085,16 +1250,27 @@ function VacationLedger({ rows, currentYear }: { rows: VacationLedgerRow[]; curr
         <tbody>
           {rows.map((row) => {
             return (
-              <tr key={row.year} className={cn('text-slate-700', row.year === currentYear && 'bg-primary-50')}>
+              <tr
+                key={row.year}
+                className={cn('text-slate-700', row.year === currentYear && 'bg-primary-50')}
+              >
                 <td className="px-3 py-2 font-mono font-semibold">
                   {row.year}
-                  {row.year === currentYear && <span className="font-sans text-slate-500"> · тек.</span>}
-                  {row.year === currentYear + 1 && <span className="font-sans text-slate-500"> · план</span>}
+                  {row.year === currentYear && (
+                    <span className="font-sans text-slate-500"> · тек.</span>
+                  )}
+                  {row.year === currentYear + 1 && (
+                    <span className="font-sans text-slate-500"> · план</span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-right font-mono">{row.norm}</td>
-                <td className="px-3 py-2 text-right font-mono">{row.carry ? `+${row.carry}` : '—'}</td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {row.carry ? `+${row.carry}` : '—'}
+                </td>
                 <td className="px-3 py-2 text-right font-mono">{row.used}</td>
-                <td className="px-3 py-2 text-right font-mono font-semibold text-success-700">+{row.remaining}</td>
+                <td className="px-3 py-2 text-right font-mono font-semibold text-success-700">
+                  +{row.remaining}
+                </td>
               </tr>
             );
           })}
@@ -1114,14 +1290,22 @@ function VacationRangeList({ ranges, year }: { ranges: VacationRange[]; year: nu
         >
           <span className="size-2 shrink-0 rounded-full bg-slate-200" />
           <div className="min-w-0 flex-1">
-            <div className="font-mono text-sm font-bold text-ink">{formatVacationRange(range.from, range.to, year)}</div>
+            <div className="font-mono text-sm font-bold text-ink">
+              {formatVacationRange(range.from, range.to, year)}
+            </div>
             <div className="mt-0.5 text-xs text-slate-500">
-              {range.days} {pluralRu(range.days, 'день', 'дня', 'дней')} · {vacationRangeStatus(range.from, range.to)}
+              {range.days} {pluralRu(range.days, 'день', 'дня', 'дней')} ·{' '}
+              {vacationRangeStatus(range.from, range.to)}
             </div>
           </div>
           <button
             type="button"
-            onClick={() => toast.info('Удаление отпуска', 'Демо: удаление появится после подключения метода в API.')}
+            onClick={() =>
+              toast.info(
+                'Удаление отпуска',
+                'Демо: удаление появится после подключения метода в API.',
+              )
+            }
             className="flex size-7 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
             aria-label="Удалить отпуск"
           >
@@ -1157,7 +1341,10 @@ function fullYearsSince(iso: string) {
   const today = new Date();
   let years = today.getFullYear() - (year ?? today.getFullYear());
   const monthIndex = (month ?? 1) - 1;
-  if (today.getMonth() < monthIndex || (today.getMonth() === monthIndex && today.getDate() < (day ?? 1))) {
+  if (
+    today.getMonth() < monthIndex ||
+    (today.getMonth() === monthIndex && today.getDate() < (day ?? 1))
+  ) {
     years -= 1;
   }
   return Math.max(0, years);
@@ -1170,7 +1357,9 @@ function formatHumanDate(iso: string) {
 }
 
 function weekdayFullName(index: number) {
-  return ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][index] ?? '';
+  return (
+    ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][index] ?? ''
+  );
 }
 
 function isCycleWorkday(
@@ -1210,7 +1399,11 @@ function dateRange(from: string, to: string) {
   return dates;
 }
 
-function buildVacationLedger(currentYear: number, norm: number, vacations: ShiftException[]): VacationLedgerRow[] {
+function buildVacationLedger(
+  currentYear: number,
+  norm: number,
+  vacations: ShiftException[],
+): VacationLedgerRow[] {
   const years = [currentYear - 1, currentYear, currentYear + 1];
   let carry = 0;
   return years.map((year) => {
@@ -1260,7 +1453,9 @@ function groupVacationRanges(vacations: ShiftException[]): VacationRange[] {
 }
 
 function daysBetween(from: string, to: string) {
-  return Math.round((new Date(`${to}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()) / 86_400_000);
+  return Math.round(
+    (new Date(`${to}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()) / 86_400_000,
+  );
 }
 
 function daysInYear(from: string, to: string, year: number) {
@@ -1278,7 +1473,8 @@ function formatVacationRange(from: string, to: string, year: number) {
   const month = MONTH_LABELS_GENITIVE[Math.max(0, start.month - 1)].slice(0, 3);
 
   if (from === to) return `${start.day} ${month} ${year}`;
-  if (start.month === end.month && start.year === end.year) return `${start.day}–${end.day} ${month} ${year}`;
+  if (start.month === end.month && start.year === end.year)
+    return `${start.day}–${end.day} ${month} ${year}`;
 
   const endMonth = MONTH_LABELS_GENITIVE[Math.max(0, end.month - 1)].slice(0, 3);
   return `${start.day} ${month} – ${end.day} ${endMonth} ${year}`;

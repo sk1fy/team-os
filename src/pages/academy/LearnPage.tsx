@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Award, Check, ChevronLeft, Lock } from 'lucide-react';
 import { academyApi } from '@/api';
+import { ApiError } from '@/api/client';
 import type { ID, Lesson } from '@/types';
 import { RichTextView, Button, Badge, Textarea } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -30,15 +31,25 @@ export function LearnPage() {
     queryFn: () => academyApi.getProgress(courseId),
     enabled: Boolean(courseId),
   });
-  const quizzesQuery = useQuery({ queryKey: ['academy', 'quizzes'], queryFn: () => academyApi.getQuizzes() });
+  const quizzesQuery = useQuery({
+    queryKey: ['academy', 'quizzes'],
+    queryFn: () => academyApi.getQuizzes(),
+  });
 
   const course = courseQuery.data;
   const lessons = lessonsQuery.data ?? emptyLessons;
   const progress = progressQuery.data?.find((item) => item.userId === 'user-1');
   const lesson = lessons.find((item) => item.id === lessonId) ?? lessons[0];
   const quiz = quizzesQuery.data?.find((item) => item.id === lesson?.quizId);
+  const courseNotFound = courseQuery.error instanceof ApiError && courseQuery.error.status === 404;
 
-  useTitle(course ? `${course.title} — TeamOS Learn` : 'TeamOS Learn');
+  useTitle(
+    course
+      ? `${course.title} — TeamOS Learn`
+      : courseNotFound
+        ? 'Курс не найден — TeamOS Learn'
+        : 'TeamOS Learn',
+  );
 
   useEffect(() => {
     if (lessons[0] && !lessonId) setLessonId(lessons[0].id);
@@ -49,15 +60,60 @@ export function LearnPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['academy', 'learn', 'progress'] }),
   });
 
+  if (courseQuery.isPending) {
+    return (
+      <div className="min-h-dvh bg-surface-muted p-6">
+        <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <div className="h-80 animate-pulse rounded-lg bg-slate-200/60" />
+          <div className="h-96 animate-pulse rounded-lg bg-slate-200/60" />
+        </div>
+      </div>
+    );
+  }
+
+  if (courseQuery.isError || !course) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-surface-muted p-4 text-center">
+        <div className="w-full max-w-md rounded-lg border border-slate-200 bg-surface p-8 shadow-card">
+          <h1 className="text-xl">
+            {courseNotFound ? 'Курс не найден' : 'Не удалось загрузить курс'}
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            {courseNotFound
+              ? 'Возможно, курс удалён или ссылка устарела.'
+              : 'Проверьте подключение и попробуйте ещё раз.'}
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            {!courseNotFound && (
+              <Button variant="secondary" onClick={() => courseQuery.refetch()}>
+                Повторить
+              </Button>
+            )}
+            <Link to="/academy">
+              <Button>Вернуться в Академию</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-dvh bg-surface-muted">
       <header className="border-b border-slate-200 bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4">
-          <Link to="/academy" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+          <Link
+            to="/academy"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600"
+          >
             <ChevronLeft className="size-4" />
             TeamOS Learn
           </Link>
-          {course && <Badge variant={course.status === 'published' ? 'success' : 'warning'}>{course.status}</Badge>}
+          {course && (
+            <Badge variant={course.status === 'published' ? 'success' : 'warning'}>
+              {course.status}
+            </Badge>
+          )}
         </div>
       </header>
 
@@ -67,7 +123,8 @@ export function LearnPage() {
           <div className="space-y-2">
             {lessons.map((item, index) => {
               const completed = progress?.completedLessonIds.includes(item.id);
-              const previousComplete = index === 0 || progress?.completedLessonIds.includes(lessons[index - 1]?.id);
+              const previousComplete =
+                index === 0 || progress?.completedLessonIds.includes(lessons[index - 1]?.id);
               const locked = Boolean(course?.sequential && !previousComplete);
               return (
                 <button
@@ -81,7 +138,11 @@ export function LearnPage() {
                     locked && 'cursor-not-allowed text-slate-300 hover:bg-transparent',
                   )}
                 >
-                  {completed ? <Check className="size-4 text-success-600" /> : locked ? <Lock className="size-4" /> : null}
+                  {completed ? (
+                    <Check className="size-4 text-success-600" />
+                  ) : locked ? (
+                    <Lock className="size-4" />
+                  ) : null}
                   <span className="min-w-0 flex-1 truncate">{item.title}</span>
                 </button>
               );
@@ -96,7 +157,9 @@ export function LearnPage() {
                 <div>
                   <h2>{lesson.title}</h2>
                   {lesson.sourceMode === 'link' && (
-                    <p className="mt-1 text-sm text-slate-500">Материал синхронизирован с базой знаний.</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Материал синхронизирован с базой знаний.
+                    </p>
                   )}
                 </div>
                 <Button
@@ -117,12 +180,19 @@ export function LearnPage() {
                       <div key={question.id} className="rounded-md bg-white p-3">
                         <p className="text-sm font-medium text-slate-900">{question.text}</p>
                         {question.type === 'open' ? (
-                          <Textarea rows={3} className="mt-2" placeholder="Ответ отправится на ручную проверку" />
+                          <Textarea
+                            rows={3}
+                            className="mt-2"
+                            placeholder="Ответ отправится на ручную проверку"
+                          />
                         ) : (
                           <div className="mt-2 space-y-2">
                             {question.options.map((option) => (
                               <label key={option.id} className="flex items-center gap-2 text-sm">
-                                <input type={question.type === 'single' ? 'radio' : 'checkbox'} name={question.id} />
+                                <input
+                                  type={question.type === 'single' ? 'radio' : 'checkbox'}
+                                  name={question.id}
+                                />
                                 {option.text}
                               </label>
                             ))}

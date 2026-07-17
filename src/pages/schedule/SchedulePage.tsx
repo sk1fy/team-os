@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import {
@@ -497,15 +497,18 @@ export function SchedulePage() {
   const todayIso = isoDate(now.getFullYear(), now.getMonth() + 1, todayDay);
 
   /** Итоговое состояние ячейки: черновик → правка → шаблон. */
-  const resolve = (userId: ID, day: number): DayState | undefined => {
-    const schedule = scheduleByUser.get(userId);
-    if (!schedule) return undefined;
-    const date = isoDate(year, month, day);
-    const cellId = draftKey(userId, date);
-    const draft = drafts.get(cellId);
-    if (draft) return draft;
-    return dayState(schedule.template, exceptionByCell.get(cellId), year, month, day);
-  };
+  const resolve = useCallback(
+    (userId: ID, day: number): DayState | undefined => {
+      const schedule = scheduleByUser.get(userId);
+      if (!schedule) return undefined;
+      const date = isoDate(year, month, day);
+      const cellId = draftKey(userId, date);
+      const draft = drafts.get(cellId);
+      if (draft) return draft;
+      return dayState(schedule.template, exceptionByCell.get(cellId), year, month, day);
+    },
+    [drafts, exceptionByCell, month, scheduleByUser, year],
+  );
 
   /** Состояние сотрудника на реальное «сегодня» — для чипов-фильтров. */
   const stateToday = (userId: ID): DayState | undefined => {
@@ -519,8 +522,12 @@ export function SchedulePage() {
 
   // Активные (включая приглашённых) или уволенные — как в справочнике сотрудников
   const firedCount = users.filter((user) => user.status === 'deactivated').length;
-  const staffUsers = users.filter((user) =>
-    staff === 'fired' ? user.status === 'deactivated' : user.status !== 'deactivated',
+  const staffUsers = useMemo(
+    () =>
+      users.filter((user) =>
+        staff === 'fired' ? user.status === 'deactivated' : user.status !== 'deactivated',
+      ),
+    [staff, users],
   );
 
   const workingToday = staffUsers.filter((user) => ['work', 'trip'].includes(stateToday(user.id)?.type ?? '')).length;
@@ -692,17 +699,15 @@ export function SchedulePage() {
           utilization: planHours ? Math.min(140, Math.round((workHours / planHours) * 100)) : 0,
         };
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    staffUsers.map((user) => user.id).join(','),
-    days.join(','),
+    staffUsers,
+    days,
     year,
     month,
     scheduleByUser,
     positionById,
     departmentsQuery.data,
-    drafts,
-    exceptionByCell,
+    resolve,
   ]);
 
   const panelUser = panelCell ? users.find((user) => user.id === panelCell.userId) : undefined;

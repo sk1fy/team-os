@@ -8,11 +8,14 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, className, id: idProp, ...props },
+  { label, error, hint, className, id: idProp, 'aria-describedby': describedBy, ...props },
   ref,
 ) {
   const autoId = useId();
   const id = idProp ?? autoId;
+  const errorId = `${id}-error`;
+  const hintId = `${id}-hint`;
+  const descriptionId = error ? errorId : hint ? hintId : describedBy;
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
@@ -25,6 +28,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ref={ref}
         id={id}
         aria-invalid={error ? true : undefined}
+        aria-describedby={descriptionId}
         className={cn(
           'h-9.5 w-full rounded-md border bg-surface px-3 text-sm text-slate-900 transition-colors',
           'focus:outline-2 focus:-outline-offset-1',
@@ -36,9 +40,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         {...props}
       />
       {error ? (
-        <p className="text-xs text-danger-600">{error}</p>
+        <p id={errorId} role="alert" className="text-xs text-danger-600">
+          {error}
+        </p>
       ) : hint ? (
-        <p className="text-xs text-slate-500">{hint}</p>
+        <p id={hintId} className="text-xs text-slate-500">
+          {hint}
+        </p>
       ) : null}
     </div>
   );

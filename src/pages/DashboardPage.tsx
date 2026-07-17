@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTitle } from '@reactuses/core';
 import {
   AlertTriangle,
   ArrowRight,
@@ -62,7 +63,9 @@ function MetricCard({
   return (
     <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
       <div className="flex items-start justify-between gap-3">
-        <div className={cn('flex size-10 items-center justify-center rounded-lg', toneClasses[tone])}>
+        <div
+          className={cn('flex size-10 items-center justify-center rounded-lg', toneClasses[tone])}
+        >
           <Icon className="size-5" />
         </div>
         {loading ? (
@@ -172,7 +175,9 @@ function TaskFocusList({ tasks, now }: { tasks: Task[]; now: number }) {
       </div>
       <div className="divide-y divide-slate-100">
         {tasks.length === 0 ? (
-          <div className="px-5 py-8 text-sm text-slate-400">Нет срочных задач на ближайшую неделю.</div>
+          <div className="px-5 py-8 text-sm text-slate-400">
+            Нет срочных задач на ближайшую неделю.
+          </div>
         ) : (
           tasks.map((task) => (
             <Link
@@ -181,7 +186,9 @@ function TaskFocusList({ tasks, now }: { tasks: Task[]; now: number }) {
               className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left transition-colors hover:bg-slate-50"
             >
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-slate-900">{task.title}</span>
+                <span className="block truncate text-sm font-medium text-slate-900">
+                  {task.title}
+                </span>
                 <span
                   className={cn(
                     'mt-1 inline-flex items-center gap-1 text-xs',
@@ -192,7 +199,9 @@ function TaskFocusList({ tasks, now }: { tasks: Task[]; now: number }) {
                   {task.dueDate ? formatRelativeDate(task.dueDate) : 'без срока'}
                 </span>
               </span>
-              <Badge variant={priorityVariants[task.priority]}>{priorityLabels[task.priority]}</Badge>
+              <Badge variant={priorityVariants[task.priority]}>
+                {priorityLabels[task.priority]}
+              </Badge>
             </Link>
           ))
         )}
@@ -216,9 +225,21 @@ function TeamHealth({
 }) {
   const rows = [
     { label: 'Активные сотрудники', value: activeUsers, tone: 'success' as const },
-    { label: 'Ожидают активации', value: invitedUsers, tone: invitedUsers > 0 ? ('warning' as const) : ('neutral' as const) },
-    { label: 'Без должности', value: usersWithoutPosition, tone: usersWithoutPosition > 0 ? ('warning' as const) : ('neutral' as const) },
-    { label: 'Вакантные должности', value: vacantPositions, tone: vacantPositions > 0 ? ('warning' as const) : ('neutral' as const) },
+    {
+      label: 'Ожидают активации',
+      value: invitedUsers,
+      tone: invitedUsers > 0 ? ('warning' as const) : ('neutral' as const),
+    },
+    {
+      label: 'Без должности',
+      value: usersWithoutPosition,
+      tone: usersWithoutPosition > 0 ? ('warning' as const) : ('neutral' as const),
+    },
+    {
+      label: 'Вакантные должности',
+      value: vacantPositions,
+      tone: vacantPositions > 0 ? ('warning' as const) : ('neutral' as const),
+    },
     { label: 'Отделы', value: departmentsCount, tone: 'neutral' as const },
   ];
 
@@ -259,7 +280,9 @@ function OnboardingChecklist({
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-slate-950">Настройка рабочего пространства</h2>
+            <h2 className="text-base font-semibold text-slate-950">
+              Настройка рабочего пространства
+            </h2>
             <Badge variant={progress === 100 ? 'success' : 'primary'}>{progress}%</Badge>
           </div>
           <p className="mt-1 text-sm text-slate-500">Минимальный маршрут для запуска TeamOS.</p>
@@ -306,6 +329,7 @@ function OnboardingChecklist({
 }
 
 export function DashboardPage() {
+  useTitle('Главная — TeamOS');
   const navigate = useNavigate();
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
@@ -326,29 +350,30 @@ export function DashboardPage() {
     queryFn: notificationsApi.getNotifications,
   });
 
-  const { openTasks, overdueTasks, dueSoonTasks, tasksWithoutAssignee, focusTasks, now } = useMemo(() => {
-    const currentNow = Date.now();
-    const allTasks = tasks.data ?? [];
-    const open = allTasks.filter((task) => !task.completedAt);
-    const overdue = open.filter((task) => isOverdue(task, currentNow));
-    const dueSoon = open.filter((task) => isDueSoon(task, currentNow));
-    const withoutAssignee = open.filter(
-      (task) => task.assigneeIds.length === 0 && !task.assigneePositionId,
-    );
-    const focus = [...overdue, ...dueSoon]
-      .filter((task, index, list) => list.findIndex((item) => item.id === task.id) === index)
-      .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
-      .slice(0, 5);
+  const { openTasks, overdueTasks, dueSoonTasks, tasksWithoutAssignee, focusTasks, now } =
+    useMemo(() => {
+      const currentNow = Date.now();
+      const allTasks = tasks.data ?? [];
+      const open = allTasks.filter((task) => !task.completedAt);
+      const overdue = open.filter((task) => isOverdue(task, currentNow));
+      const dueSoon = open.filter((task) => isDueSoon(task, currentNow));
+      const withoutAssignee = open.filter(
+        (task) => task.assigneeIds.length === 0 && !task.assigneePositionId,
+      );
+      const focus = [...overdue, ...dueSoon]
+        .filter((task, index, list) => list.findIndex((item) => item.id === task.id) === index)
+        .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))
+        .slice(0, 5);
 
-    return {
-      openTasks: open,
-      overdueTasks: overdue,
-      dueSoonTasks: dueSoon,
-      tasksWithoutAssignee: withoutAssignee,
-      focusTasks: focus,
-      now: currentNow,
-    };
-  }, [tasks.data]);
+      return {
+        openTasks: open,
+        overdueTasks: overdue,
+        dueSoonTasks: dueSoon,
+        tasksWithoutAssignee: withoutAssignee,
+        focusTasks: focus,
+        now: currentNow,
+      };
+    }, [tasks.data]);
 
   const allUsers = users.data ?? [];
   const activeUsers = allUsers.filter((user) => user.status === 'active').length;
@@ -357,11 +382,14 @@ export function DashboardPage() {
   const occupiedPositionIds = new Set(allUsers.flatMap((user) => user.positionIds));
   const vacantPositions =
     positions.data?.filter((position) => !occupiedPositionIds.has(position.id)).length ?? 0;
-  const publishedArticles = articles.data?.filter((article) => article.status === 'published').length ?? 0;
-  const publishedCourses = courses.data?.filter((course) => course.status === 'published').length ?? 0;
+  const publishedArticles =
+    articles.data?.filter((article) => article.status === 'published').length ?? 0;
+  const publishedCourses =
+    courses.data?.filter((course) => course.status === 'published').length ?? 0;
   const inProgressCourses =
     courseProgress.data?.filter((progress) => progress.status === 'in_progress').length ?? 0;
-  const unreadNotifications = notifications.data?.filter((notification) => !notification.read).length ?? 0;
+  const unreadNotifications =
+    notifications.data?.filter((notification) => !notification.read).length ?? 0;
   const articlesRequiringAck =
     articles.data?.filter(
       (article) => article.requiresAcknowledgement && article.status === 'published',
@@ -466,9 +494,7 @@ export function DashboardPage() {
       )}
 
       <div className="mt-6">
-        {isLoadingDashboard && (
-          <p className="mb-3 text-xs text-slate-400">Обновляем данные…</p>
-        )}
+        {isLoadingDashboard && <p className="mb-3 text-xs text-slate-400">Обновляем данные…</p>}
         <div className="grid gap-4 lg:grid-cols-3">
           <AttentionCard
             title="Просроченные задачи"

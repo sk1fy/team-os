@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { orgApi } from '@/api';
 import type { UserRole } from '@/types';
@@ -6,6 +6,7 @@ import { roleLabels } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
+import { EMAIL_ERROR, PHONE_ERROR, isValidEmail, isValidPhone } from '@/lib/formValidation';
 
 interface AddUserModalProps {
   open: boolean;
@@ -26,6 +27,13 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [positionId, setPositionId] = useState(NO_POSITION_VALUE);
+  const [errors, setErrors] = useState<
+    Partial<Record<'firstName' | 'lastName' | 'email' | 'phone', string>>
+  >({});
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
 
   const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
   const { data: departments } = useQuery({
@@ -41,6 +49,7 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
     setPhone('');
     setRole('employee');
     setPositionId(NO_POSITION_VALUE);
+    setErrors({});
   }, [open]);
 
   const positionOptions = useMemo(
@@ -69,6 +78,17 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    const nextErrors: typeof errors = {};
+    if (!firstName.trim()) nextErrors.firstName = 'Укажите имя пользователя';
+    if (!lastName.trim()) nextErrors.lastName = 'Укажите фамилию пользователя';
+    if (!isValidEmail(email)) nextErrors.email = EMAIL_ERROR;
+    if (!isValidPhone(phone)) nextErrors.phone = PHONE_ERROR;
+    setErrors(nextErrors);
+    if (nextErrors.firstName) firstNameRef.current?.focus();
+    else if (nextErrors.lastName) lastNameRef.current?.focus();
+    else if (nextErrors.email) emailRef.current?.focus();
+    else if (nextErrors.phone) phoneRef.current?.focus();
+    if (Object.keys(nextErrors).length > 0) return;
     createUser.mutate();
   };
 
@@ -90,34 +110,55 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
         </>
       }
     >
-      <form id="add-user-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="add-user-form" onSubmit={handleSubmit} noValidate className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
             label="Имя"
+            ref={firstNameRef}
             value={firstName}
-            onChange={(event) => setFirstName(event.target.value)}
+            onChange={(event) => {
+              setFirstName(event.target.value);
+              setErrors((current) => ({ ...current, firstName: undefined }));
+            }}
+            error={errors.firstName}
             required
           />
           <Input
             label="Фамилия"
+            ref={lastNameRef}
             value={lastName}
-            onChange={(event) => setLastName(event.target.value)}
+            onChange={(event) => {
+              setLastName(event.target.value);
+              setErrors((current) => ({ ...current, lastName: undefined }));
+            }}
+            error={errors.lastName}
             required
           />
         </div>
         <Input
           label="Email"
+          ref={emailRef}
           type="email"
           placeholder="user@company.ru"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setErrors((current) => ({ ...current, email: undefined }));
+          }}
+          error={errors.email}
           required
         />
         <Input
           label="Телефон"
+          ref={phoneRef}
+          type="tel"
           placeholder="+7 …"
           value={phone}
-          onChange={(event) => setPhone(event.target.value)}
+          onChange={(event) => {
+            setPhone(event.target.value);
+            setErrors((current) => ({ ...current, phone: undefined }));
+          }}
+          error={errors.phone}
         />
         <Select
           label="Роль"

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
@@ -35,6 +35,7 @@ export function DistributionPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<DealDistributionGroup | undefined>();
   const [deletingGroup, setDeletingGroup] = useState<DealDistributionGroup | undefined>();
+  const createGroupButtonRef = useRef<HTMLButtonElement>(null);
 
   const groupsQuery = useQuery({
     queryKey: ['distribution', 'groups'],
@@ -90,7 +91,7 @@ export function DistributionPage() {
         title="Распределение сделок"
         description="Настройте группы сотрудников и правила автоматической передачи новых сделок."
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button ref={createGroupButtonRef} onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
             Создать группу
           </Button>
@@ -210,6 +211,7 @@ export function DistributionPage() {
         pending={createGroup.isPending}
         onClose={() => setCreateOpen(false)}
         onSubmit={(values) => createGroup.mutate(values)}
+        restoreFocusRef={createGroupButtonRef}
       />
       <DistributionGroupModal
         open={Boolean(editingGroup)}

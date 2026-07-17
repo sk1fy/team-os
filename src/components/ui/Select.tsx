@@ -1,5 +1,6 @@
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
+import { useId, type Ref } from 'react';
 import { cn } from '@/lib/cn';
 
 export interface SelectOption {
@@ -17,6 +18,8 @@ export interface SelectProps {
   label?: string;
   disabled?: boolean;
   className?: string;
+  error?: string;
+  triggerRef?: Ref<HTMLButtonElement>;
 }
 
 function SelectItem({ option }: { option: SelectOption }) {
@@ -46,7 +49,10 @@ export function Select({
   label,
   disabled,
   className,
+  error,
+  triggerRef,
 }: SelectProps) {
+  const errorId = useId();
   const ungroupedOptions = options.filter((option) => !option.group);
   const groupedOptions = new Map<string, SelectOption[]>();
   for (const option of options) {
@@ -61,11 +67,15 @@ export function Select({
       {label && <span className="text-xs font-semibold text-slate-700">{label}</span>}
       <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled}>
         <SelectPrimitive.Trigger
+          ref={triggerRef}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
           className={cn(
-            'flex h-9.5 w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-surface px-3 text-sm',
+            'flex h-9.5 w-full items-center justify-between gap-2 rounded-md border bg-surface px-3 text-sm',
             'focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600',
             'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400',
             'data-[placeholder]:text-slate-400',
+            error ? 'border-danger-500' : 'border-slate-200',
           )}
         >
           <SelectPrimitive.Value placeholder={placeholder} />
@@ -100,6 +110,11 @@ export function Select({
           </SelectPrimitive.Content>
         </SelectPrimitive.Portal>
       </SelectPrimitive.Root>
+      {error && (
+        <p id={errorId} role="alert" className="text-xs text-danger-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

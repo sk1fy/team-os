@@ -6,6 +6,7 @@ import { roleLabels } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
+import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
 
 interface EmployeeEditModalProps {
   user: User | null;
@@ -35,6 +36,7 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
   const [status, setStatus] = useState<UserStatus>('active');
   const [positionId, setPositionId] = useState(NO_POSITION_VALUE);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [phoneError, setPhoneError] = useState<string>();
 
   const { data: company } = useQuery({ queryKey: ['company'], queryFn: authApi.getCompany });
   const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
@@ -56,6 +58,7 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
     setStatus(user.status);
     setPositionId(user.positionIds[0] ?? NO_POSITION_VALUE);
     setConfirmDeactivate(false);
+    setPhoneError(undefined);
   }, [user]);
 
   const isOwner = user?.id === company?.ownerId;
@@ -101,6 +104,10 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!user) return;
+    if (!isValidPhone(phone)) {
+      setPhoneError(PHONE_ERROR);
+      return;
+    }
     if (status === 'deactivated' && user.status !== 'deactivated' && !confirmDeactivate) {
       setConfirmDeactivate(true);
       return;
@@ -154,9 +161,14 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
           </div>
           <Input
             label="Телефон"
+            type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              setPhoneError(undefined);
+            }}
             placeholder="+7 …"
+            error={phoneError}
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Select

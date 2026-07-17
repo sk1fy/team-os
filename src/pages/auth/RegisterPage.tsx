@@ -1,27 +1,37 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
 import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
+import { EMAIL_ERROR, isValidEmail } from '@/lib/formValidation';
 
 export function RegisterPage() {
   useTitle('Регистрация — TeamOS');
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
+  const [emailError, setEmailError] = useState<string>();
+  const emailRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitting(true);
     setError(undefined);
     const form = new FormData(event.currentTarget);
+    const email = String(form.get('email') ?? '').trim();
+    if (!isValidEmail(email)) {
+      setEmailError(EMAIL_ERROR);
+      emailRef.current?.focus();
+      return;
+    }
+    setEmailError(undefined);
+    setSubmitting(true);
     try {
       await authApi.register({
         companyName: String(form.get('companyName') ?? ''),
         firstName: String(form.get('firstName') ?? ''),
         lastName: String(form.get('lastName') ?? ''),
-        email: String(form.get('email') ?? ''),
+        email,
         password: String(form.get('password') ?? ''),
       });
       navigate('/', { replace: true });
@@ -64,11 +74,14 @@ export function RegisterPage() {
         </div>
         <Input
           label="Рабочий email"
+          ref={emailRef}
           name="email"
           type="email"
           placeholder="you@company.ru"
           autoComplete="email"
           required
+          error={emailError}
+          onChange={() => emailError && setEmailError(undefined)}
         />
         <Input
           label="Пароль"

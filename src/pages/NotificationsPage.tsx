@@ -1,5 +1,6 @@
 import { BellOff } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTitle } from '@reactuses/core';
 import { formatRelativeDate } from '@/lib/format';
 import { notificationsApi } from '@/api';
 import { toast } from '@/stores/toast';
@@ -10,9 +11,15 @@ import { ErrorState } from '@/components/layout/ErrorState';
 import { cn } from '@/lib/cn';
 
 export function NotificationsPage() {
+  useTitle('Уведомления — TeamOS');
   const queryClient = useQueryClient();
 
-  const { data: notifications, isPending, isError, refetch } = useQuery({
+  const {
+    data: notifications,
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['notifications'],
     queryFn: notificationsApi.getNotifications,
   });

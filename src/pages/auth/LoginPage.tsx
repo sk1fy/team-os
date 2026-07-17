@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
+import { EMAIL_ERROR, isValidEmail } from '@/lib/formValidation';
 
 export function LoginPage() {
   useTitle('Вход — TeamOS');
@@ -13,15 +14,24 @@ export function LoginPage() {
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
+  const [emailError, setEmailError] = useState<string>();
+  const emailRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitting(true);
     setError(undefined);
     const form = new FormData(event.currentTarget);
+    const email = String(form.get('email') ?? '').trim();
+    if (!isValidEmail(email)) {
+      setEmailError(EMAIL_ERROR);
+      emailRef.current?.focus();
+      return;
+    }
+    setEmailError(undefined);
+    setSubmitting(true);
     try {
       const session = await authApi.login({
-        email: String(form.get('email') ?? ''),
+        email,
         password: String(form.get('password') ?? ''),
       });
       queryClient.setQueryData(['currentUser'], session.user);
@@ -42,11 +52,14 @@ export function LoginPage() {
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <Input
           label="Email"
+          ref={emailRef}
           name="email"
           type="email"
           placeholder="you@company.ru"
           autoComplete="email"
           required
+          error={emailError}
+          onChange={() => emailError && setEmailError(undefined)}
         />
         <Input
           label="Пароль"

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type RefObject } from 'react';
 import type { DealDistributionGroup, User } from '@/types';
 import { fullName } from '@/lib/labels';
 import { plural } from '@/lib/format';
@@ -17,6 +17,7 @@ export function DistributionGroupModal({
   pending,
   onClose,
   onSubmit,
+  restoreFocusRef,
 }: {
   open: boolean;
   group?: DealDistributionGroup;
@@ -24,6 +25,7 @@ export function DistributionGroupModal({
   pending: boolean;
   onClose: () => void;
   onSubmit: (values: DistributionGroupValues) => void;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -54,6 +56,7 @@ export function DistributionGroupModal({
       title={group ? 'Настройки группы' : 'Новая группа распределения'}
       description="Объедините сотрудников, между которыми будут распределяться новые сделки."
       size="md"
+      restoreFocusRef={restoreFocusRef}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
