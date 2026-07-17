@@ -786,10 +786,15 @@ function EmployeeAccessSection({
   });
   const setLink = useMutation({
     mutationFn: () => orgApi.setUserLinkAccess(user.id),
-    onSuccess: () => {
+    onSuccess: async ({ token }) => {
       setShownPassword(undefined);
       refresh();
-      toast.success('Ссылка доступа создана');
+      const copied = await copyText(`${window.location.origin}/access/${token}`);
+      if (copied) {
+        toast.success('Ссылка создана и скопирована');
+      } else {
+        toast.error('Ссылка создана, но не удалось скопировать её');
+      }
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось создать ссылку'),
@@ -809,6 +814,14 @@ function EmployeeAccessSection({
   const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
   const confirmSessionReset = () =>
     access.mode === 'none' || confirm('Текущие сессии сотрудника будут завершены. Продолжить?');
+  const copyAccessLink = async () => {
+    const copied = await copyText(accessUrl);
+    if (copied) {
+      toast.success('Ссылка скопирована');
+    } else {
+      toast.error('Не удалось скопировать ссылку');
+    }
+  };
 
   return (
     <PanelSection title="Доступ в систему">
@@ -845,7 +858,9 @@ function EmployeeAccessSection({
             className="mt-6"
             size="sm"
             variant="secondary"
-            onClick={() => void copyText(accessUrl)}
+            onClick={() => void copyAccessLink()}
+            aria-label="Скопировать ссылку доступа"
+            title="Скопировать ссылку"
           >
             <Copy className="size-4" />
           </Button>
