@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   CalendarDays,
   GraduationCap,
@@ -173,14 +174,24 @@ export function Sidebar() {
       </aside>
 
       {/* Мобильный оверлей */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="animate-overlay-in absolute inset-0 bg-slate-950/40"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-surface shadow-popover">
+      <Dialog.Root open={mobileOpen} onOpenChange={setMobileSidebarOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="animate-overlay-in fixed inset-0 z-40 bg-slate-950/40 lg:hidden" />
+          <Dialog.Content
+            onCloseAutoFocus={(event) => {
+              const trigger = document.getElementById('mobile-sidebar-trigger');
+              if (!trigger) return;
+              event.preventDefault();
+              trigger.focus();
+            }}
+            className="fixed inset-y-0 left-0 z-50 w-64 bg-surface shadow-popover outline-none lg:hidden"
+          >
+            <Dialog.Title className="sr-only">Навигация по TeamOS</Dialog.Title>
+            <Dialog.Description className="sr-only">
+              Основные разделы приложения и настройки
+            </Dialog.Description>
             <button
+              type="button"
               onClick={() => setMobileSidebarOpen(false)}
               className="absolute top-4 right-3 rounded-md p-1 text-slate-400 hover:bg-slate-100"
               aria-label="Закрыть меню"
@@ -188,9 +199,9 @@ export function Sidebar() {
               <X className="size-5" />
             </button>
             <SidebarContent collapsed={false} canToggle={false} />
-          </aside>
-        </div>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </>
   );
 }

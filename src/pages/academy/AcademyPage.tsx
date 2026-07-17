@@ -179,7 +179,9 @@ function CourseCard({
       }}
       className={cn(
         'cursor-pointer overflow-hidden rounded-lg border bg-surface text-left shadow-card transition-colors',
-        active ? 'border-primary-300 ring-2 ring-primary-100' : 'border-slate-200 hover:border-primary-200',
+        active
+          ? 'border-primary-300 ring-2 ring-primary-100'
+          : 'border-slate-200 hover:border-primary-200',
       )}
     >
       <div className="flex h-24 items-start justify-between gap-2 bg-[linear-gradient(135deg,#EFF6F5,#DDEEEC_48%,#BBE2DF)] px-4 py-3">
@@ -301,7 +303,11 @@ function LessonDraggable({
         <span className="block truncate text-sm font-medium text-slate-800">{lesson.title}</span>
         {lesson.sourceArticleId && (
           <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-slate-500">
-            {lesson.sourceMode === 'link' ? <LinkIcon className="size-3" /> : <FileText className="size-3" />}
+            {lesson.sourceMode === 'link' ? (
+              <LinkIcon className="size-3" />
+            ) : (
+              <FileText className="size-3" />
+            )}
             {lesson.sourceMode === 'link' ? 'Синхронизирован' : 'Копия статьи'}
           </span>
         )}
@@ -530,7 +536,9 @@ function CreateCourseModal({
     }
     const sectionIds = flatSections
       .filter(({ section }) =>
-        (articlesBySection.get(section.id) ?? []).some((article) => selectedArticleIds.has(article.id)),
+        (articlesBySection.get(section.id) ?? []).some((article) =>
+          selectedArticleIds.has(article.id),
+        ),
       )
       .map(({ section }) => section.id);
     createFromKb.mutate({
@@ -566,10 +574,17 @@ function CreateCourseModal({
           <label
             className={cn(
               'cursor-pointer rounded-md border p-3 transition-colors',
-              mode === 'own' ? 'border-primary-300 bg-primary-50/60' : 'border-slate-200 hover:border-primary-200',
+              mode === 'own'
+                ? 'border-primary-300 bg-primary-50/60'
+                : 'border-slate-200 hover:border-primary-200',
             )}
           >
-            <input type="radio" checked={mode === 'own'} onChange={() => setMode('own')} className="mr-2" />
+            <input
+              type="radio"
+              checked={mode === 'own'}
+              onChange={() => setMode('own')}
+              className="mr-2"
+            />
             <span className="text-sm font-medium text-slate-900">Свой курс</span>
             <p className="mt-1 text-xs text-slate-500">
               Пустой курс: разделы и уроки добавите в конструкторе.
@@ -578,10 +593,17 @@ function CreateCourseModal({
           <label
             className={cn(
               'cursor-pointer rounded-md border p-3 transition-colors',
-              mode === 'kb' ? 'border-primary-300 bg-primary-50/60' : 'border-slate-200 hover:border-primary-200',
+              mode === 'kb'
+                ? 'border-primary-300 bg-primary-50/60'
+                : 'border-slate-200 hover:border-primary-200',
             )}
           >
-            <input type="radio" checked={mode === 'kb'} onChange={() => setMode('kb')} className="mr-2" />
+            <input
+              type="radio"
+              checked={mode === 'kb'}
+              onChange={() => setMode('kb')}
+              className="mr-2"
+            />
             <span className="text-sm font-medium text-slate-900">Из базы знаний</span>
             <p className="mt-1 text-xs text-slate-500">
               Разделы БЗ станут разделами курса, статьи — уроками.
@@ -609,7 +631,9 @@ function CreateCourseModal({
               <label
                 className={cn(
                   'cursor-pointer rounded-md border p-3 transition-colors',
-                  sourceMode === 'link' ? 'border-primary-300 bg-primary-50/60' : 'border-slate-200',
+                  sourceMode === 'link'
+                    ? 'border-primary-300 bg-primary-50/60'
+                    : 'border-slate-200',
                 )}
               >
                 <input
@@ -626,7 +650,9 @@ function CreateCourseModal({
               <label
                 className={cn(
                   'cursor-pointer rounded-md border p-3 transition-colors',
-                  sourceMode === 'copy' ? 'border-primary-300 bg-primary-50/60' : 'border-slate-200',
+                  sourceMode === 'copy'
+                    ? 'border-primary-300 bg-primary-50/60'
+                    : 'border-slate-200',
                 )}
               >
                 <input
@@ -663,7 +689,10 @@ function CreateCourseModal({
                         <input
                           type="checkbox"
                           disabled={sectionArticles.length === 0}
-                          checked={sectionArticles.length > 0 && selectedInSection === sectionArticles.length}
+                          checked={
+                            sectionArticles.length > 0 &&
+                            selectedInSection === sectionArticles.length
+                          }
                           ref={(element) => {
                             if (element) {
                               element.indeterminate =
@@ -704,7 +733,9 @@ function CreateCourseModal({
                 })}
                 {flatSections.length === 0 && (
                   <p className="p-3 text-sm text-slate-500">
-                    {sectionsQuery.isLoading ? 'Загружаем базу знаний…' : 'В базе знаний пока нет разделов.'}
+                    {sectionsQuery.isLoading
+                      ? 'Загружаем базу знаний…'
+                      : 'В базе знаний пока нет разделов.'}
                   </p>
                 )}
               </div>
@@ -785,7 +816,12 @@ function NameModal({
           submit();
         }}
       >
-        <Input label={label} value={value} onChange={(event) => setValue(event.target.value)} autoFocus />
+        <Input
+          label={label}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          autoFocus
+        />
       </form>
     </Modal>
   );
@@ -837,7 +873,10 @@ function ImportArticleModal({
   onClose: () => void;
   onImport: (articleId: ID, mode: LessonSourceMode) => void;
 }) {
-  const articlesQuery = useQuery({ queryKey: ['kb', 'articles'], queryFn: () => kbApi.getArticles() });
+  const articlesQuery = useQuery({
+    queryKey: ['kb', 'articles'],
+    queryFn: () => kbApi.getArticles(),
+  });
   const sectionsQuery = useQuery({ queryKey: ['kb', 'sections'], queryFn: kbApi.getSections });
   const articles = articlesQuery.data ?? emptyArticles;
   const sections = sectionsQuery.data ?? emptyArticleSections;
@@ -885,7 +924,9 @@ function ImportArticleModal({
               className="mr-2"
             />
             <span className="text-sm font-medium text-slate-900">Ссылка</span>
-            <p className="mt-1 text-xs text-slate-500">Контент синхронизирован с БЗ и не редактируется в уроке.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Контент синхронизирован с БЗ и не редактируется в уроке.
+            </p>
           </label>
           <label className="rounded-md border border-slate-200 p-3">
             <input
@@ -895,7 +936,9 @@ function ImportArticleModal({
               className="mr-2"
             />
             <span className="text-sm font-medium text-slate-900">Копия</span>
-            <p className="mt-1 text-xs text-slate-500">Урок отвязан от источника, контент можно менять.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Урок отвязан от источника, контент можно менять.
+            </p>
           </label>
         </div>
       </div>
@@ -916,8 +959,13 @@ function LessonEditor({
   const [title, setTitle] = useState(lesson.title);
   const [content, setContent] = useState<RichTextContent>(lesson.content);
   const [dirty, setDirty] = useState(false);
-  const articlesQuery = useQuery({ queryKey: ['kb', 'articles'], queryFn: () => kbApi.getArticles() });
-  const sourceArticle = articlesQuery.data?.find((article) => article.id === lesson.sourceArticleId);
+  const articlesQuery = useQuery({
+    queryKey: ['kb', 'articles'],
+    queryFn: () => kbApi.getArticles(),
+  });
+  const sourceArticle = articlesQuery.data?.find(
+    (article) => article.id === lesson.sourceArticleId,
+  );
   const isLinked = lesson.sourceMode === 'link' && Boolean(lesson.sourceArticleId);
 
   const updateLesson = useMutation({
@@ -953,7 +1001,12 @@ function LessonEditor({
           }}
         />
         <div className="flex items-center gap-2">
-          <Button size="sm" loading={updateLesson.isPending} disabled={!dirty || !title.trim()} onClick={save}>
+          <Button
+            size="sm"
+            loading={updateLesson.isPending}
+            disabled={!dirty || !title.trim()}
+            onClick={save}
+          >
             <Check className="size-4" />
             Сохранить
           </Button>
@@ -972,12 +1025,22 @@ function LessonEditor({
                       label: 'Сделать копией',
                       icon: Unlink,
                       onSelect: () =>
-                        updateLesson.mutate({ id: lesson.id, sourceMode: 'copy', content: lesson.content }),
+                        updateLesson.mutate({
+                          id: lesson.id,
+                          sourceMode: 'copy',
+                          content: lesson.content,
+                        }),
                     },
                   ]
                 : []),
               'separator' as const,
-              { key: 'delete', label: 'Удалить урок', icon: Trash2, danger: true, onSelect: onRequestDelete },
+              {
+                key: 'delete',
+                label: 'Удалить урок',
+                icon: Trash2,
+                danger: true,
+                onSelect: onRequestDelete,
+              },
             ]}
           />
         </div>
@@ -990,7 +1053,11 @@ function LessonEditor({
             isLinked ? 'bg-primary-50 text-primary-900' : 'bg-slate-50 text-slate-600',
           )}
         >
-          {isLinked ? <LinkIcon className="size-4 shrink-0" /> : <FileText className="size-4 shrink-0" />}
+          {isLinked ? (
+            <LinkIcon className="size-4 shrink-0" />
+          ) : (
+            <FileText className="size-4 shrink-0" />
+          )}
           {isLinked
             ? `Синхронизировано со статьёй «${sourceArticle?.title ?? '…'}» — правки в базе знаний подтягиваются автоматически.`
             : `Создан из статьи «${sourceArticle?.title ?? '…'}», контент независим.`}
@@ -1044,7 +1111,9 @@ function QuizBuilder({ lesson, quiz }: { lesson?: Lesson; quiz?: Quiz }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-slate-950">Тест урока</h3>
-          <p className="text-sm text-slate-500">Одиночный, множественный выбор и открытые ответы.</p>
+          <p className="text-sm text-slate-500">
+            Одиночный, множественный выбор и открытые ответы.
+          </p>
         </div>
         <Button
           size="sm"
@@ -1096,7 +1165,9 @@ function QuizBuilder({ lesson, quiz }: { lesson?: Lesson; quiz?: Quiz }) {
                 onValueChange={(value) =>
                   setQuestions((current) =>
                     current.map((item) =>
-                      item.id === question.id ? { ...item, type: value as QuizQuestion['type'] } : item,
+                      item.id === question.id
+                        ? { ...item, type: value as QuizQuestion['type'] }
+                        : item,
                     ),
                   )
                 }
@@ -1173,7 +1244,9 @@ function QuizBuilder({ lesson, quiz }: { lesson?: Lesson; quiz?: Quiz }) {
           </div>
         ))}
         {questions.length === 0 && (
-          <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">В тесте пока нет вопросов.</p>
+          <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">
+            В тесте пока нет вопросов.
+          </p>
         )}
       </div>
 
@@ -1232,10 +1305,16 @@ function AssignmentModal({
       return (usersQuery.data ?? []).map((user) => ({ value: user.id, label: fullName(user) }));
     }
     if (assigneeType === 'position') {
-      return (positionsQuery.data ?? []).map((position) => ({ value: position.id, label: position.name }));
+      return (positionsQuery.data ?? []).map((position) => ({
+        value: position.id,
+        label: position.name,
+      }));
     }
     if (assigneeType === 'department') {
-      return (departmentsQuery.data ?? []).map((department) => ({ value: department.id, label: department.name }));
+      return (departmentsQuery.data ?? []).map((department) => ({
+        value: department.id,
+        label: department.name,
+      }));
     }
     return [{ value: 'external', label: 'Внешняя ссылка' }];
   }, [assigneeType, departmentsQuery.data, positionsQuery.data, usersQuery.data]);
@@ -1284,7 +1363,12 @@ function AssignmentModal({
             { value: 'external', label: 'Внешний партнёр' },
           ]}
         />
-        <Select label="Получатель" value={assigneeId} onValueChange={setAssigneeId} options={options} />
+        <Select
+          label="Получатель"
+          value={assigneeId}
+          onValueChange={setAssigneeId}
+          options={options}
+        />
         <Input
           label="Дедлайн"
           type="date"
@@ -1322,10 +1406,14 @@ function CertificateDrawer({
     >
       <div className="flex min-h-[520px] flex-col items-center justify-center rounded-lg border-4 border-double border-primary-200 bg-[linear-gradient(135deg,#ffffff,#f8fafc)] p-10 text-center">
         <Award className="mb-6 size-16 text-warning-500" />
-        <p className="text-sm font-semibold tracking-[0.24em] text-slate-400 uppercase">TeamOS Academy</p>
+        <p className="text-sm font-semibold tracking-[0.24em] text-slate-400 uppercase">
+          TeamOS Academy
+        </p>
         <h2 className="mt-6 text-3xl font-bold text-slate-950">Сертификат</h2>
         <p className="mt-5 text-sm text-slate-500">подтверждает, что</p>
-        <p className="mt-2 text-2xl font-semibold text-primary-800">{user ? fullName(user) : 'Сотрудник'}</p>
+        <p className="mt-2 text-2xl font-semibold text-primary-800">
+          {user ? fullName(user) : 'Сотрудник'}
+        </p>
         <p className="mt-5 text-sm text-slate-500">прошёл курс</p>
         <p className="mt-2 text-xl font-semibold text-slate-950">{course?.title}</p>
         <p className="mt-8 text-sm text-slate-500">{formatDate(new Date().toISOString())}</p>
@@ -1361,7 +1449,10 @@ export function AcademyPage() {
   const [courseSearch, setCourseSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Course['status']>('all');
 
-  const coursesQuery = useQuery({ queryKey: ['academy', 'courses'], queryFn: academyApi.getCourses });
+  const coursesQuery = useQuery({
+    queryKey: ['academy', 'courses'],
+    queryFn: academyApi.getCourses,
+  });
   const sectionsQuery = useQuery({
     queryKey: ['academy', 'sections', selectedCourseId],
     queryFn: () => academyApi.getCourseSections(selectedCourseId),
@@ -1372,11 +1463,23 @@ export function AcademyPage() {
     queryFn: () => academyApi.getLessons(selectedCourseId),
     enabled: Boolean(selectedCourseId),
   });
-  const allLessonsQuery = useQuery({ queryKey: ['academy', 'lessons', 'all'], queryFn: () => academyApi.getLessons() });
-  const progressQuery = useQuery({ queryKey: ['academy', 'progress'], queryFn: () => academyApi.getProgress() });
-  const assignmentsQuery = useQuery({ queryKey: ['academy', 'assignments'], queryFn: academyApi.getAssignments });
+  const allLessonsQuery = useQuery({
+    queryKey: ['academy', 'lessons', 'all'],
+    queryFn: () => academyApi.getLessons(),
+  });
+  const progressQuery = useQuery({
+    queryKey: ['academy', 'progress'],
+    queryFn: () => academyApi.getProgress(),
+  });
+  const assignmentsQuery = useQuery({
+    queryKey: ['academy', 'assignments'],
+    queryFn: academyApi.getAssignments,
+  });
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const quizzesQuery = useQuery({ queryKey: ['academy', 'quizzes'], queryFn: () => academyApi.getQuizzes() });
+  const quizzesQuery = useQuery({
+    queryKey: ['academy', 'quizzes'],
+    queryFn: () => academyApi.getQuizzes(),
+  });
 
   const courses = coursesQuery.data ?? emptyCourses;
   const sections = sectionsQuery.data ?? emptySections;
@@ -1393,11 +1496,13 @@ export function AcademyPage() {
     const sectionOrder = new Map(sections.map((section) => [section.id, section.order]));
     return [...lessons].sort(
       (a, b) =>
-        (sectionOrder.get(a.sectionId) ?? 0) - (sectionOrder.get(b.sectionId) ?? 0) || a.order - b.order,
+        (sectionOrder.get(a.sectionId) ?? 0) - (sectionOrder.get(b.sectionId) ?? 0) ||
+        a.order - b.order,
     );
   }, [lessons, sections]);
 
-  const selectedLesson = orderedLessons.find((lesson) => lesson.id === selectedLessonId) ?? orderedLessons[0];
+  const selectedLesson =
+    orderedLessons.find((lesson) => lesson.id === selectedLessonId) ?? orderedLessons[0];
   const selectedProgress = progress.find(
     (item) => item.courseId === selectedCourseId && item.userId === (currentUser?.id ?? 'user-1'),
   );
@@ -1539,7 +1644,9 @@ export function AcademyPage() {
         courseId: selectedCourse.id,
         sectionId: namePrompt.sectionId,
         title: value,
-        content: plainTextToRichText('Новый урок. Добавьте материалы, примеры и контрольные вопросы.'),
+        content: plainTextToRichText(
+          'Новый урок. Добавьте материалы, примеры и контрольные вопросы.',
+        ),
       });
     }
   };
@@ -1577,7 +1684,11 @@ export function AcademyPage() {
         description="Создавайте курсы с нуля или из базы знаний, назначайте команде и следите за прогрессом."
         actions={
           <>
-            <Button variant="secondary" onClick={() => setAssignmentOpen(true)} disabled={!selectedCourse}>
+            <Button
+              variant="secondary"
+              onClick={() => setAssignmentOpen(true)}
+              disabled={!selectedCourse}
+            >
               <Send className="size-4" />
               Назначить
             </Button>
@@ -1632,7 +1743,8 @@ export function AcademyPage() {
                             course={course}
                             lessons={allLessons}
                             progress={progress.find(
-                              (item) => item.courseId === course.id && item.userId === currentUser?.id,
+                              (item) =>
+                                item.courseId === course.id && item.userId === currentUser?.id,
                             )}
                             active={course.id === selectedCourseId}
                             onSelect={() => setSelectedCourseId(course.id)}
@@ -1680,7 +1792,8 @@ export function AcademyPage() {
                             const course = courses.find((item) => item.id === assignment.courseId);
                             const itemProgress = progress.find(
                               (item) =>
-                                item.courseId === assignment.courseId && item.userId === currentUser?.id,
+                                item.courseId === assignment.courseId &&
+                                item.userId === currentUser?.id,
                             );
                             return course ? (
                               <button
@@ -1689,7 +1802,9 @@ export function AcademyPage() {
                                 onClick={() => setSelectedCourseId(course.id)}
                                 className="w-full rounded-md border border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
                               >
-                                <span className="block text-sm font-medium text-slate-900">{course.title}</span>
+                                <span className="block text-sm font-medium text-slate-900">
+                                  {course.title}
+                                </span>
                                 <span className="text-xs text-slate-500">
                                   {progressPercent(course.id, allLessons, itemProgress)}% · назначен{' '}
                                   {formatRelativeDate(assignment.createdAt)}
@@ -1705,7 +1820,8 @@ export function AcademyPage() {
                         Черновик с AI
                       </div>
                       <p className="text-sm text-slate-500">
-                        Место под генерацию структуры курса оставлено в конструкторе. Сейчас кнопка готова как UI-заглушка.
+                        Место под генерацию структуры курса оставлено в конструкторе. Сейчас кнопка
+                        готова как UI-заглушка.
                       </p>
                       <Button className="mt-3" variant="secondary" size="sm" disabled>
                         Сгенерировать черновик
@@ -1726,7 +1842,11 @@ export function AcademyPage() {
                     course={selectedCourse}
                     onDelete={() =>
                       selectedCourse &&
-                      setConfirmTarget({ kind: 'course', id: selectedCourse.id, title: selectedCourse.title })
+                      setConfirmTarget({
+                        kind: 'course',
+                        id: selectedCourse.id,
+                        title: selectedCourse.title,
+                      })
                     }
                   />
                   <DndContext
@@ -1751,9 +1871,14 @@ export function AcademyPage() {
                       </div>
                       <div className="space-y-4">
                         {sections.map((section) => {
-                          const sectionLessons = lessons.filter((lesson) => lesson.sectionId === section.id);
+                          const sectionLessons = lessons.filter(
+                            (lesson) => lesson.sectionId === section.id,
+                          );
                           return (
-                            <section key={section.id} className="rounded-md border border-slate-200 p-3">
+                            <section
+                              key={section.id}
+                              className="rounded-md border border-slate-200 p-3"
+                            >
                               <div className="mb-2 flex items-center justify-between gap-2">
                                 <div className="min-w-0 flex-1 truncate font-medium text-slate-900">
                                   {section.title}
@@ -1764,14 +1889,21 @@ export function AcademyPage() {
                                     variant="ghost"
                                     aria-label="Добавить урок"
                                     onClick={() =>
-                                      setNamePrompt({ kind: 'lesson-create', sectionId: section.id })
+                                      setNamePrompt({
+                                        kind: 'lesson-create',
+                                        sectionId: section.id,
+                                      })
                                     }
                                   >
                                     <Plus className="size-4" />
                                   </Button>
                                   <Dropdown
                                     trigger={
-                                      <Button size="sm" variant="ghost" aria-label="Действия с разделом">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        aria-label="Действия с разделом"
+                                      >
                                         <MoreHorizontal className="size-4" />
                                       </Button>
                                     }
@@ -1868,10 +2000,12 @@ export function AcademyPage() {
           {
             value: 'player',
             label: 'Прохождение',
-            content: (
+            content: selectedCourse ? (
               <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
                 <aside className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
-                  <div className="mb-3 text-sm font-semibold text-slate-950">{selectedCourse?.title}</div>
+                  <div className="mb-3 text-sm font-semibold text-slate-950">
+                    {selectedCourse?.title}
+                  </div>
                   <div className="space-y-3">
                     {sections.map((section) => {
                       const sectionLessons = orderedLessons.filter(
@@ -1885,12 +2019,20 @@ export function AcademyPage() {
                           </div>
                           <div className="space-y-1">
                             {sectionLessons.map((lesson) => {
-                              const index = orderedLessons.findIndex((item) => item.id === lesson.id);
-                              const completed = selectedProgress?.completedLessonIds.includes(lesson.id);
+                              const index = orderedLessons.findIndex(
+                                (item) => item.id === lesson.id,
+                              );
+                              const completed = selectedProgress?.completedLessonIds.includes(
+                                lesson.id,
+                              );
                               const previousComplete =
                                 index === 0 ||
-                                selectedProgress?.completedLessonIds.includes(orderedLessons[index - 1]?.id);
-                              const locked = Boolean(selectedCourse?.sequential && !previousComplete);
+                                selectedProgress?.completedLessonIds.includes(
+                                  orderedLessons[index - 1]?.id,
+                                );
+                              const locked = Boolean(
+                                selectedCourse?.sequential && !previousComplete,
+                              );
                               return (
                                 <button
                                   key={lesson.id}
@@ -1902,7 +2044,8 @@ export function AcademyPage() {
                                     lesson.id === selectedLesson?.id
                                       ? 'bg-primary-50 text-primary-800'
                                       : 'hover:bg-slate-50',
-                                    locked && 'cursor-not-allowed text-slate-300 hover:bg-transparent',
+                                    locked &&
+                                      'cursor-not-allowed text-slate-300 hover:bg-transparent',
                                   )}
                                 >
                                   {completed ? (
@@ -1922,14 +2065,15 @@ export function AcademyPage() {
                   </div>
                 </aside>
                 <main className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
-                  {selectedLesson && (
+                  {selectedLesson ? (
                     <>
                       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <h2>{selectedLesson.title}</h2>
                           {selectedQuiz && (
                             <p className="mt-1 text-sm text-slate-500">
-                              Тест: {selectedQuiz.questions.length} вопросов, проходной балл {selectedQuiz.passingScore}%
+                              Тест: {selectedQuiz.questions.length} вопросов, проходной балл{' '}
+                              {selectedQuiz.passingScore}%
                             </p>
                           )}
                         </div>
@@ -1938,7 +2082,10 @@ export function AcademyPage() {
                           loading={markComplete.isPending}
                           onClick={() =>
                             selectedCourse &&
-                            markComplete.mutate({ courseId: selectedCourse.id, lessonId: selectedLesson.id })
+                            markComplete.mutate({
+                              courseId: selectedCourse.id,
+                              lessonId: selectedLesson.id,
+                            })
                           }
                         >
                           <Check className="size-4" />
@@ -1948,18 +2095,32 @@ export function AcademyPage() {
                       <RichTextView content={selectedLesson.content} />
                       {selectedQuiz && (
                         <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                          <h3 className="mb-3 text-base font-semibold text-slate-950">Контрольный тест</h3>
+                          <h3 className="mb-3 text-base font-semibold text-slate-950">
+                            Контрольный тест
+                          </h3>
                           <div className="space-y-3">
                             {selectedQuiz.questions.map((question) => (
                               <div key={question.id} className="rounded-md bg-white p-3">
-                                <p className="text-sm font-medium text-slate-900">{question.text}</p>
+                                <p className="text-sm font-medium text-slate-900">
+                                  {question.text}
+                                </p>
                                 {question.type === 'open' ? (
-                                  <Textarea className="mt-2" rows={3} placeholder="Ответ для ручной проверки" />
+                                  <Textarea
+                                    className="mt-2"
+                                    rows={3}
+                                    placeholder="Ответ для ручной проверки"
+                                  />
                                 ) : (
                                   <div className="mt-2 space-y-2">
                                     {question.options.map((option) => (
-                                      <label key={option.id} className="flex items-center gap-2 text-sm">
-                                        <input type={question.type === 'single' ? 'radio' : 'checkbox'} name={question.id} />
+                                      <label
+                                        key={option.id}
+                                        className="flex items-center gap-2 text-sm"
+                                      >
+                                        <input
+                                          type={question.type === 'single' ? 'radio' : 'checkbox'}
+                                          name={question.id}
+                                        />
                                         {option.text}
                                       </label>
                                     ))}
@@ -1971,9 +2132,29 @@ export function AcademyPage() {
                         </div>
                       )}
                     </>
+                  ) : (
+                    <div className="flex min-h-56 flex-col items-center justify-center text-center">
+                      <BookOpen className="size-8 text-slate-300" />
+                      <h2 className="mt-3 text-base font-semibold text-slate-950">
+                        В курсе пока нет уроков
+                      </h2>
+                      <p className="mt-1 max-w-sm text-sm text-slate-500">
+                        Добавьте разделы и уроки в конструкторе, чтобы курс можно было пройти.
+                      </p>
+                      <Button className="mt-4" size="sm" onClick={() => setTab('builder')}>
+                        Открыть конструктор
+                      </Button>
+                    </div>
                   )}
                 </main>
               </div>
+            ) : (
+              <EmptyState
+                icon={BookOpen}
+                title="Выберите курс для прохождения"
+                description="Откройте курс из каталога или создайте новый, чтобы увидеть его уроки."
+                action={<Button onClick={() => setTab('catalog')}>Перейти в каталог</Button>}
+              />
             ),
           },
           {
@@ -1986,74 +2167,108 @@ export function AcademyPage() {
                     <UsersRound className="size-5 text-slate-400" />
                     Дашборд прогресса
                   </div>
-                  <Button variant="secondary" size="sm" onClick={exportCsv}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={progress.length === 0}
+                    onClick={exportCsv}
+                  >
                     <Download className="size-4" />
                     CSV
                   </Button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-400 uppercase">
-                        <th className="px-4 py-3 font-semibold">Сотрудник</th>
-                        <th className="px-4 py-3 font-semibold">Курс</th>
-                        <th className="px-4 py-3 font-semibold">Статус</th>
-                        <th className="px-4 py-3 font-semibold">Прогресс</th>
-                        <th className="px-4 py-3 font-semibold">Проверка</th>
-                        <th className="px-4 py-3 font-semibold">Сертификат</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {progress.map((item) => {
-                        const user = users.find((candidate) => candidate.id === item.userId);
-                        const course = courses.find((candidate) => candidate.id === item.courseId);
-                        const percent = progressPercent(item.courseId, allLessons, item);
-                        const pendingReview = item.quizAttempts.some((attempt) => attempt.pendingReview);
-                        return (
-                          <tr key={`${item.userId}-${item.courseId}`} className="border-b border-slate-100 last:border-0">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                {user && <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />}
-                                <span className="text-sm font-medium text-slate-900">
-                                  {user ? fullName(user) : item.userId}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-slate-600">{course?.title}</td>
-                            <td className="px-4 py-3">
-                              <Badge variant={item.status === 'completed' ? 'success' : 'primary'}>
-                                {progressStatusLabels[item.status]}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
-                                <div className="h-full bg-success-500" style={{ width: `${percent}%` }} />
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge variant={pendingReview ? 'warning' : 'neutral'}>
-                                {pendingReview ? 'Нужна' : 'Нет'}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={item.status !== 'completed'}
-                                onClick={() => {
-                                  if (course) setSelectedCourseId(course.id);
-                                  setCertificateOpen(true);
-                                }}
-                              >
-                                <Award className="size-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {progress.length === 0 ? (
+                  <div className="p-6">
+                    <EmptyState
+                      icon={UsersRound}
+                      title="Данных о прогрессе пока нет"
+                      description="Здесь появятся результаты после назначения курсов сотрудникам."
+                      action={
+                        <Button variant="secondary" onClick={() => setTab('catalog')}>
+                          Перейти в каталог
+                        </Button>
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] text-left">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-400 uppercase">
+                          <th className="px-4 py-3 font-semibold">Сотрудник</th>
+                          <th className="px-4 py-3 font-semibold">Курс</th>
+                          <th className="px-4 py-3 font-semibold">Статус</th>
+                          <th className="px-4 py-3 font-semibold">Прогресс</th>
+                          <th className="px-4 py-3 font-semibold">Проверка</th>
+                          <th className="px-4 py-3 font-semibold">Сертификат</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {progress.map((item) => {
+                          const user = users.find((candidate) => candidate.id === item.userId);
+                          const course = courses.find(
+                            (candidate) => candidate.id === item.courseId,
+                          );
+                          const percent = progressPercent(item.courseId, allLessons, item);
+                          const pendingReview = item.quizAttempts.some(
+                            (attempt) => attempt.pendingReview,
+                          );
+                          return (
+                            <tr
+                              key={`${item.userId}-${item.courseId}`}
+                              className="border-b border-slate-100 last:border-0"
+                            >
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  {user && (
+                                    <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />
+                                  )}
+                                  <span className="text-sm font-medium text-slate-900">
+                                    {user ? fullName(user) : item.userId}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-600">{course?.title}</td>
+                              <td className="px-4 py-3">
+                                <Badge
+                                  variant={item.status === 'completed' ? 'success' : 'primary'}
+                                >
+                                  {progressStatusLabels[item.status]}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full bg-success-500"
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge variant={pendingReview ? 'warning' : 'neutral'}>
+                                  {pendingReview ? 'Нужна' : 'Нет'}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={item.status !== 'completed'}
+                                  onClick={() => {
+                                    if (course) setSelectedCourseId(course.id);
+                                    setCertificateOpen(true);
+                                  }}
+                                >
+                                  <Award className="size-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             ),
           },
@@ -2111,10 +2326,18 @@ export function AcademyPage() {
         onClose={() => setImportOpen(false)}
         onImport={(articleId, mode) => {
           if (!selectedLesson) return;
-          importArticle.mutate({ id: selectedLesson.id, sourceArticleId: articleId, sourceMode: mode });
+          importArticle.mutate({
+            id: selectedLesson.id,
+            sourceArticleId: articleId,
+            sourceMode: mode,
+          });
         }}
       />
-      <AssignmentModal course={selectedCourse} open={assignmentOpen} onClose={() => setAssignmentOpen(false)} />
+      <AssignmentModal
+        course={selectedCourse}
+        open={assignmentOpen}
+        onClose={() => setAssignmentOpen(false)}
+      />
       <CertificateDrawer
         course={selectedCourse}
         user={currentUser}

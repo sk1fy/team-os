@@ -149,6 +149,8 @@ export function Topbar() {
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-surface px-4">
       <button
+        id="mobile-sidebar-trigger"
+        type="button"
         onClick={() => setMobileSidebarOpen(true)}
         className="rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
         aria-label="Открыть меню"

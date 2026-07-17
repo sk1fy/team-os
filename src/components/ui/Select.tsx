@@ -53,6 +53,7 @@ export function Select({
   triggerRef,
 }: SelectProps) {
   const errorId = useId();
+  const labelId = useId();
   const ungroupedOptions = options.filter((option) => !option.group);
   const groupedOptions = new Map<string, SelectOption[]>();
   for (const option of options) {
@@ -64,10 +65,15 @@ export function Select({
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      {label && <span className="text-xs font-semibold text-slate-700">{label}</span>}
+      {label && (
+        <span id={labelId} className="text-xs font-semibold text-slate-700">
+          {label}
+        </span>
+      )}
       <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled}>
         <SelectPrimitive.Trigger
           ref={triggerRef}
+          aria-labelledby={label ? labelId : undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={cn(

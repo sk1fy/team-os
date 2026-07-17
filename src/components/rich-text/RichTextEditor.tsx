@@ -67,10 +67,12 @@ export function RichTextEditor({
   value,
   onChange,
   minHeight = 260,
+  label = 'Редактор форматированного текста',
 }: {
   value: RichTextContent;
   onChange: (value: RichTextContent) => void;
   minHeight?: number;
+  label?: string;
 }) {
   const editor = useEditor({
     extensions,
@@ -81,6 +83,9 @@ export function RichTextEditor({
       attributes: {
         class: 'rich-text rich-text-editor focus:outline-none',
         style: `min-height: ${minHeight}px`,
+        role: 'textbox',
+        'aria-label': label,
+        'aria-multiline': 'true',
       },
     },
   });

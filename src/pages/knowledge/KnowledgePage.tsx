@@ -36,6 +36,7 @@ import {
   Select,
 } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { EmptyState } from '@/components/layout/EmptyState';
 import { cn } from '@/lib/cn';
 
 const emptyDoc: RichTextContent = { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -210,7 +211,11 @@ function SectionDialog({
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button onClick={submit} loading={createSection.isPending || updateSection.isPending}>
+          <Button
+            onClick={submit}
+            disabled={!name.trim()}
+            loading={createSection.isPending || updateSection.isPending}
+          >
             Сохранить
           </Button>
         </>
@@ -381,12 +386,14 @@ function ArticleDrawer({
   sectionId,
   sections,
   onClose,
+  onCreateSection,
 }: {
   open: boolean;
   article?: Article;
   sectionId: ID | null;
   sections: ArticleSection[];
   onClose: () => void;
+  onCreateSection: () => void;
 }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
@@ -400,6 +407,7 @@ function ArticleDrawer({
   const titleRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLButtonElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const canSave = Boolean(title.trim() && selectedSectionId && richTextToPlainText(content).trim());
 
   useEffect(() => {
     if (!open) return;
@@ -474,7 +482,11 @@ function ArticleDrawer({
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button onClick={save} loading={createArticle.isPending || updateArticle.isPending}>
+          <Button
+            onClick={save}
+            disabled={!canSave}
+            loading={createArticle.isPending || updateArticle.isPending}
+          >
             Сохранить
           </Button>
         </>
@@ -495,6 +507,7 @@ function ArticleDrawer({
           <Select
             label="Раздел"
             triggerRef={sectionRef}
+            disabled={sections.length === 0}
             value={selectedSectionId}
             onValueChange={(value) => {
               setSelectedSectionId(value);
@@ -513,6 +526,18 @@ function ArticleDrawer({
             ]}
           />
         </div>
+        {sections.length === 0 && (
+          <div className="rounded-md border border-primary-200 bg-primary-50 p-3">
+            <p className="text-sm font-medium text-primary-900">Сначала создайте раздел</p>
+            <p className="mt-1 text-xs text-primary-700">
+              Каждая статья должна находиться в разделе базы знаний.
+            </p>
+            <Button className="mt-3" size="sm" variant="secondary" onClick={onCreateSection}>
+              <FolderPlus className="size-4" />
+              Создать раздел
+            </Button>
+          </div>
+        )}
         <Select
           label="Шаблон"
           placeholder="Вставить шаблон"
@@ -532,6 +557,7 @@ function ArticleDrawer({
         </label>
         <div ref={editorRef}>
           <RichTextEditor
+            label="Содержание статьи"
             value={content}
             onChange={(value) => {
               setContent(value);
@@ -670,6 +696,7 @@ export function KnowledgePage() {
   const rootSections = sectionChildren(sections, null);
   const headings = getRichTextHeadings(activeArticle?.content);
   const requestedArticleId = searchParams.get('article');
+  const isKnowledgeLoading = sectionsQuery.isPending || articlesQuery.isPending;
 
   useEffect(() => {
     if (!requestedArticleId) return;
@@ -765,208 +792,238 @@ export function KnowledgePage() {
         />
       </div>
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-surface">
-          <div className="border-b border-slate-200 p-4">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                placeholder="Поиск по базе…"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
-              />
+      {isKnowledgeLoading ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-slate-500">
+          Загружаем базу знаний…
+        </div>
+      ) : sections.length === 0 && articles.length === 0 && !search.trim() ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+          <div className="w-full max-w-2xl">
+            <EmptyState
+              icon={FolderPlus}
+              title="База знаний пока пуста"
+              description="Создайте первый раздел, а затем добавьте в него регламенты, инструкции и другие материалы."
+              action={
+                <Button onClick={() => setSectionDialog('create')}>
+                  <FolderPlus className="size-4" />
+                  Создать раздел
+                </Button>
+              }
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-surface">
+            <div className="border-b border-slate-200 p-4">
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  placeholder="Поиск по базе…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {search.trim() ? (
-              <div className="space-y-1">
-                {searchResults.map((article) => (
-                  <button
-                    key={article.id}
-                    type="button"
-                    onClick={() => {
-                      selectArticle(article.id);
-                    }}
-                    className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-slate-100"
-                  >
-                    <Search className="mt-0.5 size-4 shrink-0 text-slate-400" />
-                    <span>
-                      <span className="block font-medium text-slate-800">{article.title}</span>
-                      <span className="line-clamp-2 text-xs text-slate-500">
-                        {richTextToPlainText(article.content)}
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              {search.trim() ? (
+                <div className="space-y-1">
+                  {searchResults.map((article) => (
+                    <button
+                      key={article.id}
+                      type="button"
+                      onClick={() => {
+                        selectArticle(article.id);
+                      }}
+                      className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-slate-100"
+                    >
+                      <Search className="mt-0.5 size-4 shrink-0 text-slate-400" />
+                      <span>
+                        <span className="block font-medium text-slate-800">{article.title}</span>
+                        <span className="line-clamp-2 text-xs text-slate-500">
+                          {richTextToPlainText(article.content)}
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                ))}
-                {searchResults.length === 0 && (
-                  <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">
-                    Ничего не найдено.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {rootSections.map((section) => (
-                  <SectionBranch
-                    key={section.id}
-                    section={section}
-                    sections={sections}
-                    articles={articles}
-                    activeSectionId={activeSectionId}
-                    activeArticleId={activeArticleId}
-                    onSelectSection={selectSection}
-                    onSelectArticle={selectArticle}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </aside>
-
-        <main className="min-h-0 overflow-y-auto">
-          {activeArticle ? (
-            <article className="mx-auto grid max-w-6xl gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="min-w-0">
-                <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <Badge variant={activeArticle.status === 'published' ? 'success' : 'warning'}>
-                        {activeArticle.status === 'published' ? 'Опубликована' : 'Черновик'}
-                      </Badge>
-                      <Badge variant="neutral">Версия {activeArticle.version}</Badge>
-                      {activeArticle.requiresAcknowledgement && (
-                        <Badge variant="primary">Ознакомление</Badge>
-                      )}
-                    </div>
-                    <h1>{activeArticle.title}</h1>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Обновлено {formatRelativeDate(activeArticle.updatedAt)}
+                    </button>
+                  ))}
+                  {searchResults.length === 0 && (
+                    <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-500">
+                      Ничего не найдено.
                     </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {activeArticle.status === 'published' && (
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {rootSections.map((section) => (
+                    <SectionBranch
+                      key={section.id}
+                      section={section}
+                      sections={sections}
+                      articles={articles}
+                      activeSectionId={activeSectionId}
+                      activeArticleId={activeArticleId}
+                      onSelectSection={selectSection}
+                      onSelectArticle={selectArticle}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
+
+          <main className="min-h-0 overflow-y-auto">
+            {activeArticle ? (
+              <article className="mx-auto grid max-w-6xl gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="min-w-0">
+                  <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={activeArticle.status === 'published' ? 'success' : 'warning'}
+                        >
+                          {activeArticle.status === 'published' ? 'Опубликована' : 'Черновик'}
+                        </Badge>
+                        <Badge variant="neutral">Версия {activeArticle.version}</Badge>
+                        {activeArticle.requiresAcknowledgement && (
+                          <Badge variant="primary">Ознакомление</Badge>
+                        )}
+                      </div>
+                      <h1>{activeArticle.title}</h1>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Обновлено {formatRelativeDate(activeArticle.updatedAt)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {activeArticle.status === 'published' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => copyArticleLink(activeArticle.id)}
+                        >
+                          <Share2 className="size-4" />
+                          Поделиться
+                        </Button>
+                      )}
+                      <Button variant="secondary" size="sm" onClick={() => setVersionsOpen(true)}>
+                        <History className="size-4" />
+                        Версии
+                      </Button>
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => copyArticleLink(activeArticle.id)}
+                        onClick={() => setArticleDrawer('edit')}
                       >
-                        <Share2 className="size-4" />
-                        Поделиться
+                        <Pencil className="size-4" />
+                        Изменить
                       </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+                    <RichTextView content={activeArticle.content} />
+                  </div>
+                </div>
+
+                <aside className="space-y-4">
+                  <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <FileClock className="size-4 text-slate-400" />
+                      Оглавление
+                    </div>
+                    {headings.length > 0 ? (
+                      <div className="space-y-2">
+                        {headings.map((heading) => (
+                          <div
+                            key={heading.id}
+                            className={cn('text-sm text-slate-600', heading.level > 2 && 'pl-3')}
+                          >
+                            {heading.text}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">Заголовков пока нет.</p>
                     )}
-                    <Button variant="secondary" size="sm" onClick={() => setVersionsOpen(true)}>
-                      <History className="size-4" />
-                      Версии
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => setArticleDrawer('edit')}>
-                      <Pencil className="size-4" />
-                      Изменить
-                    </Button>
                   </div>
-                </div>
 
-                <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
-                  <RichTextView content={activeArticle.content} />
-                </div>
-              </div>
-
-              <aside className="space-y-4">
-                <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <FileClock className="size-4 text-slate-400" />
-                    Оглавление
-                  </div>
-                  {headings.length > 0 ? (
-                    <div className="space-y-2">
-                      {headings.map((heading) => (
-                        <div
-                          key={heading.id}
-                          className={cn('text-sm text-slate-600', heading.level > 2 && 'pl-3')}
-                        >
-                          {heading.text}
+                  <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <UsersRound className="size-4 text-slate-400" />
+                      Ознакомились
+                    </div>
+                    <div className="space-y-3">
+                      {(usersQuery.data ?? []).map((user) => (
+                        <div key={user.id} className="flex items-center justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" />
+                            <span className="truncate text-sm text-slate-700">
+                              {fullName(user)}
+                            </span>
+                          </div>
+                          <Badge variant={acknowledgedUserIds.has(user.id) ? 'success' : 'neutral'}>
+                            {acknowledgedUserIds.has(user.id) ? 'Да' : 'Нет'}
+                          </Badge>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">Заголовков пока нет.</p>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <UsersRound className="size-4 text-slate-400" />
-                    Ознакомились
                   </div>
-                  <div className="space-y-3">
-                    {(usersQuery.data ?? []).map((user) => (
-                      <div key={user.id} className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" />
-                          <span className="truncate text-sm text-slate-700">{fullName(user)}</span>
-                        </div>
-                        <Badge variant={acknowledgedUserIds.has(user.id) ? 'success' : 'neutral'}>
-                          {acknowledgedUserIds.has(user.id) ? 'Да' : 'Нет'}
+                </aside>
+              </article>
+            ) : activeSection ? (
+              <div className="mx-auto max-w-3xl p-6">
+                <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="mb-2 flex items-center gap-2">
+                        <Folder className="size-5 text-primary-500" />
+                        <Badge
+                          variant={activeSection.access.scope === 'company' ? 'success' : 'warning'}
+                        >
+                          {activeSection.access.scope === 'company' ? 'Вся компания' : 'Ограничен'}
                         </Badge>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </aside>
-            </article>
-          ) : activeSection ? (
-            <div className="mx-auto max-w-3xl p-6">
-              <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div>
-                    <div className="mb-2 flex items-center gap-2">
-                      <Folder className="size-5 text-primary-500" />
-                      <Badge
-                        variant={activeSection.access.scope === 'company' ? 'success' : 'warning'}
-                      >
-                        {activeSection.access.scope === 'company' ? 'Вся компания' : 'Ограничен'}
-                      </Badge>
+                      <h1>{activeSection.name}</h1>
                     </div>
-                    <h1>{activeSection.name}</h1>
+                    <div className="flex gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => setAccessOpen(true)}>
+                        <LockKeyhole className="size-4" />
+                        Доступ
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSectionDialog('rename')}
+                      >
+                        <Pencil className="size-4" />
+                        Название
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteSection.mutate(activeSection.id)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => setAccessOpen(true)}>
-                      <LockKeyhole className="size-4" />
-                      Доступ
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setSectionDialog('rename')}
-                    >
-                      <Pencil className="size-4" />
-                      Название
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteSection.mutate(activeSection.id)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
+                  <p className="text-sm text-slate-500">
+                    В разделе{' '}
+                    {articles.filter((article) => article.sectionId === activeSection.id).length}{' '}
+                    статей. Создайте новую статью или настройте доступ для команды.
+                  </p>
                 </div>
-                <p className="text-sm text-slate-500">
-                  В разделе{' '}
-                  {articles.filter((article) => article.sectionId === activeSection.id).length}{' '}
-                  статей. Создайте новую статью или настройте доступ для команды.
-                </p>
               </div>
-            </div>
-          ) : (
-            <div className="p-10 text-center text-sm text-slate-500">
-              Выберите раздел или статью.
-            </div>
-          )}
-        </main>
-      </div>
+            ) : (
+              <div className="p-10 text-center text-sm text-slate-500">
+                Выберите раздел или статью.
+              </div>
+            )}
+          </main>
+        </div>
+      )}
 
       <SectionDialog
         open={sectionDialog === 'create' || sectionDialog === 'rename'}
@@ -986,6 +1043,10 @@ export function KnowledgePage() {
         sectionId={activeSectionId}
         sections={sections}
         onClose={() => setArticleDrawer(null)}
+        onCreateSection={() => {
+          setArticleDrawer(null);
+          setSectionDialog('create');
+        }}
       />
       <VersionsDialog
         article={activeArticle}
