@@ -9,7 +9,7 @@ import { persist } from 'zustand/middleware';
 export type Theme = 'light' | 'dark';
 
 interface UiState {
-  /** Пока реализована только light, но токен заложен под будущую тёмную тему. */
+  /** Цветовая тема интерфейса. */
   theme: Theme;
   setTheme: (theme: Theme) => void;
 

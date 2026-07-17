@@ -169,6 +169,14 @@ const mockAuthApi = {
 // Оргструктура
 // ============================================================================
 
+function employeeAccessTarget(userId: ID): User {
+  const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
+  if (user.role === 'owner') throw new ApiError('Нельзя изменить доступ владельца', 400);
+  if (user.status !== 'active')
+    throw new ApiError('Управлять доступом можно только для активного сотрудника', 400);
+  return user;
+}
+
 const mockOrgApi = {
   getDepartments: (): Promise<Department[]> => mockRequest(() => db.departments),
 
@@ -193,8 +201,7 @@ const mockOrgApi = {
       const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
       if (actor?.role !== 'owner')
         throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
-      const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
-      if (user.role === 'owner') throw new ApiError('Нельзя изменить доступ владельца', 400);
+      const user = employeeAccessTarget(userId);
       const password =
         input.password?.trim() ||
         Array.from(
@@ -213,8 +220,7 @@ const mockOrgApi = {
       const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
       if (actor?.role !== 'owner')
         throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
-      const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
-      if (user.role === 'owner') throw new ApiError('Нельзя изменить доступ владельца', 400);
+      const user = employeeAccessTarget(userId);
       const bytes = crypto.getRandomValues(new Uint8Array(24));
       const token = btoa(String.fromCharCode(...bytes))
         .replaceAll('+', '-')
@@ -233,7 +239,7 @@ const mockOrgApi = {
       const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
       if (actor?.role !== 'owner')
         throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
-      const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
+      const user = employeeAccessTarget(userId);
       db.employeePasswords.delete(userId);
       db.employeeAccess.delete(userId);
       db.persistEmployeeAccess();

@@ -8,7 +8,9 @@ import {
   Hash,
   ImageOff,
   Mail,
+  Moon,
   RotateCw,
+  Sun,
   UserRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -24,6 +26,7 @@ import {
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { toast } from '@/stores/toast';
+import { useUiStore, type Theme } from '@/stores/ui';
 import { Avatar, Badge, Button, Input } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -452,6 +455,62 @@ function CompanyProfileSection() {
   );
 }
 
+const themeOptions: Array<{ value: Theme; label: string; description: string; icon: LucideIcon }> =
+  [
+    {
+      value: 'light',
+      label: 'Светлая',
+      description: 'Светлый фон и контрастные карточки',
+      icon: Sun,
+    },
+    {
+      value: 'dark',
+      label: 'Тёмная',
+      description: 'Приглушённый фон для работы вечером',
+      icon: Moon,
+    },
+  ];
+
+function AppearanceSection() {
+  const theme = useUiStore((state) => state.theme);
+  const setTheme = useUiStore((state) => state.setTheme);
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-surface p-5 shadow-card">
+      <div>
+        <h2 className="text-base font-semibold text-slate-900">Оформление</h2>
+        <p className="mt-1 text-sm text-slate-500">Тема сохраняется только для этого браузера.</p>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {themeOptions.map((option) => {
+          const Icon = option.icon;
+          const selected = option.value === theme;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setTheme(option.value)}
+              className={cn(
+                'flex cursor-pointer items-start gap-3 rounded-lg border p-4 text-left transition-colors',
+                selected
+                  ? 'border-primary-500 bg-primary-50 text-primary-800'
+                  : 'border-slate-200 bg-surface text-slate-700 hover:border-primary-200',
+              )}
+            >
+              <Icon className="mt-0.5 size-5 shrink-0" />
+              <span>
+                <span className="block font-semibold">{option.label}</span>
+                <span className="mt-1 block text-xs opacity-75">{option.description}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function MyProfileSection() {
   const queryClient = useQueryClient();
   const userQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
@@ -645,6 +704,7 @@ export function SettingsPage() {
       </div>
 
       <div className="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
+        <AppearanceSection />
         {readOnly ? (
           <div className="rounded-xl border border-slate-200 bg-surface p-5 text-sm text-slate-600 shadow-card">
             Профиль доступен только для просмотра. Изменения вносит владелец или администратор

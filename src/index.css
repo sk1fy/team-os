@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ==========================================================================
    Дизайн-токены TeamOS (light-тема)
    ========================================================================== */
@@ -89,6 +91,51 @@
 
   ::placeholder {
     @apply text-slate-400;
+  }
+}
+
+@layer base {
+  html.dark {
+    --color-page: #0f172a;
+    --color-surface: #172033;
+    --color-surface-muted: #1e293b;
+    --color-surface-sunken: #0f172a;
+    --color-ink: #f8fafc;
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.35);
+    --shadow-popover: 0 12px 40px 0 rgb(0 0 0 / 0.45);
+  }
+
+  html.dark body {
+    color: #cbd5e1;
+  }
+}
+
+@layer utilities {
+  html.dark .bg-slate-50,
+  html.dark .bg-slate-100 {
+    background-color: #1e293b;
+  }
+
+  html.dark .border-slate-100,
+  html.dark .border-slate-200,
+  html.dark .divide-slate-100 > :not(:last-child),
+  html.dark .divide-slate-200 > :not(:last-child) {
+    border-color: #334155;
+  }
+
+  html.dark .text-slate-900 {
+    color: #f8fafc;
+  }
+
+  html.dark .text-slate-800,
+  html.dark .text-slate-700,
+  html.dark .text-slate-600 {
+    color: #cbd5e1;
+  }
+
+  html.dark .text-slate-500,
+  html.dark .text-slate-400 {
+    color: #94a3b8;
   }
 }
 

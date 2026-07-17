@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -19,9 +19,14 @@ import { useUiStore } from '@/stores/ui';
 import { Avatar, Dropdown } from '@/components/ui';
 import { fullName as formatFullName, roleLabels } from '@/lib/labels';
 import { richTextToPlainText } from '@/lib/richText';
-import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
 import { useLogout } from '@/components/auth/useLogout';
+
+const EmployeeDrawer = lazy(() =>
+  import('@/pages/employees/EmployeeDrawer').then((module) => ({
+    default: module.EmployeeDrawer,
+  })),
+);
 
 type SearchResult = {
   id: string;
@@ -289,7 +294,11 @@ export function Topbar() {
           />
         )}
       </div>
-      <EmployeeDrawer userId={selectedEmployeeId} onClose={() => setSelectedEmployeeId(null)} />
+      {selectedEmployeeId && (
+        <Suspense fallback={null}>
+          <EmployeeDrawer userId={selectedEmployeeId} onClose={() => setSelectedEmployeeId(null)} />
+        </Suspense>
+      )}
     </header>
   );
 }
