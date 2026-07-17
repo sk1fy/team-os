@@ -29,6 +29,7 @@ import { toast } from '@/stores/toast';
 import { Avatar, Badge, Button, Drawer, Modal, Select } from '@/components/ui';
 import { EmployeeEditModal } from './EmployeeEditModal';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
+import { splitEmployeeName } from './employeeName';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const monthShortNames = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
@@ -179,7 +180,7 @@ export function EmployeeDrawer({
   const savePanel = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Сотрудник не выбран');
-      const name = splitFullName(profileDraft.fullName || fullName(user));
+      const name = splitEmployeeName(profileDraft.fullName, user);
       const template: ScheduleTemplate =
         scheduleType === 'week'
           ? {
@@ -1189,14 +1190,6 @@ function isCycleWorkday(
   const cycle = template.on + template.off;
   const position = ((diff % cycle) + cycle) % cycle;
   return position < template.on;
-}
-
-function splitFullName(value: string) {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  return {
-    firstName: parts[0] ?? '',
-    lastName: parts.slice(1).join(' '),
-  };
 }
 
 function isoDateLocal(year: number, month: number, day: number) {

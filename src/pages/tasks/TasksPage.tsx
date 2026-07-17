@@ -38,6 +38,7 @@ import {
 } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { cn } from '@/lib/cn';
+import { createId } from '@/lib/id';
 
 const emptyColumns: TaskColumn[] = [];
 const emptyTasks: Task[] = [];
@@ -433,7 +434,7 @@ function TaskDrawer({
                       if (event.key !== 'Enter' || !newChecklistText.trim()) return;
                       setChecklist((items) => [
                         ...items,
-                        { id: crypto.randomUUID(), text: newChecklistText.trim(), done: false },
+                        { id: createId(), text: newChecklistText.trim(), done: false },
                       ]);
                       setNewChecklistText('');
                     }}
@@ -446,7 +447,7 @@ function TaskDrawer({
                       if (!newChecklistText.trim()) return;
                       setChecklist((items) => [
                         ...items,
-                        { id: crypto.randomUUID(), text: newChecklistText.trim(), done: false },
+                        { id: createId(), text: newChecklistText.trim(), done: false },
                       ]);
                       setNewChecklistText('');
                     }}

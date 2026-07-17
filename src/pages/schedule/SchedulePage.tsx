@@ -74,9 +74,6 @@ const blockBadges: Partial<Record<ShiftType, { label: string; className: string 
 const scheduleTabs = [
   { value: 'schedule', label: 'График' },
   { value: 'stats', label: 'Статистика' },
-  { value: 'distribution', label: 'Распределение' },
-  { value: 'reference', label: 'Справочник' },
-  { value: 'access', label: 'Доступ' },
 ] as const;
 
 type ScheduleTab = (typeof scheduleTabs)[number]['value'];
@@ -742,7 +739,12 @@ export function SchedulePage() {
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1">
+            <div
+              className={cn(
+                'flex flex-wrap items-center gap-1',
+                activeTab !== 'schedule' && 'hidden',
+              )}
+            >
               <button
                 onClick={() => shiftMonth(-1)}
                 className="flex size-8.5 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600"
@@ -961,15 +963,6 @@ export function SchedulePage() {
             todayDay={isCurrentMonth ? todayDay : totalDays}
             lowCoverageDays={coverage.filter((count, index) => !isWeekend(year, month, index + 1) && count < coverageNorm).length}
           />
-        ) : activeTab !== 'schedule' ? (
-          <div className="flex h-full min-h-80 items-center justify-center rounded-lg border border-slate-200 bg-surface text-center shadow-card">
-            <div>
-              <p className="font-semibold text-ink">
-                {scheduleTabs.find((tab) => tab.value === activeTab)?.label}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">Раздел подготовлен для следующего этапа.</p>
-            </div>
-          </div>
         ) : hasError ? (
           <ErrorState
             onRetry={() => {
