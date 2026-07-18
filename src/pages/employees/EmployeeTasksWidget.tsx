@@ -31,7 +31,9 @@ export function EmployeeTasksWidget({
                   <p className="text-xs text-slate-400">до {formatRelativeDate(task.dueDate)}</p>
                 )}
               </div>
-              <Badge variant={priorityVariants[task.priority]}>{priorityLabels[task.priority]}</Badge>
+              <Badge variant={priorityVariants[task.priority]}>
+                {priorityLabels[task.priority]}
+              </Badge>
             </div>
           ))}
         </div>

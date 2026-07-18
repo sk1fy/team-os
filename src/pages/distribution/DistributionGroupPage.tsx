@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Activity, ArrowLeft, Clock3, Pencil, RotateCcw } from 'lucide-react';
 import { distributionApi, orgApi, scheduleApi } from '@/api';
-import { scheduleQueryKeys } from '@/api/queryKeys';
+import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
 import type {
   DealDistributionGroup,
   DistributionAlgorithm,
@@ -135,16 +135,16 @@ export function DistributionGroupPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const groupsQuery = useQuery({
-    queryKey: ['distribution', 'groups'],
+    queryKey: queryKeys.distribution.groups,
     queryFn: distributionApi.getGroups,
   });
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
   const schedulesQuery = useQuery({
     queryKey: scheduleQueryKeys.templates,
     queryFn: scheduleApi.getSchedules,
   });
   const eventsQuery = useQuery({
-    queryKey: ['distribution', 'events', groupId],
+    queryKey: queryKeys.distribution.events(groupId),
     queryFn: () => distributionApi.getEvents(groupId),
   });
 
@@ -166,27 +166,26 @@ export function DistributionGroupPage() {
     mutationFn: (input: Parameters<typeof distributionApi.updateGroup>[0]) =>
       distributionApi.updateGroup(input),
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['distribution', 'groups'] });
-      const previous = queryClient.getQueryData<DealDistributionGroup[]>([
-        'distribution',
-        'groups',
-      ]);
-      queryClient.setQueryData<DealDistributionGroup[]>(['distribution', 'groups'], (groups) =>
+      await queryClient.cancelQueries({ queryKey: queryKeys.distribution.groups });
+      const previous = queryClient.getQueryData<DealDistributionGroup[]>(
+        queryKeys.distribution.groups,
+      );
+      queryClient.setQueryData<DealDistributionGroup[]>(queryKeys.distribution.groups, (groups) =>
         groups?.map((item) => (item.id === input.id ? { ...item, ...input } : item)),
       );
       return { previous };
     },
     onError: (error, _input, context) => {
-      queryClient.setQueryData(['distribution', 'groups'], context?.previous);
+      queryClient.setQueryData(queryKeys.distribution.groups, context?.previous);
       toast.error(error instanceof Error ? error.message : 'Не удалось обновить группу');
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['distribution', 'groups'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.distribution.groups }),
   });
 
   const resetEvents = useMutation({
     mutationFn: () => distributionApi.resetEvents(groupId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['distribution', 'events', groupId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.distribution.events(groupId) });
       toast.success('Лента распределения очищена');
     },
     onError: (error) =>

@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -35,11 +36,11 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient();
 
   const departmentsQuery = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
-  const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
 
   const [collapsed, setCollapsed] = useState<Set<ID>>(new Set());
   const [diagramCollapsed, setDiagramCollapsed] = useState<Set<ID>>(new Set());
@@ -90,35 +91,35 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
   const moveDepartment = useMutation({
     mutationFn: orgApi.moveDepartment,
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['departments'] });
-      const previous = queryClient.getQueryData<Department[]>(['departments']);
-      queryClient.setQueryData<Department[]>(['departments'], (old) =>
+      await queryClient.cancelQueries({ queryKey: queryKeys.departments });
+      const previous = queryClient.getQueryData<Department[]>(queryKeys.departments);
+      queryClient.setQueryData<Department[]>(queryKeys.departments, (old) =>
         old?.map((d) => (d.id === input.id ? { ...d, parentId: input.parentId } : d)),
       );
       return { previous };
     },
     onError: (error, _input, context) => {
-      queryClient.setQueryData(['departments'], context?.previous);
+      queryClient.setQueryData(queryKeys.departments, context?.previous);
       toast.error(error instanceof Error ? error.message : 'Не удалось переместить отдел');
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['departments'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.departments }),
   });
 
   const movePosition = useMutation({
     mutationFn: orgApi.movePosition,
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['positions'] });
-      const previous = queryClient.getQueryData<Position[]>(['positions']);
-      queryClient.setQueryData<Position[]>(['positions'], (old) =>
+      await queryClient.cancelQueries({ queryKey: queryKeys.positions });
+      const previous = queryClient.getQueryData<Position[]>(queryKeys.positions);
+      queryClient.setQueryData<Position[]>(queryKeys.positions, (old) =>
         old?.map((p) => (p.id === input.id ? { ...p, departmentId: input.departmentId } : p)),
       );
       return { previous };
     },
     onError: (error, _input, context) => {
-      queryClient.setQueryData(['positions'], context?.previous);
+      queryClient.setQueryData(queryKeys.positions, context?.previous);
       toast.error(error instanceof Error ? error.message : 'Не удалось переместить должность');
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['positions'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.positions }),
   });
 
   const handleDragStart = (event: DragStartEvent) => {

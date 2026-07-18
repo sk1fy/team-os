@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,26 +19,26 @@ export function LearnPage() {
   const [lessonId, setLessonId] = useState<ID | null>(null);
 
   const courseQuery = useQuery({
-    queryKey: ['academy', 'course', courseId],
+    queryKey: queryKeys.academy.course(courseId),
     queryFn: () => academyApi.getCourse(courseId),
     enabled: Boolean(courseId),
   });
   const lessonsQuery = useQuery({
-    queryKey: ['academy', 'learn', 'lessons', courseId],
+    queryKey: queryKeys.academy.learnLessons(courseId),
     queryFn: () => academyApi.getLessons(courseId),
     enabled: Boolean(courseId),
   });
   const currentUserQuery = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
   const progressQuery = useQuery({
-    queryKey: ['academy', 'learn', 'progress', courseId],
+    queryKey: queryKeys.academy.learnProgress(courseId),
     queryFn: () => academyApi.getProgress(courseId),
     enabled: Boolean(courseId && currentUserQuery.data),
   });
   const quizzesQuery = useQuery({
-    queryKey: ['academy', 'quizzes'],
+    queryKey: queryKeys.academy.quizzes,
     queryFn: () => academyApi.getQuizzes(),
   });
 
@@ -47,7 +48,8 @@ export function LearnPage() {
   const lesson = lessons.find((item) => item.id === lessonId) ?? lessons[0];
   const quiz = quizzesQuery.data?.find((item) => item.id === lesson?.quizId);
   const courseNotFound = courseQuery.error instanceof ApiError && courseQuery.error.status === 404;
-  const courseUnauthorized = courseQuery.error instanceof ApiError && courseQuery.error.status === 401;
+  const courseUnauthorized =
+    courseQuery.error instanceof ApiError && courseQuery.error.status === 401;
   const courseForbidden = courseQuery.error instanceof ApiError && courseQuery.error.status === 403;
 
   useTitle(
@@ -66,14 +68,14 @@ export function LearnPage() {
     mutationFn: academyApi.markLessonComplete,
     onSuccess: (updatedProgress) => {
       queryClient.setQueryData<CourseProgress[]>(
-        ['academy', 'learn', 'progress', courseId],
+        queryKeys.academy.learnProgress(courseId),
         (current) => upsertCourseProgress(current, updatedProgress),
       );
-      queryClient.setQueryData<CourseProgress[]>(['academy', 'progress'], (current) =>
+      queryClient.setQueryData<CourseProgress[]>(queryKeys.academy.progress, (current) =>
         upsertCourseProgress(current, updatedProgress),
       );
       void queryClient.invalidateQueries({
-        queryKey: ['academy', 'learn', 'progress', courseId],
+        queryKey: queryKeys.academy.learnProgress(courseId),
       });
     },
     onError: () => undefined,
@@ -110,7 +112,7 @@ export function LearnPage() {
                 ? 'Этот курс доступен только зарегистрированным сотрудникам.'
                 : courseForbidden
                   ? 'Обратитесь к владельцу или администратору компании.'
-              : 'Проверьте подключение и попробуйте ещё раз.'}
+                  : 'Проверьте подключение и попробуйте ещё раз.'}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             {!courseNotFound && !courseUnauthorized && !courseForbidden && (
@@ -204,9 +206,7 @@ export function LearnPage() {
                     onClick={() => markComplete.mutate({ courseId, lessonId: lesson.id })}
                   >
                     <Check className="size-4" />
-                    {progress?.completedLessonIds.includes(lesson.id)
-                      ? 'Урок завершён'
-                      : 'Готово'}
+                    {progress?.completedLessonIds.includes(lesson.id) ? 'Урок завершён' : 'Готово'}
                   </Button>
                 ) : currentUserQuery.isError && course.visibility === 'public' ? (
                   <Link to="/auth/login">

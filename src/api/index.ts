@@ -935,9 +935,11 @@ const mockAcademyApi = {
           .filter((course) => canAccessCourse(course, user, db.courseAssignments, db.positions))
           .map((course) => course.id),
       );
-      return (courseId
-        ? db.lessons.filter((lesson) => lesson.courseId === courseId)
-        : db.lessons.filter((lesson) => accessibleCourseIds.has(lesson.courseId)))
+      return (
+        courseId
+          ? db.lessons.filter((lesson) => lesson.courseId === courseId)
+          : db.lessons.filter((lesson) => accessibleCourseIds.has(lesson.courseId))
+      )
         .sort((a, b) => a.order - b.order)
         .map(withLiveContent);
     }),
@@ -1016,10 +1018,7 @@ const mockAcademyApi = {
         input.mode === 'link' &&
         source.some(({ kbSection }) => kbSection?.visibility !== 'public')
       ) {
-        throw new ApiError(
-          'В публичный курс нельзя связать закрытую статью',
-          400,
-        );
+        throw new ApiError('В публичный курс нельзя связать закрытую статью', 400);
       }
       const course: Course = {
         id: uid(),
@@ -1076,15 +1075,12 @@ const mockAcademyApi = {
           .some((lesson) => {
             const article = db.articles.find((item) => item.id === lesson.sourceArticleId);
             return (
-              db.articleSections.find((section) => section.id === article?.sectionId)?.visibility !==
-              'public'
+              db.articleSections.find((section) => section.id === article?.sectionId)
+                ?.visibility !== 'public'
             );
           });
         if (hasClosedLinkedArticle) {
-          throw new ApiError(
-            'Перед публикацией курса сделайте копии закрытых статей',
-            400,
-          );
+          throw new ApiError('Перед публикацией курса сделайте копии закрытых статей', 400);
         }
       }
       if (input.title !== undefined) course.title = input.title;
@@ -1172,10 +1168,7 @@ const mockAcademyApi = {
         input.sourceMode === 'link' &&
         sourceSection?.visibility !== 'public'
       ) {
-        throw new ApiError(
-          'В публичный курс нельзя связать закрытую статью',
-          400,
-        );
+        throw new ApiError('В публичный курс нельзя связать закрытую статью', 400);
       }
       const lesson: Lesson = {
         id: uid(),

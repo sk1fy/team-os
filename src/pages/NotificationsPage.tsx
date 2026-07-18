@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { BellOff } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
@@ -20,14 +21,14 @@ export function NotificationsPage() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: queryKeys.notifications.all,
     queryFn: notificationsApi.getNotifications,
   });
 
   const markAllRead = useMutation({
     mutationFn: notificationsApi.markAllRead,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
       toast.success('Все уведомления прочитаны');
     },
     onError: () => toast.error('Не удалось отметить уведомления'),

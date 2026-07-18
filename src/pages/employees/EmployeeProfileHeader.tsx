@@ -1,7 +1,13 @@
 import { Briefcase, CalendarDays, Mail, Phone } from 'lucide-react';
 import type { Department, Position, User } from '@/types';
 import { formatDate } from '@/lib/format';
-import { fullName, roleLabels, roleVariants, userStatusLabels, userStatusVariants } from '@/lib/labels';
+import {
+  fullName,
+  roleLabels,
+  roleVariants,
+  userStatusLabels,
+  userStatusVariants,
+} from '@/lib/labels';
 import { Avatar, Badge } from '@/components/ui';
 
 interface EmployeeProfileHeaderProps {
@@ -28,13 +34,7 @@ export function EmployeeProfileHeader({
         <Avatar name={fullName(user)} src={user.avatarUrl} size="xl" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Heading
-              className={
-                headingLevel === 'h1'
-                  ? undefined
-                  : 'text-xl font-bold text-ink'
-              }
-            >
+            <Heading className={headingLevel === 'h1' ? undefined : 'text-xl font-bold text-ink'}>
               {fullName(user)}
             </Heading>
             <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>

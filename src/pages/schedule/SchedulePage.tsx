@@ -18,7 +18,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { authApi, orgApi, scheduleApi } from '@/api';
-import { scheduleQueryKeys } from '@/api/queryKeys';
+import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
 import type { ID, ShiftException, ShiftType, User, UserSchedule } from '@/types';
 import {
   MONTH_LABELS,
@@ -457,10 +457,16 @@ export function SchedulePage() {
   );
   const [employeePanelId, setEmployeePanelId] = useState<ID | null>(null);
 
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const currentUserQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: orgApi.getDepartments });
-  const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
+  const currentUserQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
+  const departmentsQuery = useQuery({
+    queryKey: queryKeys.departments,
+    queryFn: orgApi.getDepartments,
+  });
+  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
   const schedulesQuery = useQuery({
     queryKey: scheduleQueryKeys.templates,
     queryFn: scheduleApi.getSchedules,

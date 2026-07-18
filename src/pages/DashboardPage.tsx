@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -332,21 +333,24 @@ export function DashboardPage() {
   useTitle('Главная — TeamOS');
   const navigate = useNavigate();
   const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
-  const users = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const departments = useQuery({ queryKey: ['departments'], queryFn: orgApi.getDepartments });
-  const positions = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
-  const tasks = useQuery({ queryKey: ['tasks'], queryFn: () => tasksApi.getTasks() });
-  const articles = useQuery({ queryKey: ['articles'], queryFn: () => kbApi.getArticles() });
-  const courses = useQuery({ queryKey: ['courses'], queryFn: academyApi.getCourses });
+  const users = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
+  const departments = useQuery({ queryKey: queryKeys.departments, queryFn: orgApi.getDepartments });
+  const positions = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
+  const tasks = useQuery({ queryKey: queryKeys.tasks.all, queryFn: () => tasksApi.getTasks() });
+  const articles = useQuery({
+    queryKey: queryKeys.kb.articles,
+    queryFn: () => kbApi.getArticles(),
+  });
+  const courses = useQuery({ queryKey: queryKeys.academy.courses, queryFn: academyApi.getCourses });
   const courseProgress = useQuery({
-    queryKey: ['courseProgress'],
+    queryKey: queryKeys.academy.progress,
     queryFn: () => academyApi.getProgress(),
   });
   const notifications = useQuery({
-    queryKey: ['notifications'],
+    queryKey: queryKeys.notifications.all,
     queryFn: notificationsApi.getNotifications,
   });
 

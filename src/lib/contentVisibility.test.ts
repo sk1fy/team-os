@@ -3,9 +3,9 @@ import type { Course, CourseAssignment, Position, User } from '@/types';
 import { canAccessCourse } from './contentVisibility';
 
 const course = (visibility: Course['visibility'], status: Course['status'] = 'published') =>
-  ({ id: 'course', visibility, status } as Course);
+  ({ id: 'course', visibility, status }) as Course;
 const user = (role: User['role'], positionIds: string[] = []) =>
-  ({ id: 'user', role, positionIds, status: 'active' } as User);
+  ({ id: 'user', role, positionIds, status: 'active' }) as User;
 const position = { id: 'position', departmentId: 'department' } as Position;
 
 describe('canAccessCourse', () => {
@@ -30,7 +30,9 @@ describe('canAccessCourse', () => {
       },
     ];
     expect(
-      canAccessCourse(course('restricted'), user('employee', ['position']), assignments, [position]),
+      canAccessCourse(course('restricted'), user('employee', ['position']), assignments, [
+        position,
+      ]),
     ).toBe(true);
     expect(canAccessCourse(course('restricted'), user('employee'), assignments, [position])).toBe(
       false,

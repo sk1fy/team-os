@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { NavLink, useLocation } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
@@ -22,6 +23,7 @@ import { useLogout } from '@/components/auth/useLogout';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
 import { canAccessRoute } from '@/lib/permissions';
+import { prefetchRoute } from '@/lib/routePrefetch';
 
 const navItems = [
   { to: '/', label: 'Главная', icon: Home, end: true },
@@ -51,6 +53,8 @@ function NavItem({
       to={to}
       end={end}
       onClick={() => setMobileSidebarOpen(false)}
+      onMouseEnter={() => prefetchRoute(to)}
+      onFocus={() => prefetchRoute(to)}
       className={cn(
         'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
         collapsed && 'justify-center px-2',
@@ -84,7 +88,7 @@ function SidebarContent({
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const logout = useLogout();
   const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
   const visibleNavItems = navItems.filter((item) => canAccessRoute(currentUser?.role, item.to));

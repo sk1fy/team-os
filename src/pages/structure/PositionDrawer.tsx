@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { GraduationCap, Library, Pencil, Trash2 } from 'lucide-react';
@@ -32,17 +33,23 @@ export function PositionDrawer({
 }: PositionDrawerProps) {
   const navigate = useNavigate();
 
-  const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
+  const { data: positions } = useQuery({
+    queryKey: queryKeys.positions,
+    queryFn: orgApi.getPositions,
+  });
   const { data: departments } = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
-  const { data: users } = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const { data: users } = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
   const { data: articles } = useQuery({
-    queryKey: ['articles'],
+    queryKey: queryKeys.kb.articles,
     queryFn: () => kbApi.getArticles(),
   });
-  const { data: courses } = useQuery({ queryKey: ['courses'], queryFn: academyApi.getCourses });
+  const { data: courses } = useQuery({
+    queryKey: queryKeys.academy.courses,
+    queryFn: academyApi.getCourses,
+  });
 
   const position = positions?.find((p) => p.id === positionId);
   const department = departments?.find((d) => d.id === position?.departmentId);
@@ -83,7 +90,11 @@ export function PositionDrawer({
       ) : (
         <div className="space-y-6">
           <Section title="Уровень">
-            <Badge variant={position.level === 4 ? 'primary' : position.level === 0 ? 'warning' : 'neutral'}>
+            <Badge
+              variant={
+                position.level === 4 ? 'primary' : position.level === 0 ? 'warning' : 'neutral'
+              }
+            >
               Уровень {position.level ?? 0}
             </Badge>
           </Section>

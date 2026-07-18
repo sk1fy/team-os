@@ -17,9 +17,7 @@ interface ScheduleUserFilter {
 export function filterScheduleUsers(users: User[], filter: ScheduleUserFilter): User[] {
   const normalizedSearch = filter.search.trim().toLowerCase();
   return users.filter((user) => {
-    const position = user.positionIds[0]
-      ? filter.positionById.get(user.positionIds[0])
-      : undefined;
+    const position = user.positionIds[0] ? filter.positionById.get(user.positionIds[0]) : undefined;
     const haystack = `${fullName(user)} ${user.email} ${position?.name ?? ''}`.toLowerCase();
     if (normalizedSearch && !haystack.includes(normalizedSearch)) return false;
     const stateType = filter.stateToday(user.id)?.type;

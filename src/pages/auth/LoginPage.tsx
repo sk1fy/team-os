@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -34,7 +35,7 @@ export function LoginPage() {
         email,
         password: String(form.get('password') ?? ''),
       });
-      queryClient.setQueryData(['currentUser'], session.user);
+      queryClient.setQueryData(queryKeys.currentUser, session.user);
       const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
       navigate(from ?? '/', { replace: true });
     } catch (caught) {

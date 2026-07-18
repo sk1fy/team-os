@@ -12,7 +12,12 @@ export interface ModulePlaceholderProps {
 }
 
 /** Заглушка модуля до его реализации в соответствующем этапе плана. */
-export function ModulePlaceholder({ title, description, icon: Icon, stage }: ModulePlaceholderProps) {
+export function ModulePlaceholder({
+  title,
+  description,
+  icon: Icon,
+  stage,
+}: ModulePlaceholderProps) {
   useTitle(`${title} — TeamOS`);
 
   return (

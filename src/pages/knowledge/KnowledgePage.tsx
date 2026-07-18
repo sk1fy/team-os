@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
@@ -183,11 +184,11 @@ function SectionDialog({
   const createSection = useMutation({
     mutationFn: kbApi.createSection,
     onSuccess: (createdSection) => {
-      queryClient.setQueryData<ArticleSection[]>(['kb', 'sections'], (current = []) => [
+      queryClient.setQueryData<ArticleSection[]>(queryKeys.kb.sections, (current = []) => [
         ...current.filter((item) => item.id !== createdSection.id),
         createdSection,
       ]);
-      void queryClient.invalidateQueries({ queryKey: ['kb', 'sections'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.kb.sections });
       toast.success('Раздел создан');
       onClose();
     },
@@ -196,7 +197,7 @@ function SectionDialog({
   const updateSection = useMutation({
     mutationFn: kbApi.updateSection,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'sections'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.kb.sections });
       toast.success('Раздел обновлён');
       onClose();
     },
@@ -264,7 +265,7 @@ function AccessDialog({
   const updateSection = useMutation({
     mutationFn: kbApi.updateSection,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'sections'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.kb.sections });
       toast.success('Доступ обновлён');
       onClose();
     },
@@ -346,11 +347,11 @@ function ArticleDrawer({
   const createArticle = useMutation({
     mutationFn: kbApi.createArticle,
     onSuccess: (createdArticle) => {
-      queryClient.setQueryData<Article[]>(['kb', 'articles'], (current = []) => [
+      queryClient.setQueryData<Article[]>(queryKeys.kb.articles, (current = []) => [
         ...current.filter((item) => item.id !== createdArticle.id),
         createdArticle,
       ]);
-      void queryClient.invalidateQueries({ queryKey: ['kb', 'articles'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.kb.articles });
       toast.success('Статья создана');
       onClose();
     },
@@ -359,11 +360,11 @@ function ArticleDrawer({
   const updateArticle = useMutation({
     mutationFn: kbApi.updateArticle,
     onSuccess: (updatedArticle) => {
-      queryClient.setQueryData<Article[]>(['kb', 'articles'], (current = []) =>
+      queryClient.setQueryData<Article[]>(queryKeys.kb.articles, (current = []) =>
         current.map((item) => (item.id === updatedArticle.id ? updatedArticle : item)),
       );
-      void queryClient.invalidateQueries({ queryKey: ['kb', 'articles'] });
-      void queryClient.invalidateQueries({ queryKey: ['kb', 'versions'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.kb.articles });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.kb.versions });
       toast.success('Статья сохранена');
       onClose();
     },
@@ -533,7 +534,7 @@ function VersionsDialog({
 }) {
   const queryClient = useQueryClient();
   const versionsQuery = useQuery({
-    queryKey: ['kb', 'versions', article?.id],
+    queryKey: queryKeys.kb.versionsFor(article?.id),
     queryFn: () => kbApi.getArticleVersions(article!.id),
     enabled: open && Boolean(article),
   });
@@ -543,8 +544,8 @@ function VersionsDialog({
   const rollback = useMutation({
     mutationFn: kbApi.rollbackArticle,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'articles'] });
-      queryClient.invalidateQueries({ queryKey: ['kb', 'versions'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.kb.articles });
+      queryClient.invalidateQueries({ queryKey: queryKeys.kb.versions });
       toast.success('Версия восстановлена');
       onClose();
     },
@@ -623,15 +624,18 @@ export function KnowledgePage() {
   const [articleDrawer, setArticleDrawer] = useState<'create' | 'edit' | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
 
-  const sectionsQuery = useQuery({ queryKey: ['kb', 'sections'], queryFn: kbApi.getSections });
+  const sectionsQuery = useQuery({ queryKey: queryKeys.kb.sections, queryFn: kbApi.getSections });
   const articlesQuery = useQuery({
-    queryKey: ['kb', 'articles'],
+    queryKey: queryKeys.kb.articles,
     queryFn: () => kbApi.getArticles(),
   });
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const currentUserQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
+  const currentUserQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
   const acknowledgementsQuery = useQuery({
-    queryKey: ['kb', 'acknowledgements', activeArticleId],
+    queryKey: queryKeys.kb.acknowledgements(activeArticleId),
     queryFn: () => kbApi.getAcknowledgements(activeArticleId!),
     enabled: Boolean(activeArticleId),
   });
@@ -710,7 +714,7 @@ export function KnowledgePage() {
   const deleteSection = useMutation({
     mutationFn: kbApi.deleteSection,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'sections'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.kb.sections });
       toast.success('Раздел удалён');
       setActiveSectionId(null);
     },
@@ -721,7 +725,7 @@ export function KnowledgePage() {
   const acknowledge = useMutation({
     mutationFn: kbApi.acknowledgeArticle,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'acknowledgements', activeArticleId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.kb.acknowledgements(activeArticleId) });
       toast.success('Ознакомление подтверждено');
     },
     onError: () => toast.error('Не удалось подтвердить ознакомление'),
@@ -858,7 +862,9 @@ export function KnowledgePage() {
                         </Badge>
                         <Badge variant="neutral">Версия {activeArticle.version}</Badge>
                         <Badge
-                          variant={activeArticleSection?.visibility === 'public' ? 'primary' : 'neutral'}
+                          variant={
+                            activeArticleSection?.visibility === 'public' ? 'primary' : 'neutral'
+                          }
                         >
                           {activeArticleSection?.visibility === 'public'
                             ? 'Публичная'
@@ -974,7 +980,9 @@ export function KnowledgePage() {
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Folder className="size-5 text-primary-500" />
-                        <Badge variant={activeSection.visibility === 'public' ? 'primary' : 'success'}>
+                        <Badge
+                          variant={activeSection.visibility === 'public' ? 'primary' : 'success'}
+                        >
                           {activeSection.visibility === 'public' ? 'Публичный' : 'Только компания'}
                         </Badge>
                       </div>

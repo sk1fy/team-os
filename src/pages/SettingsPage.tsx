@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
@@ -333,7 +334,7 @@ function SaveBar({
 
 function CompanyProfileSection() {
   const queryClient = useQueryClient();
-  const companyQuery = useQuery({ queryKey: ['company'], queryFn: authApi.getCompany });
+  const companyQuery = useQuery({ queryKey: queryKeys.company, queryFn: authApi.getCompany });
 
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
@@ -366,9 +367,9 @@ function CompanyProfileSection() {
         amoAccountId: amoAccountId.trim(),
       }),
     onSuccess: (company) => {
-      queryClient.setQueryData(['company'], company);
-      queryClient.invalidateQueries({ queryKey: ['company'] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.setQueryData(queryKeys.company, company);
+      queryClient.invalidateQueries({ queryKey: queryKeys.company });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       setSavedAt(Date.now());
       toast.success('Название и логотип компании обновлены');
     },
@@ -513,7 +514,7 @@ function AppearanceSection() {
 
 function MyProfileSection() {
   const queryClient = useQueryClient();
-  const userQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
+  const userQuery = useQuery({ queryKey: queryKeys.currentUser, queryFn: authApi.getCurrentUser });
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -547,9 +548,9 @@ function MyProfileSection() {
         phone: phone.trim(),
       }),
     onSuccess: (user) => {
-      queryClient.setQueryData(['currentUser'], user);
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.setQueryData(queryKeys.currentUser, user);
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentUser });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       setSavedAt(Date.now());
       toast.success('Личные данные обновлены');
     },
@@ -656,8 +657,8 @@ function MyProfileSection() {
 export function SettingsPage() {
   useTitle('Настройки — TeamOS');
 
-  const companyQuery = useQuery({ queryKey: ['company'], queryFn: authApi.getCompany });
-  const userQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
+  const companyQuery = useQuery({ queryKey: queryKeys.company, queryFn: authApi.getCompany });
+  const userQuery = useQuery({ queryKey: queryKeys.currentUser, queryFn: authApi.getCurrentUser });
 
   const previewLoading = companyQuery.isPending || userQuery.isPending;
   const readOnly = userQuery.data?.role === 'employee';

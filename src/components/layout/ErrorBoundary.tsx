@@ -32,7 +32,10 @@ export class ErrorBoundary extends Component<
               {this.state.message}
             </p>
           )}
-          <Button className="mt-5" onClick={() => this.setState({ hasError: false, message: undefined })}>
+          <Button
+            className="mt-5"
+            onClick={() => this.setState({ hasError: false, message: undefined })}
+          >
             Вернуться
           </Button>
         </div>

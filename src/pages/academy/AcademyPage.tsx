@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -357,7 +358,7 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
   const updateCourse = useMutation({
     mutationFn: academyApi.updateCourse,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'courses'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.courses });
       toast.success('Настройки курса сохранены');
     },
     onError: showApiError,
@@ -464,12 +465,12 @@ function CreateCourseModal({
 }) {
   const queryClient = useQueryClient();
   const sectionsQuery = useQuery({
-    queryKey: ['kb', 'sections'],
+    queryKey: queryKeys.kb.sections,
     queryFn: kbApi.getSections,
     enabled: open,
   });
   const articlesQuery = useQuery({
-    queryKey: ['kb', 'articles'],
+    queryKey: queryKeys.kb.articles,
     queryFn: () => kbApi.getArticles(),
     enabled: open,
   });
@@ -535,11 +536,11 @@ function CreateCourseModal({
   };
 
   const handleCreated = (course: Course) => {
-    queryClient.setQueryData<Course[]>(['academy', 'courses'], (current = []) => [
+    queryClient.setQueryData<Course[]>(queryKeys.academy.courses, (current = []) => [
       ...current.filter((item) => item.id !== course.id),
       course,
     ]);
-    void queryClient.invalidateQueries({ queryKey: ['academy'] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.academy.all });
     toast.success('Курс создан');
     onCreated(course);
   };
@@ -939,10 +940,10 @@ function ImportArticleModal({
   onImport: (articleId: ID, mode: LessonSourceMode) => void;
 }) {
   const articlesQuery = useQuery({
-    queryKey: ['kb', 'articles'],
+    queryKey: queryKeys.kb.articles,
     queryFn: () => kbApi.getArticles(),
   });
-  const sectionsQuery = useQuery({ queryKey: ['kb', 'sections'], queryFn: kbApi.getSections });
+  const sectionsQuery = useQuery({ queryKey: queryKeys.kb.sections, queryFn: kbApi.getSections });
   const articles = articlesQuery.data ?? emptyArticles;
   const sections = sectionsQuery.data ?? emptyArticleSections;
   const [articleId, setArticleId] = useState('');
@@ -973,9 +974,7 @@ function ImportArticleModal({
                 mode === 'link' &&
                 section?.visibility !== 'public'
               ) {
-                toast.error(
-                  'Закрытую статью можно добавить в публичный курс только как копию.',
-                );
+                toast.error('Закрытую статью можно добавить в публичный курс только как копию.');
                 return;
               }
               onImport(articleId, mode);
@@ -1044,7 +1043,7 @@ function LessonEditor({
   const [content, setContent] = useState<RichTextContent>(lesson.content);
   const [dirty, setDirty] = useState(false);
   const articlesQuery = useQuery({
-    queryKey: ['kb', 'articles'],
+    queryKey: queryKeys.kb.articles,
     queryFn: () => kbApi.getArticles(),
   });
   const sourceArticle = articlesQuery.data?.find(
@@ -1055,7 +1054,7 @@ function LessonEditor({
   const updateLesson = useMutation({
     mutationFn: academyApi.updateLesson,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'lessons'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.lessons });
       setDirty(false);
       toast.success('Изменения сохранены');
     },
@@ -1181,8 +1180,8 @@ function QuizBuilder({ lesson, quiz }: { lesson?: Lesson; quiz?: Quiz }) {
   const saveQuiz = useMutation({
     mutationFn: academyApi.upsertQuiz,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'quizzes'] });
-      queryClient.invalidateQueries({ queryKey: ['academy', 'lessons'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.quizzes });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.lessons });
       toast.success('Тест сохранён');
     },
     onError: showApiError,
@@ -1363,9 +1362,12 @@ function AssignmentModal({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: orgApi.getDepartments });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
+  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
+  const departmentsQuery = useQuery({
+    queryKey: queryKeys.departments,
+    queryFn: orgApi.getDepartments,
+  });
   const [assigneeType, setAssigneeType] = useState<AssigneeType>('user');
   const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -1373,7 +1375,7 @@ function AssignmentModal({
   const assignCourse = useMutation({
     mutationFn: academyApi.assignCourse,
     onSuccess: (assignment) => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'assignments'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.assignments });
       toast.success(
         assignment.inviteToken
           ? `Внешняя ссылка: /learn/${assignment.courseId}?token=${assignment.inviteToken}`
@@ -1534,38 +1536,38 @@ export function AcademyPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | Course['status']>('all');
 
   const coursesQuery = useQuery({
-    queryKey: ['academy', 'courses'],
+    queryKey: queryKeys.academy.courses,
     queryFn: academyApi.getCourses,
   });
   const sectionsQuery = useQuery({
-    queryKey: ['academy', 'sections', selectedCourseId],
+    queryKey: queryKeys.academy.sectionsFor(selectedCourseId),
     queryFn: () => academyApi.getCourseSections(selectedCourseId),
     enabled: Boolean(selectedCourseId),
   });
   const lessonsQuery = useQuery({
-    queryKey: ['academy', 'lessons', selectedCourseId],
+    queryKey: queryKeys.academy.lessonsFor(selectedCourseId),
     queryFn: () => academyApi.getLessons(selectedCourseId),
     enabled: Boolean(selectedCourseId),
   });
   const allLessonsQuery = useQuery({
-    queryKey: ['academy', 'lessons', 'all'],
+    queryKey: queryKeys.academy.lessonsFor('all'),
     queryFn: () => academyApi.getLessons(),
   });
   const progressQuery = useQuery({
-    queryKey: ['academy', 'progress'],
+    queryKey: queryKeys.academy.progress,
     queryFn: () => academyApi.getProgress(),
   });
   const assignmentsQuery = useQuery({
-    queryKey: ['academy', 'assignments'],
+    queryKey: queryKeys.academy.assignments,
     queryFn: academyApi.getAssignments,
   });
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
   const currentUserQuery = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
   const quizzesQuery = useQuery({
-    queryKey: ['academy', 'quizzes'],
+    queryKey: queryKeys.academy.quizzes,
     queryFn: () => academyApi.getQuizzes(),
   });
 
@@ -1626,7 +1628,7 @@ export function AcademyPage() {
   const createSection = useMutation({
     mutationFn: academyApi.createCourseSection,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'sections'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.sections });
       setNamePrompt(null);
       toast.success('Раздел добавлен');
     },
@@ -1636,7 +1638,7 @@ export function AcademyPage() {
   const renameSection = useMutation({
     mutationFn: academyApi.updateCourseSection,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'sections'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.sections });
       setNamePrompt(null);
       toast.success('Раздел переименован');
     },
@@ -1646,7 +1648,7 @@ export function AcademyPage() {
   const deleteSection = useMutation({
     mutationFn: academyApi.deleteCourseSection,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.all });
       setConfirmTarget(null);
       toast.success('Раздел удалён');
     },
@@ -1656,7 +1658,7 @@ export function AcademyPage() {
   const createLesson = useMutation({
     mutationFn: academyApi.createLesson,
     onSuccess: (lesson) => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'lessons'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.lessons });
       setSelectedLessonId(lesson.id);
       setNamePrompt(null);
       toast.success('Урок добавлен');
@@ -1667,7 +1669,7 @@ export function AcademyPage() {
   const deleteLesson = useMutation({
     mutationFn: academyApi.deleteLesson,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.all });
       setConfirmTarget(null);
       toast.success('Урок удалён');
     },
@@ -1677,7 +1679,7 @@ export function AcademyPage() {
   const deleteCourse = useMutation({
     mutationFn: academyApi.deleteCourse,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.all });
       setConfirmTarget(null);
       toast.success('Курс удалён');
     },
@@ -1687,7 +1689,7 @@ export function AcademyPage() {
   const importArticle = useMutation({
     mutationFn: academyApi.updateLesson,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['academy', 'lessons'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.lessons });
       setImportOpen(false);
       toast.success('Урок связан со статьёй');
     },
@@ -1696,17 +1698,17 @@ export function AcademyPage() {
 
   const moveLesson = useMutation({
     mutationFn: academyApi.moveLesson,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['academy', 'lessons'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.academy.lessons }),
     onError: showApiError,
   });
 
   const markComplete = useMutation({
     mutationFn: academyApi.markLessonComplete,
     onSuccess: (updatedProgress) => {
-      queryClient.setQueryData<CourseProgress[]>(['academy', 'progress'], (current) =>
+      queryClient.setQueryData<CourseProgress[]>(queryKeys.academy.progress, (current) =>
         upsertCourseProgress(current, updatedProgress),
       );
-      void queryClient.invalidateQueries({ queryKey: ['academy', 'progress'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academy.progress });
       toast.success('Прогресс обновлён');
     },
     onError: showApiError,

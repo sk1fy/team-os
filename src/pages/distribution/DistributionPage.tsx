@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -38,10 +39,10 @@ export function DistributionPage() {
   const createGroupButtonRef = useRef<HTMLButtonElement>(null);
 
   const groupsQuery = useQuery({
-    queryKey: ['distribution', 'groups'],
+    queryKey: queryKeys.distribution.groups,
     queryFn: distributionApi.getGroups,
   });
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
   const usersById = useMemo(
     () => new Map((usersQuery.data ?? []).map((user) => [user.id, user])),
     [usersQuery.data],
@@ -50,7 +51,7 @@ export function DistributionPage() {
   const createGroup = useMutation({
     mutationFn: (values: DistributionGroupValues) => distributionApi.createGroup(values),
     onSuccess: (group) => {
-      queryClient.invalidateQueries({ queryKey: ['distribution', 'groups'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.distribution.groups });
       toast.success('Группа распределения создана');
       setCreateOpen(false);
       navigate(`/distribution/${group.id}`);
@@ -63,7 +64,7 @@ export function DistributionPage() {
     mutationFn: ({ id, values }: { id: string; values: DistributionGroupValues }) =>
       distributionApi.updateGroup({ id, ...values }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['distribution', 'groups'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.distribution.groups });
       toast.success('Группа обновлена');
       setEditingGroup(undefined);
     },
@@ -74,7 +75,7 @@ export function DistributionPage() {
   const deleteGroup = useMutation({
     mutationFn: distributionApi.deleteGroup,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['distribution', 'groups'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.distribution.groups });
       toast.success('Группа удалена');
       setDeletingGroup(undefined);
     },

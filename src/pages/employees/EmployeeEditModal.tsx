@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, orgApi } from '@/api';
@@ -38,14 +39,17 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [phoneError, setPhoneError] = useState<string>();
 
-  const { data: company } = useQuery({ queryKey: ['company'], queryFn: authApi.getCompany });
-  const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
+  const { data: company } = useQuery({ queryKey: queryKeys.company, queryFn: authApi.getCompany });
+  const { data: positions } = useQuery({
+    queryKey: queryKeys.positions,
+    queryFn: orgApi.getPositions,
+  });
   const { data: departments } = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
   const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
 
@@ -92,8 +96,8 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
         positionIds: positionId === NO_POSITION_VALUE ? [] : [positionId],
       }),
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['users', updated.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.byId(updated.id) });
       toast.success('Профиль обновлён');
       onClose();
     },

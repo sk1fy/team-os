@@ -58,11 +58,21 @@ describe('isDueTodayOrOverdue', () => {
 
 describe('isOverdue', () => {
   it('считает незавершённую задачу с дедлайном вчера просроченной', () => {
-    expect(isOverdue(makeTask({ id: 'overdue', columnId: 'column-1', dueDate: '2026-07-05T12:00:00' }), now)).toBe(true);
+    expect(
+      isOverdue(
+        makeTask({ id: 'overdue', columnId: 'column-1', dueDate: '2026-07-05T12:00:00' }),
+        now,
+      ),
+    ).toBe(true);
   });
 
   it('не считает будущий дедлайн просроченным', () => {
-    expect(isOverdue(makeTask({ id: 'future', columnId: 'column-1', dueDate: '2026-07-07T12:00:00' }), now)).toBe(false);
+    expect(
+      isOverdue(
+        makeTask({ id: 'future', columnId: 'column-1', dueDate: '2026-07-07T12:00:00' }),
+        now,
+      ),
+    ).toBe(false);
   });
 
   it('не считает завершённую задачу просроченной', () => {
@@ -108,25 +118,41 @@ describe('isStuck', () => {
 
   it('считает задачу в рабочей колонке без обновлений 4 дня застрявшей', () => {
     expect(
-      isStuck(makeTask({ id: 'stuck', columnId: 'column-2', updatedAt: '2026-07-02T15:30:00' }), workIds, now),
+      isStuck(
+        makeTask({ id: 'stuck', columnId: 'column-2', updatedAt: '2026-07-02T15:30:00' }),
+        workIds,
+        now,
+      ),
     ).toBe(true);
   });
 
   it('не считает задачу с обновлением день назад застрявшей', () => {
     expect(
-      isStuck(makeTask({ id: 'fresh', columnId: 'column-2', updatedAt: '2026-07-05T15:30:00' }), workIds, now),
+      isStuck(
+        makeTask({ id: 'fresh', columnId: 'column-2', updatedAt: '2026-07-05T15:30:00' }),
+        workIds,
+        now,
+      ),
     ).toBe(false);
   });
 
   it('включает границу ровно 3 дня', () => {
     expect(
-      isStuck(makeTask({ id: 'edge', columnId: 'column-2', updatedAt: '2026-07-03T15:30:00' }), workIds, now),
+      isStuck(
+        makeTask({ id: 'edge', columnId: 'column-2', updatedAt: '2026-07-03T15:30:00' }),
+        workIds,
+        now,
+      ),
     ).toBe(true);
   });
 
   it('не срабатывает в бэклоге', () => {
     expect(
-      isStuck(makeTask({ id: 'backlog', columnId: 'column-1', updatedAt: '2026-07-02T15:30:00' }), workIds, now),
+      isStuck(
+        makeTask({ id: 'backlog', columnId: 'column-1', updatedAt: '2026-07-02T15:30:00' }),
+        workIds,
+        now,
+      ),
     ).toBe(false);
   });
 
@@ -207,18 +233,15 @@ describe('buildBoardColumns', () => {
     ];
 
     const result = buildBoardColumns(columns, tasks, now);
-    expect(result.find((view) => view.column.id === TODAY_COLUMN_ID)?.tasks.map((task) => task.id)).toEqual([
-      'overdue',
-      'today',
-    ]);
-    expect(result.find((view) => view.column.id === 'column-1')?.tasks.map((task) => task.id)).toEqual([
-      'done',
-      'without-date',
-      'future',
-    ]);
-    expect(result.find((view) => view.column.id === 'column-2')?.tasks.map((task) => task.id)).toEqual([
-      'work',
-    ]);
+    expect(
+      result.find((view) => view.column.id === TODAY_COLUMN_ID)?.tasks.map((task) => task.id),
+    ).toEqual(['overdue', 'today']);
+    expect(
+      result.find((view) => view.column.id === 'column-1')?.tasks.map((task) => task.id),
+    ).toEqual(['done', 'without-date', 'future']);
+    expect(
+      result.find((view) => view.column.id === 'column-2')?.tasks.map((task) => task.id),
+    ).toEqual(['work']);
   });
 
   it('сортирует виртуальную колонку по дедлайну', () => {
@@ -228,13 +251,14 @@ describe('buildBoardColumns', () => {
     ];
 
     const result = buildBoardColumns(columns, tasks, now);
-    expect(result.find((view) => view.column.id === TODAY_COLUMN_ID)?.tasks.map((task) => task.id)).toEqual([
-      'first',
-      'second',
-    ]);
+    expect(
+      result.find((view) => view.column.id === TODAY_COLUMN_ID)?.tasks.map((task) => task.id),
+    ).toEqual(['first', 'second']);
   });
 
   it('возвращает пустой список для пустых колонок', () => {
-    expect(buildBoardColumns([], [makeTask({ id: 'task', columnId: 'column-1' })], now)).toEqual([]);
+    expect(buildBoardColumns([], [makeTask({ id: 'task', columnId: 'column-1' })], now)).toEqual(
+      [],
+    );
   });
 });

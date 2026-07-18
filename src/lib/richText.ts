@@ -61,7 +61,9 @@ export function getRichTextHeadings(content?: RichTextContent) {
   const visit = (nodes: RichTextNode[]) => {
     for (const node of nodes) {
       if (node.type === 'heading') {
-        const text = node.content ? richTextToPlainText({ type: 'doc', content: node.content }) : '';
+        const text = node.content
+          ? richTextToPlainText({ type: 'doc', content: node.content })
+          : '';
         if (text) {
           headings.push({
             id: text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-'),

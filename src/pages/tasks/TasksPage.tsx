@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
@@ -283,13 +284,13 @@ function TaskDrawer({
   columns: TaskColumn[];
 }) {
   const queryClient = useQueryClient();
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
   const articlesQuery = useQuery({
-    queryKey: ['kb', 'articles'],
+    queryKey: queryKeys.kb.articles,
     queryFn: () => kbApi.getArticles(),
   });
   const commentsQuery = useQuery({
-    queryKey: ['tasks', 'comments', task?.id],
+    queryKey: queryKeys.tasks.commentsFor(task?.id),
     queryFn: () => tasksApi.getComments(task!.id),
     enabled: open && Boolean(task),
   });
@@ -312,7 +313,7 @@ function TaskDrawer({
   const updateTask = useMutation({
     mutationFn: tasksApi.updateTask,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
       toast.success('Задача сохранена');
     },
   });
@@ -320,7 +321,7 @@ function TaskDrawer({
   const addComment = useMutation({
     mutationFn: tasksApi.addComment,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', 'comments'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.board('comments') });
       setComment('');
       toast.success('Комментарий добавлен');
     },
@@ -719,19 +720,22 @@ export function TasksPage() {
   const [taskColumnId, setTaskColumnId] = useState<ID>('');
   const [taskErrors, setTaskErrors] = useState<Partial<Record<'title' | 'column', string>>>({});
 
-  const boardsQuery = useQuery({ queryKey: ['tasks', 'boards'], queryFn: tasksApi.getBoards });
+  const boardsQuery = useQuery({
+    queryKey: queryKeys.tasks.board('boards'),
+    queryFn: tasksApi.getBoards,
+  });
   const boardId = boardsQuery.data?.[0]?.id;
   const columnsQuery = useQuery({
-    queryKey: ['tasks', 'columns', boardId],
+    queryKey: queryKeys.tasks.columns(boardId),
     queryFn: () => tasksApi.getColumns(boardId!),
     enabled: Boolean(boardId),
   });
   const tasksQuery = useQuery({
-    queryKey: ['tasks', boardId],
+    queryKey: queryKeys.tasks.board(boardId),
     queryFn: () => tasksApi.getTasks(boardId),
     enabled: Boolean(boardId),
   });
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
 
   const columns = columnsQuery.data ?? emptyColumns;
   const tasks = tasksQuery.data ?? emptyTasks;
@@ -763,7 +767,7 @@ export function TasksPage() {
   const createColumn = useMutation({
     mutationFn: () => tasksApi.createColumn({ boardId: boardId!, name: columnName.trim() }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', 'columns', boardId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.columns(boardId) });
       setColumnOpen(false);
       setColumnName('');
       setColumnError(undefined);
@@ -789,7 +793,7 @@ export function TasksPage() {
         title: taskTitle.trim(),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.board(boardId) });
       setTaskOpen(false);
       setTaskTitle('');
       setTaskErrors({});

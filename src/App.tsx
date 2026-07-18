@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -73,7 +74,7 @@ const DistributionGroupPage = lazy(() =>
 function RequireModule({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
   if (currentUser && !canAccessRoute(currentUser.role, pathname)) {

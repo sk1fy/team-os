@@ -71,7 +71,11 @@ export function boardStats(tasks: Task[], columns: TaskColumn[], now = new Date(
 
       if (task.completedAt) {
         const completedAt = new Date(task.completedAt).getTime();
-        if (!Number.isNaN(completedAt) && completedAt >= doneWindowStartedAt && completedAt <= now.getTime()) {
+        if (
+          !Number.isNaN(completedAt) &&
+          completedAt >= doneWindowStartedAt &&
+          completedAt <= now.getTime()
+        ) {
           stats.doneLast7Days += 1;
         }
       }
@@ -94,9 +98,7 @@ export function buildBoardColumns(
   const todayTasks = tasks
     .filter(
       (task) =>
-        task.columnId === backlog.id &&
-        !task.completedAt &&
-        isDueTodayOrOverdue(task.dueDate, now),
+        task.columnId === backlog.id && !task.completedAt && isDueTodayOrOverdue(task.dueDate, now),
     )
     .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''));
   const todayTaskIds = new Set(todayTasks.map((task) => task.id));

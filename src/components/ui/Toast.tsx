@@ -34,7 +34,9 @@ export function Toaster() {
             <Icon className={cn('size-4.5 shrink-0', iconClasses[item.variant])} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">{item.title}</p>
-              {item.description && <p className="mt-0.5 text-xs text-white/60">{item.description}</p>}
+              {item.description && (
+                <p className="mt-0.5 text-xs text-white/60">{item.description}</p>
+              )}
             </div>
             <button
               onClick={() => dismiss(item.id)}

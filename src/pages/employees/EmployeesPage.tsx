@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -121,20 +122,20 @@ export function EmployeesPage() {
   );
 
   const usersQuery = useQuery({
-    queryKey: ['users'],
+    queryKey: queryKeys.users.all,
     queryFn: orgApi.getUsers,
     refetchOnMount: true,
   });
-  const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
+  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
   const departmentsQuery = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: ID) => orgApi.deleteUser(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       toast.success('Сотрудник удалён');
       updateParams({ deleteUser: null });
     },

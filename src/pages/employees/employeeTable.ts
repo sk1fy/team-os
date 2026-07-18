@@ -29,10 +29,7 @@ export function getUserDepartmentNames(
   return [...names].sort((a, b) => a.localeCompare(b, 'ru')).join(', ');
 }
 
-export function getUserDepartmentSortKey(
-  positionIds: ID[],
-  lookups: EmployeeLookups,
-): string {
+export function getUserDepartmentSortKey(positionIds: ID[], lookups: EmployeeLookups): string {
   const names = positionIds
     .map((pid) => lookups.positionById.get(pid)?.departmentId)
     .map((did) => (did ? lookups.departmentById.get(did)?.name : undefined))

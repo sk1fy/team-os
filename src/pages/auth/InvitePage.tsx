@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -23,7 +24,7 @@ export function InvitePage() {
     isPending,
     isError,
   } = useQuery({
-    queryKey: ['invite', token],
+    queryKey: queryKeys.invite(token),
     queryFn: () => authApi.getInviteByToken(token),
     retry: 1,
   });

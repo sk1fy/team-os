@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -22,7 +23,7 @@ export function AccessLinkPage() {
       .loginWithAccessLink(token)
       .then((session) => {
         if (!active) return;
-        queryClient.setQueryData(['currentUser'], session.user);
+        queryClient.setQueryData(queryKeys.currentUser, session.user);
         navigate('/schedule', { replace: true });
       })
       .catch(() => active && setFailed(true));

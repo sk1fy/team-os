@@ -1,9 +1,11 @@
 import { API_URL } from './config';
 import { useAuthStore } from '@/stores/auth';
 
-const MIN_DELAY_MS = 300;
-const MAX_DELAY_MS = 500;
-const ERROR_RATE = 0.05;
+// В тестах задержки и случайные ошибки отключены, иначе тесты мок-API флакают.
+const IS_TEST = import.meta.env.MODE === 'test';
+const MIN_DELAY_MS = IS_TEST ? 0 : 300;
+const MAX_DELAY_MS = IS_TEST ? 0 : 500;
+const ERROR_RATE = IS_TEST ? 0 : 0.05;
 
 /** Ошибка мок-API — аналог сетевой/серверной ошибки. */
 export class ApiError extends Error {

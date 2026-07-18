@@ -1,13 +1,8 @@
+import { queryKeys } from '@/api/queryKeys';
 import { lazy, Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Bell,
-  LogOut,
-  Menu,
-  Settings,
-  UserRound,
-} from 'lucide-react';
+import { Bell, LogOut, Menu, Settings, UserRound } from 'lucide-react';
 import { authApi, notificationsApi } from '@/api';
 import { isHttpApiMode } from '@/api/config';
 import type { ID } from '@/types';
@@ -29,12 +24,12 @@ export function Topbar() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<ID | null>(null);
 
   const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
 
   const { data: unreadCount = 0 } = useQuery({
-    queryKey: ['notifications', 'unreadCount'],
+    queryKey: queryKeys.notifications.unreadCount,
     queryFn: notificationsApi.getUnreadCount,
     refetchInterval: isHttpApiMode('notifications') ? false : 60_000,
   });
@@ -42,7 +37,7 @@ export function Topbar() {
   const fullName = currentUser
     ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ')
     : '';
-  const accountItems: DropdownItem[] = currentUser
+  const accountItems: (DropdownItem | 'separator')[] = currentUser
     ? [
         ...(currentUser.role === 'employee'
           ? []

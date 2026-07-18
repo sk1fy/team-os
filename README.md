@@ -1,0 +1,44 @@
+# TeamOS
+
+Русскоязычное SPA для управления компанией: оргструктура и сотрудники, база знаний, канбан-задачи, академия (курсы и уроки), графики работы, распределение сделок, уведомления.
+
+**Стек:** React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query 5, Zustand, React Router 7, Radix UI, TipTap, dnd-kit.
+
+## Запуск
+
+```sh
+npm install
+npm run dev        # dev-сервер Vite на http://localhost:5173
+```
+
+Другие команды:
+
+```sh
+npm run build      # typecheck (tsc -b) + прод-сборка
+npm run lint       # ESLint
+npm test           # Vitest (юнит-тесты доменной логики и API)
+npm run format     # Prettier
+```
+
+## Мок-API и переход на реальный бэкенд
+
+По умолчанию приложение работает **без бэкенда**: `src/api/fixtures.ts` — in-memory «база», `mockRequest()` в `src/api/client.ts` симулирует задержку 300–500 мс и 5% случайных ошибок. Перезагрузка страницы сбрасывает данные.
+
+Каждый модуль можно по отдельности переключить на реальный HTTP-бэкенд через переменные окружения (см. `.env.example`):
+
+```sh
+VITE_API_URL=http://localhost:8080/api/v1
+VITE_API_MODE_AUTH=http        # auth | org | kb | tasks | academy | notifications | schedule | distribution
+```
+
+Сигнатуры функций в `src/api/index.ts` — контракт с бэкендом: HTTP-реализации в `src/api/http.ts` повторяют их один в один.
+
+## Структура
+
+- `src/api/` — мок- и HTTP-клиенты, фикстуры, фабрика query-ключей (`queryKeys.ts`)
+- `src/lib/` — чистая доменная логика с юнит-тестами
+- `src/components/ui/` — дизайн-система на Radix-примитивах
+- `src/pages/<module>/` — страницы по модулям, роуты в `src/App.tsx`
+- `src/stores/` — клиентское UI-состояние (Zustand)
+
+Подробные соглашения для разработки — в [CLAUDE.md](CLAUDE.md).

@@ -77,7 +77,12 @@ function parseIso(date: string) {
 }
 
 /** Плановое состояние дня по шаблону сотрудника (без учёта правок). */
-export function baseState(template: ScheduleTemplate, year: number, month: number, day: number): DayState {
+export function baseState(
+  template: ScheduleTemplate,
+  year: number,
+  month: number,
+  day: number,
+): DayState {
   if (template.type === 'week') {
     return template.days.includes(weekdayIndex(year, month, day))
       ? { type: 'work', start: template.start, end: template.end }
@@ -85,7 +90,8 @@ export function baseState(template: ScheduleTemplate, year: number, month: numbe
   }
   const cycle = template.on + template.off || 1;
   const diffDays = Math.round(
-    (new Date(year, month - 1, day).getTime() - parseIso(template.cycleStart).getTime()) / 86_400_000,
+    (new Date(year, month - 1, day).getTime() - parseIso(template.cycleStart).getTime()) /
+      86_400_000,
   );
   let index = diffDays % cycle;
   if (index < 0) index += cycle;

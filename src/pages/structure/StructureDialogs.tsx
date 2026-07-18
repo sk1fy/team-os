@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { orgApi } from '@/api';
@@ -207,9 +208,9 @@ function ConfirmModal({
 
 export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
   const queryClient = useQueryClient();
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
   const departmentsQuery = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
 
@@ -259,7 +260,7 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
   const deletePosition = useMutation({
     mutationFn: orgApi.deletePosition,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       done('positions', 'Должность удалена');
     },
     onError,

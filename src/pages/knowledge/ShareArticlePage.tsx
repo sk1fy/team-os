@@ -1,15 +1,16 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronLeft, FileWarning } from 'lucide-react';
 import { kbApi } from '@/api';
-import { Badge, Button, RichTextView } from '@/components/ui';
+import { Badge, RichTextView } from '@/components/ui';
 import { formatDate } from '@/lib/format';
 
 export function ShareArticlePage() {
   const { articleId = '' } = useParams();
   const articleQuery = useQuery({
-    queryKey: ['kb', 'article', articleId],
+    queryKey: queryKeys.kb.article(articleId),
     queryFn: () => kbApi.getPublicArticle(articleId),
     enabled: Boolean(articleId),
   });
@@ -17,13 +18,18 @@ export function ShareArticlePage() {
   const article = articleQuery.data;
   const unavailable = articleQuery.isError || (article && article.status !== 'published');
 
-  useTitle(article && article.status === 'published' ? `${article.title} — TeamOS` : 'Статья — TeamOS');
+  useTitle(
+    article && article.status === 'published' ? `${article.title} — TeamOS` : 'Статья — TeamOS',
+  );
 
   return (
     <div className="min-h-dvh bg-surface-muted">
       <header className="border-b border-slate-200 bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
-          <Link to="/knowledge" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+          <Link
+            to="/knowledge"
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600"
+          >
             <ChevronLeft className="size-4" />
             TeamOS
           </Link>
@@ -62,7 +68,6 @@ export function ShareArticlePage() {
             </div>
 
             <RichTextView content={article.content} />
-
           </article>
         )}
       </main>

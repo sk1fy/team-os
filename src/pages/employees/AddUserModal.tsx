@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { orgApi } from '@/api';
@@ -27,16 +28,19 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [positionId, setPositionId] = useState(NO_POSITION_VALUE);
-  const [errors, setErrors] = useState<
-    Partial<Record<'firstName' | 'email' | 'phone', string>>
-  >({});
+  const [errors, setErrors] = useState<Partial<Record<'firstName' | 'email' | 'phone', string>>>(
+    {},
+  );
   const firstNameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
 
-  const { data: positions } = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
+  const { data: positions } = useQuery({
+    queryKey: queryKeys.positions,
+    queryFn: orgApi.getPositions,
+  });
   const { data: departments } = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
 
@@ -67,7 +71,7 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
         positionIds: positionId === NO_POSITION_VALUE ? [] : [positionId],
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       toast.success('Пользователь добавлен');
       onClose();
     },

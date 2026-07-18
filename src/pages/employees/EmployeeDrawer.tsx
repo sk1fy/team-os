@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, orgApi, scheduleApi } from '@/api';
-import { scheduleQueryKeys } from '@/api/queryKeys';
+import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
 import type {
   EmployeeAccess,
   EmployeeAccessMode,
@@ -109,24 +109,27 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const userQuery = useQuery({
-    queryKey: ['users', userId],
+    queryKey: queryKeys.users.byId(userId),
     queryFn: () => orgApi.getUser(userId!),
     enabled: open,
   });
-  const currentUserQuery = useQuery({ queryKey: ['currentUser'], queryFn: authApi.getCurrentUser });
+  const currentUserQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
   const accessVisible =
     canManageAccess(currentUserQuery.data?.role) && Boolean(userQuery.data?.role !== 'owner');
   const accessQuery = useQuery({
-    queryKey: ['userAccess', userId],
+    queryKey: queryKeys.users.access(userId),
     queryFn: () => orgApi.getUserAccess(userId!),
     enabled: open && accessVisible,
   });
   const { data: positions = [] } = useQuery({
-    queryKey: ['positions'],
+    queryKey: queryKeys.positions,
     queryFn: orgApi.getPositions,
   });
   const { data: departments = [] } = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
   const { data: schedules = [] } = useQuery({
@@ -265,8 +268,8 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       return updated;
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['users', updated.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.byId(updated.id) });
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates });
       toast.success('Панель сотрудника сохранена');
       onClose();
@@ -283,7 +286,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       return orgApi.deleteUser(user.id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       toast.success('Сотрудник удалён');
       onClose();
     },
@@ -770,9 +773,9 @@ function EmployeeAccessSection({
   const [shownPassword, setShownPassword] = useState<string>();
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['userAccess', user.id] });
-    queryClient.invalidateQueries({ queryKey: ['users'] });
-    queryClient.invalidateQueries({ queryKey: ['users', user.id] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.users.access(user.id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.users.byId(user.id) });
   };
   const copyAccessValue = async (value: string, kind: 'ссылка' | 'пароль') => {
     if (!value) return;
@@ -781,9 +784,7 @@ function EmployeeAccessSection({
       toast.success(kind === 'ссылка' ? 'Ссылка скопирована' : 'Пароль скопирован');
     } else {
       toast.error(
-        kind === 'ссылка'
-          ? 'Не удалось скопировать ссылку'
-          : 'Не удалось скопировать пароль',
+        kind === 'ссылка' ? 'Не удалось скопировать ссылку' : 'Не удалось скопировать пароль',
       );
     }
   };

@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/queryKeys';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -16,25 +17,28 @@ export function EmployeeProfilePage() {
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
 
-  const userQuery = useQuery({ queryKey: ['users', id], queryFn: () => orgApi.getUser(id) });
+  const userQuery = useQuery({
+    queryKey: queryKeys.users.byId(id),
+    queryFn: () => orgApi.getUser(id),
+  });
   const { data: positions = [] } = useQuery({
-    queryKey: ['positions'],
+    queryKey: queryKeys.positions,
     queryFn: orgApi.getPositions,
   });
   const { data: departments = [] } = useQuery({
-    queryKey: ['departments'],
+    queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
   });
   const { data: tasks = [] } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: queryKeys.tasks.all,
     queryFn: () => tasksApi.getTasks(),
   });
   const { data: courses = [] } = useQuery({
-    queryKey: ['courses'],
+    queryKey: queryKeys.academy.courses,
     queryFn: academyApi.getCourses,
   });
   const { data: progress = [] } = useQuery({
-    queryKey: ['courseProgress'],
+    queryKey: queryKeys.academy.progress,
     queryFn: () => academyApi.getProgress(),
   });
 
