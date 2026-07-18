@@ -7,8 +7,7 @@ export function splitEmployeeName(
 
   return {
     firstName: parts[0],
-    // В карточке имя и фамилия находятся в одном поле. При вводе только имени
-    // сохраняем существующую фамилию: API не принимает пустую фамилию.
-    lastName: parts.length > 1 ? parts.slice(1).join(' ') : fallback.lastName,
+    // Общее поле имени считаем полным источником: удаление фамилии тоже должно сохраниться.
+    lastName: parts.slice(1).join(' '),
   };
 }

@@ -27,14 +27,14 @@ export function LearnPage() {
     queryFn: () => academyApi.getLessons(courseId),
     enabled: Boolean(courseId),
   });
-  const progressQuery = useQuery({
-    queryKey: ['academy', 'learn', 'progress', courseId],
-    queryFn: () => academyApi.getProgress(courseId),
-    enabled: Boolean(courseId),
-  });
   const currentUserQuery = useQuery({
     queryKey: ['currentUser'],
     queryFn: authApi.getCurrentUser,
+  });
+  const progressQuery = useQuery({
+    queryKey: ['academy', 'learn', 'progress', courseId],
+    queryFn: () => academyApi.getProgress(courseId),
+    enabled: Boolean(courseId && currentUserQuery.data),
   });
   const quizzesQuery = useQuery({
     queryKey: ['academy', 'quizzes'],
@@ -47,6 +47,8 @@ export function LearnPage() {
   const lesson = lessons.find((item) => item.id === lessonId) ?? lessons[0];
   const quiz = quizzesQuery.data?.find((item) => item.id === lesson?.quizId);
   const courseNotFound = courseQuery.error instanceof ApiError && courseQuery.error.status === 404;
+  const courseUnauthorized = courseQuery.error instanceof ApiError && courseQuery.error.status === 401;
+  const courseForbidden = courseQuery.error instanceof ApiError && courseQuery.error.status === 403;
 
   useTitle(
     course
@@ -74,6 +76,7 @@ export function LearnPage() {
         queryKey: ['academy', 'learn', 'progress', courseId],
       });
     },
+    onError: () => undefined,
   });
 
   if (courseQuery.isPending) {
@@ -92,15 +95,25 @@ export function LearnPage() {
       <div className="flex min-h-dvh items-center justify-center bg-surface-muted p-4 text-center">
         <div className="w-full max-w-md rounded-lg border border-slate-200 bg-surface p-8 shadow-card">
           <h1 className="text-xl">
-            {courseNotFound ? 'Курс не найден' : 'Не удалось загрузить курс'}
+            {courseNotFound
+              ? 'Курс не найден'
+              : courseUnauthorized
+                ? 'Войдите, чтобы открыть курс'
+                : courseForbidden
+                  ? 'Курс вам не назначен'
+                  : 'Не удалось загрузить курс'}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
             {courseNotFound
               ? 'Возможно, курс удалён или ссылка устарела.'
+              : courseUnauthorized
+                ? 'Этот курс доступен только зарегистрированным сотрудникам.'
+                : courseForbidden
+                  ? 'Обратитесь к владельцу или администратору компании.'
               : 'Проверьте подключение и попробуйте ещё раз.'}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
-            {!courseNotFound && (
+            {!courseNotFound && !courseUnauthorized && !courseForbidden && (
               <Button variant="secondary" onClick={() => courseQuery.refetch()}>
                 Повторить
               </Button>
@@ -141,7 +154,9 @@ export function LearnPage() {
               const completed = progress?.completedLessonIds.includes(item.id);
               const previousComplete =
                 index === 0 || progress?.completedLessonIds.includes(lessons[index - 1]?.id);
-              const locked = Boolean(course?.sequential && !previousComplete);
+              const locked = Boolean(
+                currentUserQuery.data && course?.sequential && !previousComplete,
+              );
               return (
                 <button
                   key={item.id}
@@ -178,18 +193,28 @@ export function LearnPage() {
                     </p>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant={
-                    progress?.completedLessonIds.includes(lesson.id) ? 'secondary' : 'primary'
-                  }
-                  disabled={progress?.completedLessonIds.includes(lesson.id)}
-                  loading={markComplete.isPending}
-                  onClick={() => markComplete.mutate({ courseId, lessonId: lesson.id })}
-                >
-                  <Check className="size-4" />
-                  {progress?.completedLessonIds.includes(lesson.id) ? 'Урок завершён' : 'Готово'}
-                </Button>
+                {currentUserQuery.data ? (
+                  <Button
+                    size="sm"
+                    variant={
+                      progress?.completedLessonIds.includes(lesson.id) ? 'secondary' : 'primary'
+                    }
+                    disabled={progress?.completedLessonIds.includes(lesson.id)}
+                    loading={markComplete.isPending}
+                    onClick={() => markComplete.mutate({ courseId, lessonId: lesson.id })}
+                  >
+                    <Check className="size-4" />
+                    {progress?.completedLessonIds.includes(lesson.id)
+                      ? 'Урок завершён'
+                      : 'Готово'}
+                  </Button>
+                ) : currentUserQuery.isError && course.visibility === 'public' ? (
+                  <Link to="/auth/login">
+                    <Button size="sm" variant="secondary">
+                      Войти для сохранения прогресса
+                    </Button>
+                  </Link>
+                ) : null}
               </div>
               <RichTextView content={lesson.content} />
               {quiz && (

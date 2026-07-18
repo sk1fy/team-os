@@ -1,43 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Link, useParams } from 'react-router-dom';
-import { BookOpen, Check, ChevronLeft, FileWarning } from 'lucide-react';
+import { ChevronLeft, FileWarning } from 'lucide-react';
 import { kbApi } from '@/api';
 import { Badge, Button, RichTextView } from '@/components/ui';
 import { formatDate } from '@/lib/format';
-import { toast } from '@/stores/toast';
 
 export function ShareArticlePage() {
   const { articleId = '' } = useParams();
-  const queryClient = useQueryClient();
-
   const articleQuery = useQuery({
     queryKey: ['kb', 'article', articleId],
-    queryFn: () => kbApi.getArticle(articleId),
-    enabled: Boolean(articleId),
-  });
-  const acknowledgementsQuery = useQuery({
-    queryKey: ['kb', 'acknowledgements', articleId],
-    queryFn: () => kbApi.getAcknowledgements(articleId),
+    queryFn: () => kbApi.getPublicArticle(articleId),
     enabled: Boolean(articleId),
   });
 
   const article = articleQuery.data;
   const unavailable = articleQuery.isError || (article && article.status !== 'published');
-  const acknowledgedUserIds = new Set((acknowledgementsQuery.data ?? []).map((item) => item.userId));
-  // Мок пишет ознакомление на CURRENT_USER_ID ('user-1'); реальный бэкенд определит сотрудника по ссылке/сессии.
-  const currentUserAcknowledged = acknowledgedUserIds.has('user-1');
 
   useTitle(article && article.status === 'published' ? `${article.title} — TeamOS` : 'Статья — TeamOS');
-
-  const acknowledge = useMutation({
-    mutationFn: kbApi.acknowledgeArticle,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kb', 'acknowledgements'] });
-      toast.success('Отметка сохранена');
-    },
-    onError: () => toast.error('Не удалось сохранить отметку'),
-  });
 
   return (
     <div className="min-h-dvh bg-surface-muted">
@@ -83,29 +63,6 @@ export function ShareArticlePage() {
 
             <RichTextView content={article.content} />
 
-            {article.requiresAcknowledgement && (
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3">
-                <div className="flex items-center gap-2 text-sm text-primary-900">
-                  {currentUserAcknowledged ? (
-                    <Check className="size-4 text-success-600" />
-                  ) : (
-                    <BookOpen className="size-4" />
-                  )}
-                  {currentUserAcknowledged
-                    ? 'Ознакомление подтверждено.'
-                    : 'Подтвердите, что вы ознакомились со статьёй.'}
-                </div>
-                <Button
-                  size="sm"
-                  disabled={currentUserAcknowledged}
-                  loading={acknowledge.isPending}
-                  onClick={() => acknowledge.mutate(article.id)}
-                >
-                  <Check className="size-4" />
-                  Ознакомлен
-                </Button>
-              </div>
-            )}
           </article>
         )}
       </main>

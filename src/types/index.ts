@@ -135,9 +135,12 @@ export interface ArticleSection {
   order: number;
   /** Доступ наследуется дочерними разделами, если у них scope не переопределён. */
   access: AccessSettings;
+  /** Публичные статьи доступны без входа; company — только сотрудникам. */
+  visibility: ArticleVisibility;
 }
 
 export type ArticleStatus = 'draft' | 'published';
+export type ArticleVisibility = 'public' | 'company';
 
 export interface Article {
   id: ID;
@@ -280,6 +283,7 @@ export interface TaskComment {
 // ============================================================================
 
 export type CourseStatus = 'draft' | 'published';
+export type CourseVisibility = 'public' | 'company' | 'restricted';
 
 export interface Course {
   id: ID;
@@ -287,6 +291,7 @@ export interface Course {
   description?: string;
   coverUrl?: string;
   status: CourseStatus;
+  visibility: CourseVisibility;
   authorId: ID;
   /** Последовательное прохождение: следующий урок открывается после предыдущего. */
   sequential: boolean;

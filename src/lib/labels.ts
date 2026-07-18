@@ -45,8 +45,8 @@ export const priorityVariants: Record<TaskPriority, BadgeVariant> = {
 };
 
 /** Полное имя пользователя. */
-export function fullName(user: { firstName: string; lastName: string }) {
-  return `${user.firstName} ${user.lastName}`;
+export function fullName(user: { firstName: string; lastName?: string }) {
+  return [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
 }
 
 /** Русское склонение по числу: pluralRu(3, 'год', 'года', 'лет') → 'года'. */

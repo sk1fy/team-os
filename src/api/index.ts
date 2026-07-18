@@ -23,6 +23,7 @@ import { validatePositionAssignment, validateUserUpdate } from '@/lib/userGuards
 import { pickDistributionMember } from '@/lib/dealDistribution';
 import { createId } from '@/lib/id';
 import { EMAIL_ERROR, PHONE_ERROR, isValidEmail, isValidPhone } from '@/lib/formValidation';
+import { canAccessCourse } from '@/lib/contentVisibility';
 import type {
   AppNotification,
   Article,
@@ -93,7 +94,6 @@ const mockAuthApi = {
     firstName?: string;
     lastName?: string;
     phone?: string;
-    avatarUrl?: string;
   }): Promise<User> =>
     mockRequest(() => {
       const user = db.users.find((u) => u.id === db.CURRENT_USER_ID) ?? notFound('Пользователь');
@@ -101,7 +101,6 @@ const mockAuthApi = {
       if (input.firstName !== undefined) user.firstName = input.firstName;
       if (input.lastName !== undefined) user.lastName = input.lastName;
       if (input.phone !== undefined) user.phone = input.phone || undefined;
-      if (input.avatarUrl !== undefined) user.avatarUrl = input.avatarUrl || undefined;
       return user;
     }),
 
@@ -444,7 +443,6 @@ const mockOrgApi = {
       if (positionError) throw new ApiError(positionError, 400);
       const email = input.email.trim().toLowerCase();
       if (!input.firstName.trim()) throw new ApiError('Укажите имя пользователя', 400);
-      if (!input.lastName.trim()) throw new ApiError('Укажите фамилию пользователя', 400);
       if (!email) throw new ApiError('Укажите email пользователя', 400);
       if (!isValidEmail(email)) throw new ApiError(EMAIL_ERROR, 400);
       assertValidPhone(input.phone);
@@ -562,6 +560,16 @@ const mockKbApi = {
   getArticle: (id: ID): Promise<Article> =>
     mockRequest(() => db.articles.find((a) => a.id === id) ?? notFound('Статья')),
 
+  getPublicArticle: (id: ID): Promise<Article> =>
+    mockRequest(() => {
+      const article = db.articles.find((item) => item.id === id) ?? notFound('Статья');
+      const section = db.articleSections.find((item) => item.id === article.sectionId);
+      if (article.status !== 'published' || section?.visibility !== 'public') {
+        throw new ApiError('Статья недоступна', 403);
+      }
+      return article;
+    }),
+
   getArticleVersions: (articleId: ID): Promise<ArticleVersion[]> =>
     mockRequest(() => db.articleVersions.filter((v) => v.articleId === articleId)),
 
@@ -572,6 +580,7 @@ const mockKbApi = {
     name: string;
     parentId: ID | null;
     access?: ArticleSection['access'];
+    visibility?: ArticleSection['visibility'];
   }): Promise<ArticleSection> =>
     mockRequest(() => {
       const siblings = db.articleSections.filter((s) => s.parentId === input.parentId);
@@ -580,6 +589,7 @@ const mockKbApi = {
         name: input.name,
         parentId: input.parentId,
         order: siblings.length,
+        visibility: input.visibility ?? 'company',
         access: input.access ?? {
           scope: 'company',
           departmentIds: [],
@@ -595,11 +605,13 @@ const mockKbApi = {
     id: ID;
     name?: string;
     access?: ArticleSection['access'];
+    visibility?: ArticleSection['visibility'];
   }): Promise<ArticleSection> =>
     mockRequest(() => {
       const section = db.articleSections.find((s) => s.id === input.id) ?? notFound('Раздел');
       if (input.name !== undefined) section.name = input.name;
       if (input.access !== undefined) section.access = input.access;
+      if (input.visibility !== undefined) section.visibility = input.visibility;
       return section;
     }),
 
@@ -882,18 +894,53 @@ function removeLessonCascade(lessonId: ID) {
   });
 }
 
+function assertContentManager() {
+  const user = db.users.find((item) => item.id === db.CURRENT_USER_ID);
+  if (user?.role !== 'owner' && user?.role !== 'admin') {
+    throw new ApiError('Недостаточно прав', 403);
+  }
+}
+
 const mockAcademyApi = {
-  getCourses: (): Promise<Course[]> => mockRequest(() => db.courses),
+  getCourses: (): Promise<Course[]> =>
+    mockRequest(() => {
+      const user = db.users.find((item) => item.id === db.CURRENT_USER_ID);
+      return db.courses.filter((course) =>
+        canAccessCourse(course, user, db.courseAssignments, db.positions),
+      );
+    }),
 
   getCourse: (id: ID): Promise<Course> =>
-    mockRequest(() => db.courses.find((c) => c.id === id) ?? notFound('Курс')),
+    mockRequest(() => {
+      const course = db.courses.find((item) => item.id === id) ?? notFound('Курс');
+      const user = db.users.find((item) => item.id === db.CURRENT_USER_ID);
+      if (!canAccessCourse(course, user, db.courseAssignments, db.positions)) {
+        throw new ApiError('Нет доступа к курсу', user ? 403 : 401);
+      }
+      return course;
+    }),
 
   getLessons: (courseId?: ID): Promise<Lesson[]> =>
-    mockRequest(() =>
-      (courseId ? db.lessons.filter((l) => l.courseId === courseId) : db.lessons)
+    mockRequest(() => {
+      if (courseId) {
+        const course = db.courses.find((item) => item.id === courseId) ?? notFound('Курс');
+        const user = db.users.find((item) => item.id === db.CURRENT_USER_ID);
+        if (!canAccessCourse(course, user, db.courseAssignments, db.positions)) {
+          throw new ApiError('Нет доступа к курсу', user ? 403 : 401);
+        }
+      }
+      const user = db.users.find((item) => item.id === db.CURRENT_USER_ID);
+      const accessibleCourseIds = new Set(
+        db.courses
+          .filter((course) => canAccessCourse(course, user, db.courseAssignments, db.positions))
+          .map((course) => course.id),
+      );
+      return (courseId
+        ? db.lessons.filter((lesson) => lesson.courseId === courseId)
+        : db.lessons.filter((lesson) => accessibleCourseIds.has(lesson.courseId)))
         .sort((a, b) => a.order - b.order)
-        .map(withLiveContent),
-    ),
+        .map(withLiveContent);
+    }),
 
   getCourseSections: (courseId: ID): Promise<CourseSection[]> =>
     mockRequest(() =>
@@ -907,15 +954,18 @@ const mockAcademyApi = {
     title: string;
     description?: string;
     status?: Course['status'];
+    visibility?: Course['visibility'];
     sequential?: boolean;
     deadlineDays?: number;
   }): Promise<Course> =>
     mockRequest(() => {
+      assertContentManager();
       const course: Course = {
         id: uid(),
         title: input.title,
         description: input.description,
         status: input.status ?? 'draft',
+        visibility: input.visibility ?? 'restricted',
         sequential: input.sequential ?? true,
         deadlineDays: input.deadlineDays,
         authorId: db.CURRENT_USER_ID,
@@ -939,6 +989,7 @@ const mockAcademyApi = {
   createCourseFromKb: (input: {
     title: string;
     description?: string;
+    visibility?: Course['visibility'];
     sequential?: boolean;
     deadlineDays?: number;
     /** Режим связи уроков со статьями: link — синхронизация, copy — независимая копия. */
@@ -949,6 +1000,7 @@ const mockAcademyApi = {
     articleIds: ID[];
   }): Promise<Course> =>
     mockRequest(() => {
+      assertContentManager();
       const selected = new Set(input.articleIds);
       const source = input.sectionIds
         .map((sectionId) => ({
@@ -959,11 +1011,22 @@ const mockAcademyApi = {
       if (source.length === 0) {
         throw new ApiError('Выберите хотя бы одну статью для курса.', 400);
       }
+      if (
+        input.visibility === 'public' &&
+        input.mode === 'link' &&
+        source.some(({ kbSection }) => kbSection?.visibility !== 'public')
+      ) {
+        throw new ApiError(
+          'В публичный курс нельзя связать закрытую статью',
+          400,
+        );
+      }
       const course: Course = {
         id: uid(),
         title: input.title,
         description: input.description,
         status: 'draft',
+        visibility: input.visibility ?? 'restricted',
         sequential: input.sequential ?? true,
         deadlineDays: input.deadlineDays,
         authorId: db.CURRENT_USER_ID,
@@ -1000,14 +1063,34 @@ const mockAcademyApi = {
     title?: string;
     description?: string;
     status?: Course['status'];
+    visibility?: Course['visibility'];
     sequential?: boolean;
     deadlineDays?: number;
   }): Promise<Course> =>
     mockRequest(() => {
+      assertContentManager();
       const course = db.courses.find((c) => c.id === input.id) ?? notFound('Курс');
+      if (input.visibility === 'public') {
+        const hasClosedLinkedArticle = db.lessons
+          .filter((lesson) => lesson.courseId === course.id && lesson.sourceMode === 'link')
+          .some((lesson) => {
+            const article = db.articles.find((item) => item.id === lesson.sourceArticleId);
+            return (
+              db.articleSections.find((section) => section.id === article?.sectionId)?.visibility !==
+              'public'
+            );
+          });
+        if (hasClosedLinkedArticle) {
+          throw new ApiError(
+            'Перед публикацией курса сделайте копии закрытых статей',
+            400,
+          );
+        }
+      }
       if (input.title !== undefined) course.title = input.title;
       if (input.description !== undefined) course.description = input.description;
       if (input.status !== undefined) course.status = input.status;
+      if (input.visibility !== undefined) course.visibility = input.visibility;
       if (input.sequential !== undefined) course.sequential = input.sequential;
       if (input.deadlineDays !== undefined) course.deadlineDays = input.deadlineDays || undefined;
       course.updatedAt = now();
@@ -1016,6 +1099,7 @@ const mockAcademyApi = {
 
   deleteCourse: (id: ID): Promise<void> =>
     mockRequest(() => {
+      assertContentManager();
       const index = db.courses.findIndex((c) => c.id === id);
       if (index === -1) notFound('Курс');
       db.courses.splice(index, 1);
@@ -1081,6 +1165,18 @@ const mockAcademyApi = {
       const sourceArticle = input.sourceArticleId
         ? db.articles.find((a) => a.id === input.sourceArticleId)
         : undefined;
+      const course = db.courses.find((item) => item.id === input.courseId);
+      const sourceSection = db.articleSections.find((item) => item.id === sourceArticle?.sectionId);
+      if (
+        course?.visibility === 'public' &&
+        input.sourceMode === 'link' &&
+        sourceSection?.visibility !== 'public'
+      ) {
+        throw new ApiError(
+          'В публичный курс нельзя связать закрытую статью',
+          400,
+        );
+      }
       const lesson: Lesson = {
         id: uid(),
         courseId: input.courseId,
@@ -1110,6 +1206,15 @@ const mockAcademyApi = {
       const sourceArticle = input.sourceArticleId
         ? db.articles.find((a) => a.id === input.sourceArticleId)
         : undefined;
+      const course = db.courses.find((item) => item.id === lesson.courseId);
+      const sourceSection = db.articleSections.find((item) => item.id === sourceArticle?.sectionId);
+      if (
+        course?.visibility === 'public' &&
+        input.sourceMode === 'link' &&
+        sourceSection?.visibility !== 'public'
+      ) {
+        throw new ApiError('В публичный курс нельзя связать закрытую статью', 400);
+      }
       if (input.title !== undefined) lesson.title = input.title;
       if (input.sourceArticleId !== undefined) lesson.sourceArticleId = input.sourceArticleId;
       if (input.sourceMode !== undefined) lesson.sourceMode = input.sourceMode;
@@ -1175,6 +1280,7 @@ const mockAcademyApi = {
     dueDate?: string;
   }): Promise<CourseAssignment> =>
     mockRequest(() => {
+      assertContentManager();
       const assignment: CourseAssignment = {
         id: uid(),
         courseId: input.courseId,

@@ -45,6 +45,7 @@ import type {
   ArticleSection,
   AssigneeType,
   Course,
+  CourseVisibility,
   CourseProgress,
   CourseSection,
   ID,
@@ -94,6 +95,12 @@ const statusLabels = {
   draft: 'Черновик',
   published: 'Опубликован',
 } satisfies Record<Course['status'], string>;
+
+const visibilityLabels: Record<CourseVisibility, string> = {
+  public: 'Публичный',
+  company: 'Вся компания',
+  restricted: 'По назначению',
+};
 
 const progressStatusLabels = {
   not_started: 'Не начат',
@@ -189,9 +196,14 @@ function CourseCard({
       )}
     >
       <div className="flex h-24 items-start justify-between gap-2 bg-[linear-gradient(135deg,#EFF6F5,#DDEEEC_48%,#BBE2DF)] px-4 py-3">
-        <Badge variant={course.status === 'published' ? 'success' : 'warning'}>
-          {statusLabels[course.status]}
-        </Badge>
+        <div className="flex flex-wrap gap-1">
+          <Badge variant={course.status === 'published' ? 'success' : 'warning'}>
+            {statusLabels[course.status]}
+          </Badge>
+          <Badge variant={course.visibility === 'public' ? 'primary' : 'neutral'}>
+            {visibilityLabels[course.visibility]}
+          </Badge>
+        </div>
         {fromKbCount > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-xs text-slate-600">
             <BookOpen className="size-3" />
@@ -242,7 +254,7 @@ function CourseCard({
           <Play className="size-4 shrink-0" />
           <span className="truncate">Пройти</span>
         </Button>
-        {course.status === 'published' && (
+        {course.status === 'published' && course.visibility === 'public' && (
           <Button
             size="sm"
             variant="ghost"
@@ -328,6 +340,7 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<Course['status']>('draft');
+  const [visibility, setVisibility] = useState<CourseVisibility>('restricted');
   const [sequential, setSequential] = useState(true);
   const [deadlineDays, setDeadlineDays] = useState('');
 
@@ -336,6 +349,7 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
     setTitle(course.title);
     setDescription(course.description ?? '');
     setStatus(course.status);
+    setVisibility(course.visibility);
     setSequential(course.sequential);
     setDeadlineDays(course.deadlineDays ? String(course.deadlineDays) : '');
   }, [course]);
@@ -360,7 +374,7 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
         onChange={(event) => setDescription(event.target.value)}
         rows={3}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Select
           label="Статус"
           value={status}
@@ -368,6 +382,16 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
           options={[
             { value: 'draft', label: 'Черновик' },
             { value: 'published', label: 'Опубликован' },
+          ]}
+        />
+        <Select
+          label="Видимость"
+          value={visibility}
+          onValueChange={(value) => setVisibility(value as CourseVisibility)}
+          options={[
+            { value: 'restricted', label: 'По назначению' },
+            { value: 'company', label: 'Вся компания' },
+            { value: 'public', label: 'Публичный' },
           ]}
         />
         <Input
@@ -398,6 +422,7 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
                 title: title.trim(),
                 description,
                 status,
+                visibility,
                 sequential,
                 deadlineDays: Number(deadlineDays) || undefined,
               })
@@ -405,7 +430,7 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
           >
             Сохранить
           </Button>
-          {course.status === 'published' && (
+          {course.status === 'published' && course.visibility === 'public' && (
             <Button size="sm" variant="ghost" onClick={() => copyCourseLink(course.id)}>
               <Link2 className="size-4" />
               Ссылка
@@ -453,6 +478,7 @@ function CreateCourseModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [sequential, setSequential] = useState(true);
+  const [visibility, setVisibility] = useState<CourseVisibility>('restricted');
   const [deadlineDays, setDeadlineDays] = useState('');
   const [sourceMode, setSourceMode] = useState<LessonSourceMode>('link');
   const [selectedArticleIds, setSelectedArticleIds] = useState<Set<ID>>(new Set());
@@ -463,6 +489,7 @@ function CreateCourseModal({
     setTitle('');
     setDescription('');
     setSequential(true);
+    setVisibility('restricted');
     setDeadlineDays('');
     setSourceMode('link');
     setSelectedArticleIds(new Set());
@@ -534,10 +561,26 @@ function CreateCourseModal({
 
   const submit = () => {
     if (!canSubmit || pending) return;
+    if (mode === 'kb' && visibility === 'public' && sourceMode === 'link') {
+      const hasCompanyOnlyArticle = articles.some((article) => {
+        if (!selectedArticleIds.has(article.id)) return false;
+        return (
+          sectionsQuery.data?.find((section) => section.id === article.sectionId)?.visibility !==
+          'public'
+        );
+      });
+      if (hasCompanyOnlyArticle) {
+        toast.error(
+          'В публичный курс нельзя добавить закрытую статью в режиме «Ссылка». Выберите «Копия».',
+        );
+        return;
+      }
+    }
     const common = {
       title: title.trim(),
       description: description.trim() || undefined,
       sequential,
+      visibility,
       deadlineDays: Number(deadlineDays) || undefined,
     };
     if (mode === 'own') {
@@ -633,6 +676,16 @@ function CreateCourseModal({
           onChange={(event) => setDescription(event.target.value)}
           rows={2}
           placeholder="Кому и зачем нужен этот курс"
+        />
+        <Select
+          label="Видимость"
+          value={visibility}
+          onValueChange={(value) => setVisibility(value as CourseVisibility)}
+          options={[
+            { value: 'restricted', label: 'Закрытый — только по назначению' },
+            { value: 'company', label: 'Для всех сотрудников компании' },
+            { value: 'public', label: 'Общий — доступен всем по ссылке' },
+          ]}
         />
 
         {mode === 'kb' && (
@@ -876,10 +929,12 @@ function ConfirmModal({
 
 function ImportArticleModal({
   open,
+  course,
   onClose,
   onImport,
 }: {
   open: boolean;
+  course?: Course;
   onClose: () => void;
   onImport: (articleId: ID, mode: LessonSourceMode) => void;
 }) {
@@ -908,7 +963,26 @@ function ImportArticleModal({
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button onClick={() => articleId && onImport(articleId, mode)}>Импортировать</Button>
+          <Button
+            onClick={() => {
+              if (!articleId) return;
+              const article = articles.find((item) => item.id === articleId);
+              const section = sections.find((item) => item.id === article?.sectionId);
+              if (
+                course?.visibility === 'public' &&
+                mode === 'link' &&
+                section?.visibility !== 'public'
+              ) {
+                toast.error(
+                  'Закрытую статью можно добавить в публичный курс только как копию.',
+                );
+                return;
+              }
+              onImport(articleId, mode);
+            }}
+          >
+            Импортировать
+          </Button>
         </>
       }
     >
@@ -2371,6 +2445,7 @@ export function AcademyPage() {
       {canEdit && (
         <ImportArticleModal
           open={importOpen}
+          course={selectedCourse}
           onClose={() => setImportOpen(false)}
           onImport={(articleId, mode) => {
             if (!selectedLesson) return;

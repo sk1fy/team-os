@@ -518,16 +518,14 @@ function MyProfileSection() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [phoneError, setPhoneError] = useState<string>();
 
   useEffect(() => {
     if (userQuery.data) {
       setFirstName(userQuery.data.firstName);
-      setLastName(userQuery.data.lastName);
+      setLastName(userQuery.data.lastName ?? '');
       setPhone(userQuery.data.phone ?? '');
-      setAvatarUrl(userQuery.data.avatarUrl ?? '');
     }
   }, [userQuery.data]);
 
@@ -537,10 +535,9 @@ function MyProfileSection() {
     return (
       firstName.trim() !== data.firstName ||
       lastName.trim() !== data.lastName ||
-      (phone.trim() || '') !== (data.phone ?? '') ||
-      (avatarUrl.trim() || '') !== (data.avatarUrl ?? '')
+      (phone.trim() || '') !== (data.phone ?? '')
     );
-  }, [userQuery.data, firstName, lastName, phone, avatarUrl]);
+  }, [userQuery.data, firstName, lastName, phone]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -548,7 +545,6 @@ function MyProfileSection() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim(),
-        avatarUrl: avatarUrl.trim(),
       }),
     onSuccess: (user) => {
       queryClient.setQueryData(['currentUser'], user);
@@ -562,8 +558,8 @@ function MyProfileSection() {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) {
-      toast.error('Заполните имя и фамилию');
+    if (!firstName.trim()) {
+      toast.error('Заполните имя');
       return;
     }
     if (!isValidPhone(phone)) {
@@ -574,13 +570,6 @@ function MyProfileSection() {
   };
 
   const busy = userQuery.isPending;
-  const displayName =
-    firstName || lastName
-      ? `${firstName} ${lastName}`.trim()
-      : userQuery.data
-        ? fullName(userQuery.data)
-        : 'Профиль';
-
   if (userQuery.isError) {
     return (
       <ErrorState
@@ -595,22 +584,11 @@ function MyProfileSection() {
     <FormPanel
       icon={UserRound}
       title="Мой профиль"
-      description="Имя, контакты и фото — то, как вас видят коллеги в TeamOS."
+      description="Имя и контакты — то, как вас видят коллеги. Для amoCRM фото синхронизируется автоматически, для локальных аккаунтов показываются инициалы."
       busy={busy}
       dirty={isDirty}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        <ImageField
-          label="Аватар"
-          hint="Ссылка на фото профиля. Если поле пустое, покажем инициалы."
-          value={avatarUrl}
-          previewName={displayName}
-          onChange={setAvatarUrl}
-          onClear={() => setAvatarUrl('')}
-          disabled={busy}
-          placeholder="https://example.com/avatar.png"
-        />
-
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
             label="Имя"
@@ -625,7 +603,7 @@ function MyProfileSection() {
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             placeholder="Иванова"
-            required
+            hint="Необязательно"
             disabled={busy}
           />
         </div>

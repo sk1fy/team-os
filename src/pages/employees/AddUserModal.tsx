@@ -28,10 +28,9 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
   const [role, setRole] = useState<UserRole>('employee');
   const [positionId, setPositionId] = useState(NO_POSITION_VALUE);
   const [errors, setErrors] = useState<
-    Partial<Record<'firstName' | 'lastName' | 'email' | 'phone', string>>
+    Partial<Record<'firstName' | 'email' | 'phone', string>>
   >({});
   const firstNameRef = useRef<HTMLInputElement>(null);
-  const lastNameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
 
@@ -80,12 +79,10 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
     event.preventDefault();
     const nextErrors: typeof errors = {};
     if (!firstName.trim()) nextErrors.firstName = 'Укажите имя пользователя';
-    if (!lastName.trim()) nextErrors.lastName = 'Укажите фамилию пользователя';
     if (!isValidEmail(email)) nextErrors.email = EMAIL_ERROR;
     if (!isValidPhone(phone)) nextErrors.phone = PHONE_ERROR;
     setErrors(nextErrors);
     if (nextErrors.firstName) firstNameRef.current?.focus();
-    else if (nextErrors.lastName) lastNameRef.current?.focus();
     else if (nextErrors.email) emailRef.current?.focus();
     else if (nextErrors.phone) phoneRef.current?.focus();
     if (Object.keys(nextErrors).length > 0) return;
@@ -125,14 +122,9 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
           />
           <Input
             label="Фамилия"
-            ref={lastNameRef}
             value={lastName}
-            onChange={(event) => {
-              setLastName(event.target.value);
-              setErrors((current) => ({ ...current, lastName: undefined }));
-            }}
-            error={errors.lastName}
-            required
+            onChange={(event) => setLastName(event.target.value)}
+            hint="Необязательно"
           />
         </div>
         <Input

@@ -9,11 +9,13 @@ import TableRow from '@tiptap/extension-table-row';
 import Youtube from '@tiptap/extension-youtube';
 import type { RichTextContent } from '@/types';
 import { cn } from '@/lib/cn';
+import { VideoEmbed } from './videoEmbed';
 
 const extensions = [
   StarterKit.configure({ link: { openOnClick: true } }),
   Image.configure({ allowBase64: true }),
   Youtube.configure({ controls: true, nocookie: true }),
+  VideoEmbed,
   Table.configure({ resizable: true }),
   TableRow,
   TableHeader,

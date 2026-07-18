@@ -774,6 +774,19 @@ function EmployeeAccessSection({
     queryClient.invalidateQueries({ queryKey: ['users'] });
     queryClient.invalidateQueries({ queryKey: ['users', user.id] });
   };
+  const copyAccessValue = async (value: string, kind: 'ссылка' | 'пароль') => {
+    if (!value) return;
+    const copied = await copyText(value);
+    if (copied) {
+      toast.success(kind === 'ссылка' ? 'Ссылка скопирована' : 'Пароль скопирован');
+    } else {
+      toast.error(
+        kind === 'ссылка'
+          ? 'Не удалось скопировать ссылку'
+          : 'Не удалось скопировать пароль',
+      );
+    }
+  };
   const setPassword = useMutation({
     mutationFn: (password?: string) => orgApi.setUserPasswordAccess(user.id, { password }),
     onSuccess: ({ password }) => {
@@ -789,12 +802,7 @@ function EmployeeAccessSection({
     onSuccess: async ({ token }) => {
       setShownPassword(undefined);
       refresh();
-      const copied = await copyText(`${window.location.origin}/access/${token}`);
-      if (copied) {
-        toast.success('Ссылка создана и скопирована');
-      } else {
-        toast.error('Ссылка создана, но не удалось скопировать её');
-      }
+      await copyAccessValue(`${window.location.origin}/access/${token}`, 'ссылка');
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось создать ссылку'),
@@ -814,15 +822,6 @@ function EmployeeAccessSection({
   const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
   const confirmSessionReset = () =>
     access.mode === 'none' || confirm('Текущие сессии сотрудника будут завершены. Продолжить?');
-  const copyAccessLink = async () => {
-    const copied = await copyText(accessUrl);
-    if (copied) {
-      toast.success('Ссылка скопирована');
-    } else {
-      toast.error('Не удалось скопировать ссылку');
-    }
-  };
-
   return (
     <PanelSection title="Доступ в систему">
       {loading && <p className="text-sm text-slate-500">Загружаю настройки доступа…</p>}
@@ -845,7 +844,12 @@ function EmployeeAccessSection({
             <code className="min-w-0 flex-1 overflow-hidden rounded bg-white px-2 py-1.5 text-ellipsis">
               {shownPassword}
             </code>
-            <Button size="sm" variant="secondary" onClick={() => void copyText(shownPassword)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!shownPassword}
+              onClick={() => void copyAccessValue(shownPassword, 'пароль')}
+            >
               <Copy className="size-4" /> Копировать
             </Button>
           </div>
@@ -858,7 +862,8 @@ function EmployeeAccessSection({
             className="mt-6"
             size="sm"
             variant="secondary"
-            onClick={() => void copyAccessLink()}
+            disabled={!accessUrl}
+            onClick={() => void copyAccessValue(accessUrl, 'ссылка')}
             aria-label="Скопировать ссылку доступа"
             title="Скопировать ссылку"
           >

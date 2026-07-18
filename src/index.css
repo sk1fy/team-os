@@ -346,6 +346,15 @@
     @apply my-4 aspect-video w-full rounded-md border border-slate-200;
   }
 
+  .rich-text .video-embed {
+    @apply my-4 aspect-video w-full overflow-hidden rounded-md border border-slate-200 bg-slate-950;
+  }
+
+  .rich-text .video-embed iframe,
+  .rich-text .video-embed video {
+    @apply m-0 size-full border-0 object-contain;
+  }
+
   .rich-text-editor {
     @apply rounded-md;
   }

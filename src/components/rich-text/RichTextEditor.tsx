@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { EditorContent, useEditor, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -24,11 +24,16 @@ import {
 } from 'lucide-react';
 import type { RichTextContent } from '@/types';
 import { cn } from '@/lib/cn';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { normalizeVideoUrl, VideoEmbed } from './videoEmbed';
 
 const extensions = [
   StarterKit.configure({ link: { openOnClick: false } }),
   Image.configure({ allowBase64: true }),
   Youtube.configure({ controls: true, nocookie: true }),
+  VideoEmbed,
   Placeholder.configure({ placeholder: 'Начните писать...' }),
   Table.configure({ resizable: true }),
   TableRow,
@@ -74,6 +79,10 @@ export function RichTextEditor({
   minHeight?: number;
   label?: string;
 }) {
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoError, setVideoError] = useState<string>();
   const editor = useEditor({
     extensions,
     content: value as JSONContent,
@@ -112,9 +121,25 @@ export function RichTextEditor({
   };
 
   const addVideo = () => {
-    const src = window.prompt('YouTube URL');
-    if (!src) return;
-    editor.chain().focus().setYoutubeVideo({ src, width: 640, height: 360 }).run();
+    const source = normalizeVideoUrl(videoUrl);
+    if (!source) {
+      setVideoError(
+        'Поддерживаются HTTPS-ссылки на MP4/WebM, YouTube, Vimeo, Rutube, Loom и Kinescope.',
+      );
+      return;
+    }
+    editor
+      .chain()
+      .focus()
+      .insertContent({
+        type: 'videoEmbed',
+        attrs: { ...source, title: videoTitle.trim() || 'Видео' },
+      })
+      .run();
+    setVideoOpen(false);
+    setVideoUrl('');
+    setVideoTitle('');
+    setVideoError(undefined);
   };
 
   return (
@@ -181,7 +206,13 @@ export function RichTextEditor({
         <ToolButton label="Изображение" onClick={addImage}>
           <ImageIcon className="size-4" />
         </ToolButton>
-        <ToolButton label="Видео" onClick={addVideo}>
+        <ToolButton
+          label="Видео"
+          onClick={() => {
+            setVideoError(undefined);
+            setVideoOpen(true);
+          }}
+        >
           <Video className="size-4" />
         </ToolButton>
         <ToolButton
@@ -194,6 +225,41 @@ export function RichTextEditor({
         </ToolButton>
       </div>
       <EditorContent editor={editor} className="px-4 py-3" />
+      <Modal
+        open={videoOpen}
+        onOpenChange={setVideoOpen}
+        title="Добавить видео"
+        description="Вставьте прямую ссылку на MP4/WebM или ссылку из поддерживаемого видеосервиса."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setVideoOpen(false)}>
+              Отмена
+            </Button>
+            <Button disabled={!videoUrl.trim()} onClick={addVideo}>
+              Добавить
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Ссылка на видео"
+            value={videoUrl}
+            onChange={(event) => {
+              setVideoUrl(event.target.value);
+              setVideoError(undefined);
+            }}
+            placeholder="https://..."
+            error={videoError}
+          />
+          <Input
+            label="Название для доступности"
+            value={videoTitle}
+            onChange={(event) => setVideoTitle(event.target.value)}
+            placeholder="Например: Демонстрация работы"
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

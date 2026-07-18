@@ -52,7 +52,7 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
   useEffect(() => {
     if (!user) return;
     setFirstName(user.firstName);
-    setLastName(user.lastName);
+    setLastName(user.lastName ?? '');
     setPhone(user.phone ?? '');
     setRole(user.role);
     setStatus(user.status);
@@ -156,7 +156,7 @@ export function EmployeeEditModal({ user, open, onClose }: EmployeeEditModalProp
               label="Фамилия"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              required
+              hint="Необязательно"
             />
           </div>
           <Input

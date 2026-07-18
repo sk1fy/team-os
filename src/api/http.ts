@@ -67,7 +67,6 @@ export const httpAuthApi = {
     firstName?: string;
     lastName?: string;
     phone?: string;
-    avatarUrl?: string;
   }): Promise<User> => request('/auth/me', 'PATCH', input),
   login: async (input: { email: string; password: string }): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest('/auth/login', 'POST', input)),
@@ -194,6 +193,8 @@ export const httpKbApi = {
   getArticles: (sectionId?: ID): Promise<Article[]> =>
     request(`/kb/articles${sectionId ? `?sectionId=${id(sectionId)}` : ''}`),
   getArticle: (articleId: ID): Promise<Article> => request(`/kb/articles/${id(articleId)}`),
+  getPublicArticle: (articleId: ID): Promise<Article> =>
+    publicRequest(`/public/kb/articles/${id(articleId)}`),
   getArticleVersions: (articleId: ID): Promise<ArticleVersion[]> =>
     request(`/kb/articles/${id(articleId)}/versions`),
   getAcknowledgements: (articleId: ID): Promise<Acknowledgement[]> =>
@@ -202,11 +203,13 @@ export const httpKbApi = {
     name: string;
     parentId: ID | null;
     access?: ArticleSection['access'];
+    visibility?: ArticleSection['visibility'];
   }): Promise<ArticleSection> => request('/kb/sections', 'POST', input),
   updateSection: (input: {
     id: ID;
     name?: string;
     access?: ArticleSection['access'];
+    visibility?: ArticleSection['visibility'];
   }): Promise<ArticleSection> => {
     const { id: sectionId, ...body } = input;
     return request(`/kb/sections/${id(sectionId)}`, 'PATCH', body);
@@ -303,12 +306,14 @@ export const httpAcademyApi = {
     title: string;
     description?: string;
     status?: Course['status'];
+    visibility?: Course['visibility'];
     sequential?: boolean;
     deadlineDays?: number;
   }): Promise<Course> => request('/academy/courses', 'POST', input),
   createCourseFromKb: (input: {
     title: string;
     description?: string;
+    visibility?: Course['visibility'];
     sequential?: boolean;
     deadlineDays?: number;
     mode: NonNullable<Lesson['sourceMode']>;
@@ -320,6 +325,7 @@ export const httpAcademyApi = {
     title?: string;
     description?: string;
     status?: Course['status'];
+    visibility?: Course['visibility'];
     sequential?: boolean;
     deadlineDays?: number;
   }): Promise<Course> => {

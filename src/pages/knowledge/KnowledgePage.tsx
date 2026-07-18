@@ -18,7 +18,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { authApi, kbApi, orgApi } from '@/api';
-import type { AccessSettings, Article, ArticleSection, ID, RichTextContent } from '@/types';
+import type { Article, ArticleSection, ArticleVisibility, ID, RichTextContent } from '@/types';
 import { formatDate, formatRelativeDate } from '@/lib/format';
 import { fullName } from '@/lib/labels';
 import { copyText } from '@/lib/clipboard';
@@ -172,9 +172,12 @@ function SectionDialog({
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
+  const [visibility, setVisibility] = useState<ArticleVisibility>('company');
 
   useEffect(() => {
-    if (open) setName(section?.name ?? '');
+    if (!open) return;
+    setName(section?.name ?? '');
+    setVisibility(section?.visibility ?? 'company');
   }, [open, section]);
 
   const createSection = useMutation({
@@ -202,15 +205,15 @@ function SectionDialog({
   const submit = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    if (mode === 'create') createSection.mutate({ name: trimmed, parentId });
-    else if (section) updateSection.mutate({ id: section.id, name: trimmed });
+    if (mode === 'create') createSection.mutate({ name: trimmed, parentId, visibility });
+    else if (section) updateSection.mutate({ id: section.id, name: trimmed, visibility });
   };
 
   return (
     <Modal
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      title={mode === 'create' ? 'Новый раздел' : 'Переименовать раздел'}
+      title={mode === 'create' ? 'Новый раздел' : 'Редактировать раздел'}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -226,7 +229,18 @@ function SectionDialog({
         </>
       }
     >
-      <Input label="Название" value={name} onChange={(event) => setName(event.target.value)} />
+      <div className="space-y-4">
+        <Input label="Название" value={name} onChange={(event) => setName(event.target.value)} />
+        <Select
+          label="Видимость"
+          value={visibility}
+          onValueChange={(value) => setVisibility(value as ArticleVisibility)}
+          options={[
+            { value: 'company', label: 'Только сотрудники компании' },
+            { value: 'public', label: 'Публичный — доступен по ссылке' },
+          ]}
+        />
+      </div>
     </Modal>
   );
 }
@@ -241,18 +255,10 @@ function AccessDialog({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const departmentsQuery = useQuery({ queryKey: ['departments'], queryFn: orgApi.getDepartments });
-  const positionsQuery = useQuery({ queryKey: ['positions'], queryFn: orgApi.getPositions });
-  const usersQuery = useQuery({ queryKey: ['users'], queryFn: orgApi.getUsers });
-  const [access, setAccess] = useState<AccessSettings>({
-    scope: 'company',
-    departmentIds: [],
-    positionIds: [],
-    userIds: [],
-  });
+  const [visibility, setVisibility] = useState<ArticleVisibility>('company');
 
   useEffect(() => {
-    if (open && section) setAccess(section.access);
+    if (open && section) setVisibility(section.visibility);
   }, [open, section]);
 
   const updateSection = useMutation({
@@ -263,15 +269,6 @@ function AccessDialog({
       onClose();
     },
   });
-
-  const toggle = (key: 'departmentIds' | 'positionIds' | 'userIds', id: ID) => {
-    setAccess((current) => {
-      const values = new Set(current[key]);
-      if (values.has(id)) values.delete(id);
-      else values.add(id);
-      return { ...current, scope: 'custom', [key]: [...values] };
-    });
-  };
 
   return (
     <Modal
@@ -287,100 +284,22 @@ function AccessDialog({
           </Button>
           <Button
             loading={updateSection.isPending}
-            onClick={() => section && updateSection.mutate({ id: section.id, access })}
+            onClick={() => section && updateSection.mutate({ id: section.id, visibility })}
           >
             Сохранить
           </Button>
         </>
       }
     >
-      <div className="space-y-5">
-        <label className="flex items-start gap-3 rounded-md border border-slate-200 p-3">
-          <input
-            type="radio"
-            checked={access.scope === 'company'}
-            onChange={() =>
-              setAccess({ scope: 'company', departmentIds: [], positionIds: [], userIds: [] })
-            }
-            className="mt-1"
-          />
-          <span>
-            <span className="block text-sm font-medium text-slate-900">Вся компания</span>
-            <span className="text-xs text-slate-500">Дочерние разделы наследуют этот доступ.</span>
-          </span>
-        </label>
-
-        <label className="flex items-start gap-3 rounded-md border border-slate-200 p-3">
-          <input
-            type="radio"
-            checked={access.scope === 'custom'}
-            onChange={() => setAccess((current) => ({ ...current, scope: 'custom' }))}
-            className="mt-1"
-          />
-          <span>
-            <span className="block text-sm font-medium text-slate-900">Выборочно</span>
-            <span className="text-xs text-slate-500">
-              Отделы, должности и отдельные сотрудники.
-            </span>
-          </span>
-        </label>
-
-        {access.scope === 'custom' && (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                Отделы
-              </p>
-              <div className="space-y-2">
-                {(departmentsQuery.data ?? []).map((department) => (
-                  <label key={department.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={access.departmentIds.includes(department.id)}
-                      onChange={() => toggle('departmentIds', department.id)}
-                    />
-                    {department.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                Должности
-              </p>
-              <div className="space-y-2">
-                {(positionsQuery.data ?? []).map((position) => (
-                  <label key={position.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={access.positionIds.includes(position.id)}
-                      onChange={() => toggle('positionIds', position.id)}
-                    />
-                    {position.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                Люди
-              </p>
-              <div className="space-y-2">
-                {(usersQuery.data ?? []).map((user) => (
-                  <label key={user.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={access.userIds.includes(user.id)}
-                      onChange={() => toggle('userIds', user.id)}
-                    />
-                    {fullName(user)}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      <Select
+        label="Кто может читать статьи раздела"
+        value={visibility}
+        onValueChange={(value) => setVisibility(value as ArticleVisibility)}
+        options={[
+          { value: 'company', label: 'Только сотрудники компании' },
+          { value: 'public', label: 'Все у кого есть ссылка' },
+        ]}
+      />
     </Modal>
   );
 }
@@ -463,6 +382,21 @@ function ArticleDrawer({
       editorRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
     }
     if (Object.keys(nextErrors).length > 0) return;
+    const previousVisibility = sections.find((item) => item.id === article?.sectionId)?.visibility;
+    const nextVisibility = sections.find((item) => item.id === selectedSectionId)?.visibility;
+    if (
+      article &&
+      previousVisibility &&
+      nextVisibility &&
+      previousVisibility !== nextVisibility &&
+      !confirm(
+        nextVisibility === 'public'
+          ? 'После переноса статья станет доступна всем по ссылке. Продолжить?'
+          : 'После переноса статья будет доступна только сотрудникам компании. Продолжить?',
+      )
+    ) {
+      return;
+    }
     if (article) {
       updateArticle.mutate({
         id: article.id,
@@ -706,6 +640,7 @@ export function KnowledgePage() {
   const articles = articlesQuery.data ?? emptyArticles;
   const activeSection = sections.find((section) => section.id === activeSectionId);
   const activeArticle = articles.find((article) => article.id === activeArticleId);
+  const activeArticleSection = sections.find((section) => section.id === activeArticle?.sectionId);
   const rootSections = sectionChildren(sections, null);
   const headings = getRichTextHeadings(activeArticle?.content);
   const requestedArticleId = searchParams.get('article');
@@ -922,6 +857,13 @@ export function KnowledgePage() {
                           {activeArticle.status === 'published' ? 'Опубликована' : 'Черновик'}
                         </Badge>
                         <Badge variant="neutral">Версия {activeArticle.version}</Badge>
+                        <Badge
+                          variant={activeArticleSection?.visibility === 'public' ? 'primary' : 'neutral'}
+                        >
+                          {activeArticleSection?.visibility === 'public'
+                            ? 'Публичная'
+                            : 'Только компания'}
+                        </Badge>
                         {activeArticle.requiresAcknowledgement && (
                           <Badge variant="primary">Ознакомление</Badge>
                         )}
@@ -932,7 +874,8 @@ export function KnowledgePage() {
                       </p>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {activeArticle.status === 'published' && (
+                      {activeArticle.status === 'published' &&
+                      activeArticleSection?.visibility === 'public' ? (
                         <Button
                           variant="secondary"
                           size="sm"
@@ -941,7 +884,11 @@ export function KnowledgePage() {
                           <Share2 className="size-4" />
                           Поделиться
                         </Button>
-                      )}
+                      ) : activeArticle.status === 'published' ? (
+                        <span className="inline-flex items-center text-xs text-slate-500">
+                          Доступно только сотрудникам компании
+                        </span>
+                      ) : null}
                       <Button variant="secondary" size="sm" onClick={() => setVersionsOpen(true)}>
                         <History className="size-4" />
                         Версии
@@ -1027,10 +974,8 @@ export function KnowledgePage() {
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Folder className="size-5 text-primary-500" />
-                        <Badge
-                          variant={activeSection.access.scope === 'company' ? 'success' : 'warning'}
-                        >
-                          {activeSection.access.scope === 'company' ? 'Вся компания' : 'Ограничен'}
+                        <Badge variant={activeSection.visibility === 'public' ? 'primary' : 'success'}>
+                          {activeSection.visibility === 'public' ? 'Публичный' : 'Только компания'}
                         </Badge>
                       </div>
                       <h1>{activeSection.name}</h1>
@@ -1047,7 +992,7 @@ export function KnowledgePage() {
                           onClick={() => setSectionDialog('rename')}
                         >
                           <Pencil className="size-4" />
-                          Название
+                          Изменить
                         </Button>
                         <Button
                           variant="ghost"

@@ -11,10 +11,10 @@ describe('splitEmployeeName', () => {
     });
   });
 
-  it('сохраняет текущую фамилию, если изменили только имя', () => {
+  it('позволяет удалить фамилию и оставить только имя', () => {
     expect(splitEmployeeName('Мария', fallback)).toEqual({
       firstName: 'Мария',
-      lastName: 'amoCRM',
+      lastName: '',
     });
   });
 

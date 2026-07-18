@@ -359,6 +359,7 @@ export const articleSections: ArticleSection[] = [
     name: 'Общие регламенты',
     parentId: null,
     order: 0,
+    visibility: 'public',
     access: { scope: 'company', departmentIds: [], positionIds: [], userIds: [] },
   },
   {
@@ -366,6 +367,7 @@ export const articleSections: ArticleSection[] = [
     name: 'Продажи',
     parentId: null,
     order: 1,
+    visibility: 'company',
     access: { scope: 'custom', departmentIds: ['department-2'], positionIds: [], userIds: [] },
   },
   {
@@ -373,6 +375,7 @@ export const articleSections: ArticleSection[] = [
     name: 'Разработка',
     parentId: null,
     order: 2,
+    visibility: 'company',
     access: { scope: 'custom', departmentIds: ['department-4'], positionIds: [], userIds: [] },
   },
 ];
@@ -746,6 +749,7 @@ export const courses: Course[] = [
     title: 'Онбординг менеджера по продажам',
     description: 'Продукт, CRM и регламенты отдела продаж за одну неделю.',
     status: 'published',
+    visibility: 'restricted',
     authorId: 'user-2',
     sequential: true,
     deadlineDays: 7,
@@ -757,6 +761,7 @@ export const courses: Course[] = [
     title: 'Стандарты разработки',
     description: 'Код-ревью, git-flow и стайлгайд команды.',
     status: 'published',
+    visibility: 'company',
     authorId: 'user-4',
     sequential: false,
     createdAt: daysAgo(40),
@@ -767,6 +772,7 @@ export const courses: Course[] = [
     title: 'Работа с базой знаний (черновик)',
     description: 'Как писать и поддерживать регламенты.',
     status: 'draft',
+    visibility: 'restricted',
     authorId: 'user-1',
     sequential: true,
     createdAt: daysAgo(6),

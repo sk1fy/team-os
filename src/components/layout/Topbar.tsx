@@ -72,7 +72,9 @@ export function Topbar() {
     queryFn: academyApi.getCourses,
   });
 
-  const fullName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : '';
+  const fullName = currentUser
+    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ')
+    : '';
   const query = search.trim().toLowerCase();
 
   const searchResults = useMemo(() => {
