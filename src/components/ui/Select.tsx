@@ -77,15 +77,20 @@ export function Select({
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={cn(
-            'flex h-9.5 w-full items-center justify-between gap-2 rounded-md border bg-surface px-3 text-sm',
+            'flex h-9.5 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-md border bg-surface px-3 text-sm',
             'focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600',
             'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400',
             'data-[placeholder]:text-slate-400',
             error ? 'border-danger-500' : 'border-slate-200',
           )}
         >
-          <SelectPrimitive.Value placeholder={placeholder} />
-          <SelectPrimitive.Icon>
+          <span
+            className="min-w-0 flex-1 truncate text-left"
+            title={options.find((option) => option.value === value)?.label}
+          >
+            <SelectPrimitive.Value placeholder={placeholder} />
+          </span>
+          <SelectPrimitive.Icon className="shrink-0">
             <ChevronDown className="size-4 text-slate-400" />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
