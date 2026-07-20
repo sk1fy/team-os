@@ -16,6 +16,7 @@ import type { RakursContext } from '@/api/rakurs/client';
 import { Button, Input, Modal, MultiSelect, Select } from '@/components/ui';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import { CheckField, FieldClausesEditor, SectionCard, Segmented, Toggle } from './controls';
 
@@ -480,7 +481,7 @@ export function RulesTab({
       title="Правила цифровой воронки"
       description="Автоматически ищите и объединяйте дубли при запуске сценария."
       actions={
-        <Button size="sm" onClick={() => setEditor({ key: crypto.randomUUID() })}>
+        <Button size="sm" onClick={() => setEditor({ key: createId() })}>
           <Plus className="size-4" /> Создать правило
         </Button>
       }
@@ -495,7 +496,7 @@ export function RulesTab({
           title="Правил пока нет"
           description="Создайте первое правило для цифровой воронки."
           action={
-            <Button onClick={() => setEditor({ key: crypto.randomUUID() })}>Создать правило</Button>
+            <Button onClick={() => setEditor({ key: createId() })}>Создать правило</Button>
           }
         />
       )}
@@ -537,6 +538,7 @@ export function RulesTab({
                           variant="ghost"
                           size="sm"
                           className="text-danger-600"
+                          aria-label={`Удалить правило ${rule.name || 'Без названия'}`}
                           onClick={() => setDeleting(rule)}
                         >
                           <Trash2 className="size-4" />

@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { toast } from '@/stores/toast';
 import { CheckField, FieldClausesEditor, SectionCard } from './controls';
+import { amoCrmCardId, toAmoCrmCardUrl } from './links';
 
 const entityLabels: Record<DuplicateResultItem['entityType'], string> = {
   contacts: 'Контакт',
@@ -37,7 +38,7 @@ function errorText(error: unknown, fallback: string) {
 }
 
 function directLink(item: DuplicateResultItem | DuplicateResultDetail) {
-  return item.link;
+  return toAmoCrmCardUrl(item.link);
 }
 
 export function MassSearchTab({
@@ -312,7 +313,7 @@ export function MassSearchTab({
                   <tr>
                     <th className="px-2 py-3">
                       <CheckField
-                        label=""
+                        label="Выбрать все доступные группы дублей"
                         checked={
                           eligibleIds.length > 0 && eligibleIds.every((id) => selected.includes(id))
                         }
@@ -333,7 +334,7 @@ export function MassSearchTab({
                       <tr key={item.id} className="text-slate-700">
                         <td className="px-2 py-3">
                           <CheckField
-                            label=""
+                            label={`Выбрать группу дублей ${item.oldValue || item.id}`}
                             disabled={!eligible}
                             checked={selected.includes(item.id)}
                             onCheckedChange={(checked) =>
@@ -378,6 +379,7 @@ export function MassSearchTab({
                   <Button
                     variant="secondary"
                     size="sm"
+                    aria-label="Предыдущая страница результатов"
                     disabled={page <= 1}
                     onClick={() => setPage((current) => Math.max(1, current - 1))}
                   >
@@ -389,6 +391,7 @@ export function MassSearchTab({
                   <Button
                     variant="secondary"
                     size="sm"
+                    aria-label="Следующая страница результатов"
                     disabled={page >= pages}
                     onClick={() => setPage((current) => Math.min(pages, current + 1))}
                   >
@@ -413,7 +416,7 @@ export function MassSearchTab({
               <tbody className="divide-y divide-slate-100">
                 {details.data.map((item) => (
                   <tr key={item.id}>
-                    <td className="px-2 py-3">{item.id}</td>
+                    <td className="px-2 py-3">{amoCrmCardId(item.link) || item.id}</td>
                     <td className="px-2 py-3">{entityLabels[item.entityType]}</td>
                     <td className="px-2 py-3">{item.fieldName || '—'}</td>
                     <td className="px-2 py-3">{item.oldValue || '—'}</td>

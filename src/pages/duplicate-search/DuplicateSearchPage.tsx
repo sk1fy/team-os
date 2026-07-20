@@ -132,7 +132,7 @@ export function DuplicateSearchPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <PageHeader
         title="Автопоиск дубликатов"
         description="Ищите и объединяйте повторяющиеся контакты, компании и сделки в amoCRM."

@@ -41,7 +41,10 @@ function panelLink(panel: ActivityPanel, baseLink: string) {
 
 function PageSkeleton() {
   return (
-    <div className="space-y-5" aria-label="Загрузка контроля активности">
+    <div
+      className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6"
+      aria-label="Загрузка контроля активности"
+    >
       <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
       <div className="h-10 w-72 animate-pulse rounded-lg bg-slate-100" />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -469,17 +472,19 @@ export function ActivityControlPage() {
   if (companyQuery.isPending) return <PageSkeleton />;
   if (companyQuery.isError) {
     return (
-      <ErrorState
-        title="Не удалось загрузить компанию"
-        description="Без данных компании невозможно определить аккаунт amoCRM."
-        onRetry={() => companyQuery.refetch()}
-      />
+      <div className="mx-auto max-w-6xl p-4 sm:p-6">
+        <ErrorState
+          title="Не удалось загрузить компанию"
+          description="Без данных компании невозможно определить аккаунт amoCRM."
+          onRetry={() => companyQuery.refetch()}
+        />
+      </div>
     );
   }
 
   if (!accountId) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
         <PageHeader
           title="Контроль активности"
           description="Дашборды активности сотрудников и очередь задач"
@@ -504,7 +509,7 @@ export function ActivityControlPage() {
   if (settingsQuery.isPending) return <PageSkeleton />;
   if (settingsQuery.isError || !settingsQuery.data) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
         <PageHeader title="Контроль активности" />
         <ErrorState
           title="Не удалось загрузить настройки активности"
@@ -523,7 +528,7 @@ export function ActivityControlPage() {
   const busy = persistMutation.isPending;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
       <PageHeader
         title="Контроль активности"
         description="Настройте дашборды активности сотрудников и доступ к панели задач"
