@@ -9,14 +9,13 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Award, GraduationCap, PlayCircle } from 'lucide-react';
+import { GraduationCap, PlayCircle } from 'lucide-react';
 import { academyOpusApi } from '@/api/academyOpus';
 import { queryKeys } from '@/api/queryKeys';
 import type { Course, CourseProgress, Lesson, User } from '@/types';
-import { Badge, Button } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { progressPercent, resolveStatus } from '@/lib/courseProgress';
-import { formatDate } from '@/lib/format';
 import { DueDateLabel, ProgressBar, StatusBadge } from './shared';
 
 export function MyLearningTab({
@@ -24,13 +23,11 @@ export function MyLearningTab({
   lessons,
   progress,
   currentUser,
-  onOpenCertificate,
 }: {
   courses: Course[];
   lessons: Lesson[];
   progress: CourseProgress[];
   currentUser: User | undefined;
-  onOpenCertificate: (courseId: string) => void;
 }) {
   const navigate = useNavigate();
 
@@ -39,12 +36,6 @@ export function MyLearningTab({
     queryFn: academyOpusApi.getMyAssignments,
     enabled: Boolean(currentUser),
   });
-  const certificatesQuery = useQuery({
-    queryKey: queryKeys.academyOpus.certificates,
-    queryFn: academyOpusApi.getCertificates,
-    enabled: Boolean(currentUser),
-  });
-
   const now = useMemo(() => new Date(), []);
 
   const items = useMemo(() => {
@@ -76,7 +67,8 @@ export function MyLearningTab({
       .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => {
         // Сначала горящее: просроченное, затем по дедлайну, затем без дедлайна.
-        const weight = (status: string) => (status === 'overdue' ? 0 : status === 'completed' ? 2 : 1);
+        const weight = (status: string) =>
+          status === 'overdue' ? 0 : status === 'completed' ? 2 : 1;
         const diff = weight(a.status) - weight(b.status);
         if (diff !== 0) return diff;
         if (a.assignment.dueDate && b.assignment.dueDate) {
@@ -85,8 +77,6 @@ export function MyLearningTab({
         return a.assignment.dueDate ? -1 : b.assignment.dueDate ? 1 : 0;
       });
   }, [assignmentsQuery.data, courses, currentUser?.id, lessons, now, progress]);
-
-  const certificates = certificatesQuery.data ?? [];
 
   if (assignmentsQuery.isPending) {
     return <div className="h-48 animate-pulse rounded-lg bg-slate-200/60" />;
@@ -112,12 +102,6 @@ export function MyLearningTab({
           >
             <div className="mb-2 flex items-start justify-between gap-2">
               <StatusBadge status={item.status} />
-              {item.status === 'completed' && (
-                <Badge variant="neutral">
-                  <Award className="size-3" />
-                  Сертификат
-                </Badge>
-              )}
             </div>
 
             <h3 className="text-base font-semibold text-slate-950">{item.course.title}</h3>
@@ -148,59 +132,12 @@ export function MyLearningTab({
             <div className="mt-4 flex gap-2 border-t border-slate-100 pt-3">
               <Button size="sm" onClick={() => navigate(`/learn-opus/${item.course.id}`)}>
                 <PlayCircle className="size-4" />
-                {item.percent === 0
-                  ? 'Начать'
-                  : item.percent === 100
-                    ? 'Повторить'
-                    : 'Продолжить'}
+                {item.percent === 0 ? 'Начать' : item.percent === 100 ? 'Повторить' : 'Продолжить'}
               </Button>
-              {item.status === 'completed' && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onOpenCertificate(item.course.id)}
-                >
-                  Сертификат
-                </Button>
-              )}
             </div>
           </article>
         ))}
       </div>
-
-      {certificates.length > 0 && (
-        <section className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
-          <h3 className="mb-3 flex items-center gap-2 font-semibold text-slate-950">
-            <Award className="size-5 text-warning-500" />
-            Мои сертификаты
-          </h3>
-          <ul className="divide-y divide-slate-100">
-            {certificates.map((certificate) => {
-              const course = courses.find((item) => item.id === certificate.courseId);
-              return (
-                <li
-                  key={certificate.id}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{course?.title ?? '—'}</p>
-                    <p className="text-xs text-slate-500">
-                      № {certificate.number} · выдан {formatDate(certificate.issuedAt)}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onOpenCertificate(certificate.courseId)}
-                  >
-                    Открыть
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }

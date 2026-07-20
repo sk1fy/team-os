@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { academyApi } from '@/api';
+import { httpAcademyApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import type { Course, CourseVisibility } from '@/types';
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui';
@@ -33,13 +33,13 @@ export function CreateCourseModal({
   }, [open]);
 
   const createCourse = useMutation({
-    mutationFn: academyApi.createCourse,
+    mutationFn: httpAcademyApi.createCourse,
     onSuccess: (course) => {
-      queryClient.setQueryData<Course[]>(queryKeys.academy.courses, (current = []) => [
+      queryClient.setQueryData<Course[]>(queryKeys.academyGrok.courses, (current = []) => [
         ...current.filter((item) => item.id !== course.id),
         course,
       ]);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academy.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyGrok.all });
       toast.success('Курс создан');
       onCreated(course);
     },

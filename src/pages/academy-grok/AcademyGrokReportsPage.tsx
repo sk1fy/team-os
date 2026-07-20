@@ -11,7 +11,7 @@ import {
   TrendingUp,
   UsersRound,
 } from 'lucide-react';
-import { academyApi, authApi, orgApi } from '@/api';
+import { httpAcademyApi, httpAuthApi, httpOrgApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -21,11 +21,7 @@ import { fullName } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { AcademyGrokNav } from './components/AcademyGrokNav';
 import { ProgressBar } from './components/ProgressBar';
-import {
-  progressPercent,
-  progressStatusLabels,
-  progressStatusVariants,
-} from './utils';
+import { progressPercent, progressStatusLabels, progressStatusVariants } from './utils';
 import type { Course, CourseProgress, Lesson, User } from '@/types';
 
 const emptyCourses: Course[] = [];
@@ -37,24 +33,24 @@ export function AcademyGrokReportsPage() {
   useTitle('Отчёты — Академия Grok — TeamOS');
 
   const currentUserQuery = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
+    queryKey: queryKeys.academyGrok.currentUser,
+    queryFn: httpAuthApi.getCurrentUser,
   });
   const coursesQuery = useQuery({
-    queryKey: queryKeys.academy.courses,
-    queryFn: academyApi.getCourses,
+    queryKey: queryKeys.academyGrok.courses,
+    queryFn: httpAcademyApi.getCourses,
   });
   const lessonsQuery = useQuery({
-    queryKey: queryKeys.academy.lessonsFor('all'),
-    queryFn: () => academyApi.getLessons(),
+    queryKey: queryKeys.academyGrok.lessons,
+    queryFn: () => httpAcademyApi.getLessons(),
   });
   const progressQuery = useQuery({
-    queryKey: queryKeys.academy.progress,
-    queryFn: () => academyApi.getProgress(),
+    queryKey: queryKeys.academyGrok.progress,
+    queryFn: () => httpAcademyApi.getProgress(),
   });
   const usersQuery = useQuery({
-    queryKey: queryKeys.users.all,
-    queryFn: orgApi.getUsers,
+    queryKey: queryKeys.academyGrok.users,
+    queryFn: httpOrgApi.getUsers,
   });
 
   const canManage = canManageContent(currentUserQuery.data?.role);
@@ -171,24 +167,9 @@ export function AcademyGrokReportsPage() {
           value={String(stats.total)}
           tone="primary"
         />
-        <Kpi
-          icon={TrendingUp}
-          label="В процессе"
-          value={String(stats.inProgress)}
-          tone="warning"
-        />
-        <Kpi
-          icon={CheckCircle2}
-          label="Завершено"
-          value={String(stats.completed)}
-          tone="success"
-        />
-        <Kpi
-          icon={Clock3}
-          label="Средний прогресс"
-          value={`${stats.avg}%`}
-          tone="neutral"
-        />
+        <Kpi icon={TrendingUp} label="В процессе" value={String(stats.inProgress)} tone="warning" />
+        <Kpi icon={CheckCircle2} label="Завершено" value={String(stats.completed)} tone="success" />
+        <Kpi icon={Clock3} label="Средний прогресс" value={`${stats.avg}%`} tone="neutral" />
       </section>
 
       {stats.overdue > 0 && (
@@ -269,9 +250,7 @@ export function AcademyGrokReportsPage() {
                     >
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
-                          {user && (
-                            <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />
-                          )}
+                          {user && <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />}
                           <span className="text-sm font-medium text-slate-900">
                             {user ? fullName(user) : item.userId}
                           </span>

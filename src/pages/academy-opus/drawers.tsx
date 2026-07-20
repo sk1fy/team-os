@@ -4,7 +4,6 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Award, Download, Trash2 } from 'lucide-react';
 import { academyOpusApi } from '@/api/academyOpus';
 import { queryKeys } from '@/api/queryKeys';
 import { ApiError } from '@/api/client';
@@ -63,7 +62,12 @@ export function CourseSettingsDrawer({
   if (!course) return null;
 
   return (
-    <Drawer open={open} onOpenChange={(next) => !next && onClose()} title="Настройки курса" size="md">
+    <Drawer
+      open={open}
+      onOpenChange={(next) => !next && onClose()}
+      title="Настройки курса"
+      size="md"
+    >
       <div className="space-y-4">
         <Input
           label="Название"
@@ -173,15 +177,6 @@ export function AssignDrawer({
       toast.error(error instanceof ApiError ? error.message : 'Не удалось назначить курс'),
   });
 
-  const unassign = useMutation({
-    mutationFn: academyOpusApi.unassign,
-    onSuccess: () => {
-      toast.success('Назначение снято');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyOpus.all });
-    },
-    onError: () => toast.error('Не удалось снять назначение'),
-  });
-
   if (!course) return null;
 
   const options: Record<typeof assigneeType, Array<{ value: string; label: string }>> = {
@@ -269,7 +264,7 @@ export function AssignDrawer({
         ) : (
           <ul className="divide-y divide-slate-100">
             {courseAssignments.map((assignment) => (
-              <li key={assignment.id} className="flex items-center justify-between gap-2 py-2">
+              <li key={assignment.id} className="py-2">
                 <div>
                   <p className="text-sm text-slate-900">
                     {labelFor(assignment.assigneeType, assignment.assigneeId)}
@@ -285,89 +280,11 @@ export function AssignDrawer({
                     {assignment.dueDate ? ` · до ${formatDate(assignment.dueDate)}` : ''}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => unassign.mutate(assignment.id)}
-                  aria-label="Снять назначение"
-                >
-                  <Trash2 className="size-4 text-danger-600" />
-                </Button>
               </li>
             ))}
           </ul>
         )}
       </div>
-    </Drawer>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Сертификат
-// ---------------------------------------------------------------------------
-
-/**
- * Сертификат печатается по реальной записи о выдаче: номер и дата берутся
- * из неё, а не из «сегодня», как в базовой Академии.
- */
-export function CertificateDrawer({
-  courseId,
-  courses,
-  user,
-  open,
-  onClose,
-}: {
-  courseId: ID | null;
-  courses: Course[];
-  user: User | undefined;
-  open: boolean;
-  onClose: () => void;
-}) {
-  const certificatesQuery = useQuery({
-    queryKey: queryKeys.academyOpus.certificates,
-    queryFn: academyOpusApi.getCertificates,
-    enabled: open,
-  });
-
-  const course = courses.find((item) => item.id === courseId);
-  const certificate = (certificatesQuery.data ?? []).find(
-    (item) => item.courseId === courseId && item.userId === user?.id,
-  );
-
-  return (
-    <Drawer
-      open={open}
-      onOpenChange={(next) => !next && onClose()}
-      title="Сертификат"
-      size="lg"
-      footer={
-        certificate ? (
-          <Button variant="secondary" onClick={() => window.print()}>
-            <Download className="size-4" />
-            Печать / PDF
-          </Button>
-        ) : undefined
-      }
-    >
-      {certificate ? (
-        <div className="flex min-h-[520px] flex-col items-center justify-center rounded-lg border-4 border-double border-primary-200 bg-[linear-gradient(135deg,#ffffff,#f8fafc)] p-10 text-center">
-          <Award className="mb-6 size-16 text-warning-500" />
-          <p className="text-sm font-semibold tracking-[0.24em] text-slate-400 uppercase">
-            TeamOS Academy
-          </p>
-          <h2 className="mt-6 text-3xl font-bold text-slate-950">Сертификат</h2>
-          <p className="mt-5 text-sm text-slate-500">подтверждает, что</p>
-          <p className="mt-2 text-2xl font-semibold text-primary-800">{fullName(user)}</p>
-          <p className="mt-5 text-sm text-slate-500">прошёл курс</p>
-          <p className="mt-2 text-xl font-semibold text-slate-950">{course?.title}</p>
-          <p className="mt-8 text-sm text-slate-500">{formatDate(certificate.issuedAt)}</p>
-          <p className="mt-1 text-xs tracking-wider text-slate-400">№ {certificate.number}</p>
-        </div>
-      ) : (
-        <p className="py-10 text-center text-sm text-slate-500">
-          Сертификат выдаётся автоматически после прохождения всех уроков курса.
-        </p>
-      )}
     </Drawer>
   );
 }
