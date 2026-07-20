@@ -134,14 +134,14 @@ export function AcademyOpusPage() {
 
   if (coursesQuery.isError) {
     return (
-      <div className="p-6">
+      <div className="mx-auto max-w-7xl p-6">
         <ErrorState onRetry={() => void coursesQuery.refetch()} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="mx-auto max-w-7xl space-y-5 p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2">
