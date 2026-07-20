@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Plus, Search } from 'lucide-react';
-import { academyApi, authApi } from '@/api';
+import { httpAcademyApi, httpAuthApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -27,20 +27,20 @@ export function AcademyGrokCatalogPage() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const currentUserQuery = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
+    queryKey: queryKeys.academyGrok.currentUser,
+    queryFn: httpAuthApi.getCurrentUser,
   });
   const coursesQuery = useQuery({
-    queryKey: queryKeys.academy.courses,
-    queryFn: academyApi.getCourses,
+    queryKey: queryKeys.academyGrok.courses,
+    queryFn: httpAcademyApi.getCourses,
   });
   const lessonsQuery = useQuery({
-    queryKey: queryKeys.academy.lessonsFor('all'),
-    queryFn: () => academyApi.getLessons(),
+    queryKey: queryKeys.academyGrok.lessons,
+    queryFn: () => httpAcademyApi.getLessons(),
   });
   const progressQuery = useQuery({
-    queryKey: queryKeys.academy.progress,
-    queryFn: () => academyApi.getProgress(),
+    queryKey: queryKeys.academyGrok.progress,
+    queryFn: () => httpAcademyApi.getProgress(),
   });
 
   const currentUser = currentUserQuery.data;
@@ -106,9 +106,7 @@ export function AcademyGrokCatalogPage() {
             ...(canManage ? [{ value: 'draft' as const, label: 'Черновики' }] : []),
           ]}
         />
-        <p className="text-sm text-slate-500">
-          Найдено: {visibleCourses.length}
-        </p>
+        <p className="text-sm text-slate-500">Найдено: {visibleCourses.length}</p>
       </div>
 
       {coursesQuery.isPending ? (

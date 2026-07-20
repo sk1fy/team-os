@@ -12,18 +12,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Award, Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { academyOpusApi } from '@/api/academyOpus';
-import { authApi } from '@/api';
+import { httpAuthApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import { ApiError } from '@/api/client';
 import type { CourseProgress, ID, Lesson } from '@/types';
-import type { QuizAnswer } from '@/types/academyOpus';
-import { Badge, Button, RichTextView } from '@/components/ui';
+import { Badge, Button, RichTextView, Textarea } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { isLessonUnlocked, progressPercent, resumeLessonId } from '@/lib/courseProgress';
-import { attemptsOf } from '@/lib/quizScoring';
 import { toast } from '@/stores/toast';
 import { ProgressBar } from './shared';
-import { QuizRunner } from './QuizRunner';
 
 const emptyLessons: Lesson[] = [];
 
@@ -48,8 +45,8 @@ export function LearnOpusPage() {
     enabled: Boolean(courseId),
   });
   const currentUserQuery = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
+    queryKey: queryKeys.academyOpus.currentUser,
+    queryFn: httpAuthApi.getCurrentUser,
   });
   const progressQuery = useQuery({
     queryKey: queryKeys.academyOpus.progressFor(courseId),
@@ -76,12 +73,6 @@ export function LearnOpusPage() {
   const lessonIndex = lesson ? lessons.findIndex((item) => item.id === lesson.id) : -1;
   const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : undefined;
   const lessonCompleted = Boolean(lesson && completedIds.has(lesson.id));
-
-  const attempts = useMemo(
-    () =>
-      quiz && currentUser ? attemptsOf(progress?.quizAttempts ?? [], quiz.id, currentUser.id) : [],
-    [currentUser, progress?.quizAttempts, quiz],
-  );
 
   const courseNotFound = courseQuery.error instanceof ApiError && courseQuery.error.status === 404;
   const courseForbidden = courseQuery.error instanceof ApiError && courseQuery.error.status === 403;
@@ -115,24 +106,6 @@ export function LearnOpusPage() {
     onError: (error) =>
       toast.error(error instanceof ApiError ? error.message : 'Не удалось отметить урок'),
   });
-
-  const submitQuiz = useMutation({
-    mutationFn: academyOpusApi.submitQuizAttempt,
-    onSuccess: (result) => syncProgress(result.progress),
-    onError: (error) =>
-      toast.error(error instanceof ApiError ? error.message : 'Не удалось отправить ответы'),
-  });
-
-  async function handleQuizSubmit(answers: QuizAnswer[]) {
-    if (!lesson || !quiz) return undefined;
-    const result = await submitQuiz.mutateAsync({
-      courseId,
-      lessonId: lesson.id,
-      quizId: quiz.id,
-      answers,
-    });
-    return result.grade;
-  }
 
   if (courseQuery.isPending) {
     return (
@@ -264,7 +237,7 @@ export function LearnOpusPage() {
 
               <RichTextView content={lesson.content} />
 
-              {/* Урок без теста закрывается кнопкой, урок с тестом — сдачей теста. */}
+              {/* Прогресс сохраняется сервером через общий endpoint Академии. */}
               {currentUser && !quiz && (
                 <div className="mt-6 border-t border-slate-100 pt-4">
                   <Button
@@ -289,13 +262,44 @@ export function LearnOpusPage() {
             </article>
           )}
 
-          {quiz && currentUser && (
-            <QuizRunner
-              quiz={quiz}
-              attempts={attempts}
-              submitting={submitQuiz.isPending}
-              onSubmit={handleQuizSubmit}
-            />
+          {quiz && (
+            <section className="rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
+              <h3 className="mb-3 text-base font-semibold text-slate-950">Тест урока</h3>
+              <div className="space-y-3">
+                {quiz.questions.map((question) => (
+                  <div key={question.id} className="rounded-md bg-surface-muted p-4">
+                    <p className="text-sm font-medium text-slate-900">{question.text}</p>
+                    {question.type === 'open' ? (
+                      <Textarea rows={3} className="mt-2" placeholder="Введите ответ" />
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {question.options.map((option) => (
+                          <label key={option.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type={question.type === 'single' ? 'radio' : 'checkbox'}
+                              name={question.id}
+                            />
+                            {option.text}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {currentUser && lesson && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    disabled={lessonCompleted}
+                    loading={markComplete.isPending}
+                    onClick={() => markComplete.mutate({ courseId, lessonId: lesson.id })}
+                  >
+                    <Check className="size-4" />
+                    {lessonCompleted ? 'Тест завершён' : 'Завершить тест'}
+                  </Button>
+                </div>
+              )}
+            </section>
           )}
 
           {nextLesson && (
@@ -316,9 +320,7 @@ export function LearnOpusPage() {
           {progress?.status === 'completed' && (
             <div className="flex items-center gap-3 rounded-lg border border-success-100 bg-success-50 px-4 py-3 text-success-700">
               <Award className="size-5 shrink-0" />
-              <span>
-                Курс завершён — сертификат выпущен и доступен в разделе «Моё обучение».
-              </span>
+              <span>Курс завершён, прогресс сохранён на сервере.</span>
             </div>
           )}
         </div>

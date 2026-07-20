@@ -15,7 +15,7 @@ import {
   Send,
   UsersRound,
 } from 'lucide-react';
-import { academyApi, authApi, orgApi } from '@/api';
+import { httpAcademyApi, httpAuthApi, httpOrgApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -55,45 +55,45 @@ export function AcademyGrokCoursePage() {
   const [assigneeId, setAssigneeId] = useState('');
 
   const currentUserQuery = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
+    queryKey: queryKeys.academyGrok.currentUser,
+    queryFn: httpAuthApi.getCurrentUser,
   });
   const courseQuery = useQuery({
-    queryKey: queryKeys.academy.course(courseId),
-    queryFn: () => academyApi.getCourse(courseId),
+    queryKey: queryKeys.academyGrok.course(courseId),
+    queryFn: () => httpAcademyApi.getCourse(courseId),
     enabled: Boolean(courseId),
   });
   const sectionsQuery = useQuery({
-    queryKey: queryKeys.academy.sectionsFor(courseId),
-    queryFn: () => academyApi.getCourseSections(courseId),
+    queryKey: queryKeys.academyGrok.sectionsFor(courseId),
+    queryFn: () => httpAcademyApi.getCourseSections(courseId),
     enabled: Boolean(courseId),
   });
   const lessonsQuery = useQuery({
-    queryKey: queryKeys.academy.lessonsFor(courseId),
-    queryFn: () => academyApi.getLessons(courseId),
+    queryKey: queryKeys.academyGrok.lessonsFor(courseId),
+    queryFn: () => httpAcademyApi.getLessons(courseId),
     enabled: Boolean(courseId),
   });
   const progressQuery = useQuery({
-    queryKey: queryKeys.academy.progress,
-    queryFn: () => academyApi.getProgress(),
+    queryKey: queryKeys.academyGrok.progress,
+    queryFn: () => httpAcademyApi.getProgress(),
   });
   const assignmentsQuery = useQuery({
-    queryKey: queryKeys.academy.assignments,
-    queryFn: academyApi.getAssignments,
+    queryKey: queryKeys.academyGrok.assignments,
+    queryFn: httpAcademyApi.getAssignments,
   });
   const usersQuery = useQuery({
-    queryKey: queryKeys.users.all,
-    queryFn: orgApi.getUsers,
+    queryKey: queryKeys.academyGrok.users,
+    queryFn: httpOrgApi.getUsers,
     enabled: canManageContent(currentUserQuery.data?.role),
   });
   const positionsQuery = useQuery({
-    queryKey: queryKeys.positions,
-    queryFn: orgApi.getPositions,
+    queryKey: queryKeys.academyGrok.positions,
+    queryFn: httpOrgApi.getPositions,
     enabled: canManageContent(currentUserQuery.data?.role),
   });
   const departmentsQuery = useQuery({
-    queryKey: queryKeys.departments,
-    queryFn: orgApi.getDepartments,
+    queryKey: queryKeys.academyGrok.departments,
+    queryFn: httpOrgApi.getDepartments,
     enabled: canManageContent(currentUserQuery.data?.role),
   });
 
@@ -114,10 +114,10 @@ export function AcademyGrokCoursePage() {
   useTitle(course ? `${course.title} — Академия Grok` : 'Курс — Академия Grok');
 
   const updateStatus = useMutation({
-    mutationFn: academyApi.updateCourse,
+    mutationFn: httpAcademyApi.updateCourse,
     onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.academy.course(courseId), updated);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academy.courses });
+      queryClient.setQueryData(queryKeys.academyGrok.course(courseId), updated);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyGrok.courses });
       toast.success(
         updated.status === 'published' ? 'Курс опубликован' : 'Курс переведён в черновики',
       );
@@ -126,9 +126,9 @@ export function AcademyGrokCoursePage() {
   });
 
   const assign = useMutation({
-    mutationFn: academyApi.assignCourse,
+    mutationFn: httpAcademyApi.assignCourse,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academy.assignments });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyGrok.assignments });
       setAssignOpen(false);
       toast.success('Курс назначен');
     },
@@ -183,10 +183,16 @@ export function AcademyGrokCoursePage() {
               Каталог
             </Button>
             {ordered.length > 0 && course.status === 'published' && (
-              <Link to={`/learn-grok/${course.id}${resumeLesson ? `?lesson=${resumeLesson.id}` : ''}`}>
+              <Link
+                to={`/learn-grok/${course.id}${resumeLesson ? `?lesson=${resumeLesson.id}` : ''}`}
+              >
                 <Button>
                   <Play className="size-4" />
-                  {percent > 0 && percent < 100 ? 'Продолжить' : percent >= 100 ? 'Повторить' : 'Начать'}
+                  {percent > 0 && percent < 100
+                    ? 'Продолжить'
+                    : percent >= 100
+                      ? 'Повторить'
+                      : 'Начать'}
                 </Button>
               </Link>
             )}
@@ -220,7 +226,9 @@ export function AcademyGrokCoursePage() {
             </div>
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{course.title}</h2>
             {course.description && (
-              <p className="mt-2 max-w-2xl text-sm text-white/85 sm:text-base">{course.description}</p>
+              <p className="mt-2 max-w-2xl text-sm text-white/85 sm:text-base">
+                {course.description}
+              </p>
             )}
             <div className="mt-4 flex flex-wrap gap-4 text-sm text-white/80">
               <span>
@@ -248,7 +256,10 @@ export function AcademyGrokCoursePage() {
               size="lg"
             />
             {myProgress && (
-              <Badge className="mt-3 bg-white/90" variant={progressStatusVariants[myProgress.status]}>
+              <Badge
+                className="mt-3 bg-white/90"
+                variant={progressStatusVariants[myProgress.status]}
+              >
                 {progressStatusLabels[myProgress.status]}
               </Badge>
             )}
@@ -267,9 +278,7 @@ export function AcademyGrokCoursePage() {
         <section className="rounded-xl border border-slate-200 bg-surface shadow-card">
           <div className="border-b border-slate-100 px-5 py-4">
             <h3 className="text-base font-semibold text-slate-950">Программа курса</h3>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Разделы и уроки в порядке прохождения
-            </p>
+            <p className="mt-0.5 text-sm text-slate-500">Разделы и уроки в порядке прохождения</p>
           </div>
           {ordered.length === 0 ? (
             <div className="p-6">
@@ -295,66 +304,67 @@ export function AcademyGrokCoursePage() {
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {(sections.length > 0 ? sections : [{ id: '_', title: 'Уроки', order: 0, courseId }]).map(
-                (section) => {
-                  const sectionLessons =
-                    section.id === '_'
-                      ? ordered
-                      : ordered.filter((lesson) => lesson.sectionId === section.id);
-                  if (sectionLessons.length === 0) return null;
-                  return (
-                    <div key={section.id} className="px-5 py-4">
-                      <h4 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                        {section.title}
-                      </h4>
-                      <ul className="space-y-1">
-                        {sectionLessons.map((lesson, index) => {
-                          const completed = myProgress?.completedLessonIds.includes(lesson.id);
-                          const locked = isLessonLocked(
-                            lesson,
-                            ordered,
-                            course.sequential,
-                            myProgress,
-                          );
-                          const globalIndex = ordered.findIndex((item) => item.id === lesson.id) + 1;
-                          return (
-                            <li key={lesson.id}>
-                              {locked ? (
-                                <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-300">
-                                  <Lock className="size-4 shrink-0" />
-                                  <span className="min-w-0 flex-1 truncate text-sm">
-                                    {globalIndex || index + 1}. {lesson.title}
+              {(sections.length > 0
+                ? sections
+                : [{ id: '_', title: 'Уроки', order: 0, courseId }]
+              ).map((section) => {
+                const sectionLessons =
+                  section.id === '_'
+                    ? ordered
+                    : ordered.filter((lesson) => lesson.sectionId === section.id);
+                if (sectionLessons.length === 0) return null;
+                return (
+                  <div key={section.id} className="px-5 py-4">
+                    <h4 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                      {section.title}
+                    </h4>
+                    <ul className="space-y-1">
+                      {sectionLessons.map((lesson, index) => {
+                        const completed = myProgress?.completedLessonIds.includes(lesson.id);
+                        const locked = isLessonLocked(
+                          lesson,
+                          ordered,
+                          course.sequential,
+                          myProgress,
+                        );
+                        const globalIndex = ordered.findIndex((item) => item.id === lesson.id) + 1;
+                        return (
+                          <li key={lesson.id}>
+                            {locked ? (
+                              <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-300">
+                                <Lock className="size-4 shrink-0" />
+                                <span className="min-w-0 flex-1 truncate text-sm">
+                                  {globalIndex || index + 1}. {lesson.title}
+                                </span>
+                              </div>
+                            ) : (
+                              <Link
+                                to={`/learn-grok/${course.id}?lesson=${lesson.id}`}
+                                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-800 transition-colors hover:bg-primary-50 hover:text-primary-800"
+                              >
+                                {completed ? (
+                                  <Check className="size-4 shrink-0 text-success-600" />
+                                ) : (
+                                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-500">
+                                    {globalIndex || index + 1}
                                   </span>
-                                </div>
-                              ) : (
-                                <Link
-                                  to={`/learn-grok/${course.id}?lesson=${lesson.id}`}
-                                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-800 transition-colors hover:bg-primary-50 hover:text-primary-800"
-                                >
-                                  {completed ? (
-                                    <Check className="size-4 shrink-0 text-success-600" />
-                                  ) : (
-                                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-500">
-                                      {globalIndex || index + 1}
-                                    </span>
-                                  )}
-                                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                                    {lesson.title}
-                                  </span>
-                                  {lesson.sourceArticleId && (
-                                    <BookOpen className="size-3.5 shrink-0 text-slate-400" />
-                                  )}
-                                  <ChevronRight className="size-4 shrink-0 text-slate-300" />
-                                </Link>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  );
-                },
-              )}
+                                )}
+                                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                                  {lesson.title}
+                                </span>
+                                {lesson.sourceArticleId && (
+                                  <BookOpen className="size-3.5 shrink-0 text-slate-400" />
+                                )}
+                                <ChevronRight className="size-4 shrink-0 text-slate-300" />
+                              </Link>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -418,11 +428,9 @@ export function AcademyGrokCoursePage() {
                       {assignment.assigneeType === 'external'
                         ? 'Внешний партнёр'
                         : assignment.assigneeType === 'user'
-                          ? (usersQuery.data?.find((u) => u.id === assignment.assigneeId)
-                            ? fullName(
-                                usersQuery.data.find((u) => u.id === assignment.assigneeId)!,
-                              )
-                            : 'Сотрудник')
+                          ? usersQuery.data?.find((u) => u.id === assignment.assigneeId)
+                            ? fullName(usersQuery.data.find((u) => u.id === assignment.assigneeId)!)
+                            : 'Сотрудник'
                           : assignment.assigneeType === 'position'
                             ? (positionsQuery.data?.find((p) => p.id === assignment.assigneeId)
                                 ?.name ?? 'Должность')

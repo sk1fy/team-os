@@ -11,7 +11,7 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react';
-import { academyApi, authApi, orgApi } from '@/api';
+import { httpAcademyApi, httpAuthApi, httpOrgApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -21,12 +21,7 @@ import { plural } from '@/lib/format';
 import { AcademyGrokNav } from './components/AcademyGrokNav';
 import { GrokCourseCard } from './components/GrokCourseCard';
 import { ProgressBar } from './components/ProgressBar';
-import {
-  courseCoverClass,
-  progressPercent,
-  resolveMyCourseIds,
-  userProgressFor,
-} from './utils';
+import { courseCoverClass, progressPercent, resolveMyCourseIds, userProgressFor } from './utils';
 import type { Course, CourseAssignment, CourseProgress, Lesson } from '@/types';
 
 const emptyCourses: Course[] = [];
@@ -38,28 +33,28 @@ export function AcademyGrokHomePage() {
   useTitle('Академия Grok — TeamOS');
 
   const currentUserQuery = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
+    queryKey: queryKeys.academyGrok.currentUser,
+    queryFn: httpAuthApi.getCurrentUser,
   });
   const coursesQuery = useQuery({
-    queryKey: queryKeys.academy.courses,
-    queryFn: academyApi.getCourses,
+    queryKey: queryKeys.academyGrok.courses,
+    queryFn: httpAcademyApi.getCourses,
   });
   const lessonsQuery = useQuery({
-    queryKey: queryKeys.academy.lessonsFor('all'),
-    queryFn: () => academyApi.getLessons(),
+    queryKey: queryKeys.academyGrok.lessons,
+    queryFn: () => httpAcademyApi.getLessons(),
   });
   const progressQuery = useQuery({
-    queryKey: queryKeys.academy.progress,
-    queryFn: () => academyApi.getProgress(),
+    queryKey: queryKeys.academyGrok.progress,
+    queryFn: () => httpAcademyApi.getProgress(),
   });
   const assignmentsQuery = useQuery({
-    queryKey: queryKeys.academy.assignments,
-    queryFn: academyApi.getAssignments,
+    queryKey: queryKeys.academyGrok.assignments,
+    queryFn: httpAcademyApi.getAssignments,
   });
   const positionsQuery = useQuery({
-    queryKey: queryKeys.positions,
-    queryFn: orgApi.getPositions,
+    queryKey: queryKeys.academyGrok.positions,
+    queryFn: httpOrgApi.getPositions,
   });
 
   const currentUser = currentUserQuery.data;
@@ -101,9 +96,10 @@ export function AcademyGrokHomePage() {
       });
   }, [courses, currentUser?.id, lessons, myCourseIds, progress]);
 
-  const continueItem = myCourses.find(
-    (item) => item.progress?.status === 'in_progress' || (item.percent > 0 && item.percent < 100),
-  ) ?? myCourses.find((item) => !item.progress || item.progress.status === 'not_started');
+  const continueItem =
+    myCourses.find(
+      (item) => item.progress?.status === 'in_progress' || (item.percent > 0 && item.percent < 100),
+    ) ?? myCourses.find((item) => !item.progress || item.progress.status === 'not_started');
 
   const completedCount = myCourses.filter(
     (item) => item.progress?.status === 'completed' || item.percent >= 100,
@@ -243,9 +239,7 @@ export function AcademyGrokHomePage() {
           <div className="flex items-end justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">Мои курсы</h2>
-              <p className="text-sm text-slate-500">
-                Назначенные и доступные вам материалы
-              </p>
+              <p className="text-sm text-slate-500">Назначенные и доступные вам материалы</p>
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -275,7 +269,12 @@ export function AcademyGrokHomePage() {
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {catalogPreview.map((course) => (
-              <GrokCourseCard key={course.id} course={course} lessons={lessons} ctaLabel="Смотреть" />
+              <GrokCourseCard
+                key={course.id}
+                course={course}
+                lessons={lessons}
+                ctaLabel="Смотреть"
+              />
             ))}
           </div>
         </section>

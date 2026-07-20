@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { GraduationCap } from 'lucide-react';
 import { academyOpusApi } from '@/api/academyOpus';
-import { authApi, orgApi } from '@/api';
+import { httpAuthApi, httpOrgApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import { ApiError } from '@/api/client';
 import type { ID } from '@/types';
@@ -24,8 +24,7 @@ import { toast } from '@/stores/toast';
 import { CatalogTab } from './CatalogTab';
 import { MyLearningTab } from './MyLearningTab';
 import { ReportsTab } from './ReportsTab';
-import { ReviewTab } from './ReviewTab';
-import { AssignDrawer, CertificateDrawer, CourseSettingsDrawer } from './drawers';
+import { AssignDrawer, CourseSettingsDrawer } from './drawers';
 
 export function AcademyOpusPage() {
   useTitle('Академия Opus — TeamOS');
@@ -34,11 +33,9 @@ export function AcademyOpusPage() {
   const [tab, setTab] = useState('learning');
   const [settingsCourseId, setSettingsCourseId] = useState<ID | null>(null);
   const [assignCourseId, setAssignCourseId] = useState<ID | null>(null);
-  const [certificateCourseId, setCertificateCourseId] = useState<ID | null>(null);
-
   const currentUserQuery = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
+    queryKey: queryKeys.academyOpus.currentUser,
+    queryFn: httpAuthApi.getCurrentUser,
   });
   const currentUser = currentUserQuery.data;
   const canEdit = canManageContent(currentUser?.role);
@@ -55,15 +52,17 @@ export function AcademyOpusPage() {
     queryKey: queryKeys.academyOpus.progress,
     queryFn: () => academyOpusApi.getProgress(),
   });
-  const quizzesQuery = useQuery({
-    queryKey: queryKeys.academyOpus.quizzes,
-    queryFn: academyOpusApi.getQuizzes,
+  const usersQuery = useQuery({
+    queryKey: queryKeys.academyOpus.users,
+    queryFn: httpOrgApi.getUsers,
   });
-  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
-  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
+  const positionsQuery = useQuery({
+    queryKey: queryKeys.academyOpus.positions,
+    queryFn: httpOrgApi.getPositions,
+  });
   const departmentsQuery = useQuery({
-    queryKey: queryKeys.departments,
-    queryFn: orgApi.getDepartments,
+    queryKey: queryKeys.academyOpus.departments,
+    queryFn: httpOrgApi.getDepartments,
   });
 
   // Строки отчёта нужны и каталогу — для сводки по каждому курсу.
@@ -72,19 +71,11 @@ export function AcademyOpusPage() {
     queryFn: academyOpusApi.getLearnerRows,
     enabled: canEdit,
   });
-  const reviewQueueQuery = useQuery({
-    queryKey: queryKeys.academyOpus.reviewQueue,
-    queryFn: academyOpusApi.getReviewQueue,
-    enabled: canEdit,
-  });
-
   const syncRequired = useMutation({
     mutationFn: academyOpusApi.syncRequiredAssignments,
     onSuccess: (created) => {
       toast.success(
-        created === 0
-          ? 'Все обязательные курсы уже назначены'
-          : `Создано назначений: ${created}`,
+        created === 0 ? 'Все обязательные курсы уже назначены' : `Создано назначений: ${created}`,
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyOpus.all });
     },
@@ -96,8 +87,6 @@ export function AcademyOpusPage() {
   const lessons = useMemo(() => lessonsQuery.data ?? [], [lessonsQuery.data]);
   const progress = useMemo(() => progressQuery.data ?? [], [progressQuery.data]);
   const learnerRows = useMemo(() => learnerRowsQuery.data ?? [], [learnerRowsQuery.data]);
-  const pendingReviews = reviewQueueQuery.data?.length ?? 0;
-
   const items = [
     {
       value: 'learning',
@@ -108,7 +97,6 @@ export function AcademyOpusPage() {
           lessons={lessons}
           progress={progress}
           currentUser={currentUser}
-          onOpenCertificate={setCertificateCourseId}
         />
       ),
     },
@@ -142,12 +130,6 @@ export function AcademyOpusPage() {
         />
       ),
     },
-    {
-      value: 'review',
-      label: pendingReviews > 0 ? `Проверка · ${pendingReviews}` : 'Проверка',
-      hideTrigger: !canEdit,
-      content: <ReviewTab users={usersQuery.data ?? []} quizzes={quizzesQuery.data ?? []} />,
-    },
   ];
 
   if (coursesQuery.isError) {
@@ -168,8 +150,8 @@ export function AcademyOpusPage() {
             <Badge variant="primary">эксперимент</Badge>
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Альтернативная реализация раздела на тех же курсах: рабочие тесты, отчёт по всем
-            назначенным и очередь ручной проверки.
+            Альтернативная реализация раздела на серверных данных: фокус на назначениях, прохождении
+            и подробной отчётности.
           </p>
         </div>
       </header>
@@ -188,13 +170,6 @@ export function AcademyOpusPage() {
         departments={departmentsQuery.data ?? []}
         open={assignCourseId !== null}
         onClose={() => setAssignCourseId(null)}
-      />
-      <CertificateDrawer
-        courseId={certificateCourseId}
-        courses={courses}
-        user={currentUser}
-        open={certificateCourseId !== null}
-        onClose={() => setCertificateCourseId(null)}
       />
     </div>
   );

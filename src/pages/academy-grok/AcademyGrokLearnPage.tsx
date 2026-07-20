@@ -13,7 +13,7 @@ import {
   PanelLeftOpen,
   X,
 } from 'lucide-react';
-import { academyApi, authApi } from '@/api';
+import { httpAcademyApi, httpAuthApi } from '@/api/http';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import type { CourseProgress, ID, Lesson } from '@/types';
@@ -47,43 +47,39 @@ export function AcademyGrokLearnPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const courseQuery = useQuery({
-    queryKey: queryKeys.academy.course(courseId),
-    queryFn: () => academyApi.getCourse(courseId),
+    queryKey: queryKeys.academyGrok.course(courseId),
+    queryFn: () => httpAcademyApi.getCourse(courseId),
     enabled: Boolean(courseId),
   });
   const sectionsQuery = useQuery({
-    queryKey: queryKeys.academy.sectionsFor(courseId),
-    queryFn: () => academyApi.getCourseSections(courseId),
+    queryKey: queryKeys.academyGrok.sectionsFor(courseId),
+    queryFn: () => httpAcademyApi.getCourseSections(courseId),
     enabled: Boolean(courseId),
   });
   const lessonsQuery = useQuery({
-    queryKey: queryKeys.academy.learnLessons(courseId),
-    queryFn: () => academyApi.getLessons(courseId),
+    queryKey: queryKeys.academyGrok.learnLessons(courseId),
+    queryFn: () => httpAcademyApi.getLessons(courseId),
     enabled: Boolean(courseId),
   });
   const currentUserQuery = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
+    queryKey: queryKeys.academyGrok.currentUser,
+    queryFn: httpAuthApi.getCurrentUser,
   });
   const progressQuery = useQuery({
-    queryKey: queryKeys.academy.learnProgress(courseId),
-    queryFn: () => academyApi.getProgress(courseId),
+    queryKey: queryKeys.academyGrok.learnProgress(courseId),
+    queryFn: () => httpAcademyApi.getProgress(courseId),
     enabled: Boolean(courseId && currentUserQuery.data),
   });
   const quizzesQuery = useQuery({
-    queryKey: queryKeys.academy.quizzes,
-    queryFn: () => academyApi.getQuizzes(),
+    queryKey: queryKeys.academyGrok.quizzes,
+    queryFn: () => httpAcademyApi.getQuizzes(),
   });
 
   const course = courseQuery.data;
   const sections = sectionsQuery.data ?? emptySections;
   const lessons = lessonsQuery.data ?? emptyLessons;
   const ordered = useMemo(() => orderLessons(lessons, sections), [lessons, sections]);
-  const progress = userProgressFor(
-    progressQuery.data ?? [],
-    currentUserQuery.data?.id,
-    courseId,
-  );
+  const progress = userProgressFor(progressQuery.data ?? [], currentUserQuery.data?.id, courseId);
   const lesson =
     ordered.find((item) => item.id === lessonId) ??
     ordered.find((item) => item.id === lessonFromUrl) ??
@@ -115,18 +111,22 @@ export function AcademyGrokLearnPage() {
   };
 
   const markComplete = useMutation({
-    mutationFn: academyApi.markLessonComplete,
+    mutationFn: httpAcademyApi.markLessonComplete,
     onSuccess: (updatedProgress) => {
       queryClient.setQueryData<CourseProgress[]>(
-        queryKeys.academy.learnProgress(courseId),
+        queryKeys.academyGrok.learnProgress(courseId),
         (current) => upsertCourseProgress(current, updatedProgress),
       );
-      queryClient.setQueryData<CourseProgress[]>(queryKeys.academy.progress, (current) =>
+      queryClient.setQueryData<CourseProgress[]>(queryKeys.academyGrok.progress, (current) =>
         upsertCourseProgress(current, updatedProgress),
       );
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academy.learnProgress(courseId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.academyGrok.learnProgress(courseId),
+      });
       toast.success(
-        updatedProgress.status === 'completed' ? 'Курс завершён! 🎉' : 'Урок отмечен как пройденный',
+        updatedProgress.status === 'completed'
+          ? 'Курс завершён! 🎉'
+          : 'Урок отмечен как пройденный',
       );
       if (updatedProgress.status !== 'completed' && nextLesson) {
         selectLesson(nextLesson.id);
@@ -197,7 +197,11 @@ export function AcademyGrokLearnPage() {
             onClick={() => setSidebarOpen((open) => !open)}
             aria-label={sidebarOpen ? 'Скрыть программу' : 'Показать программу'}
           >
-            {sidebarOpen ? <PanelLeftClose className="size-5" /> : <PanelLeftOpen className="size-5" />}
+            {sidebarOpen ? (
+              <PanelLeftClose className="size-5" />
+            ) : (
+              <PanelLeftOpen className="size-5" />
+            )}
           </button>
 
           <Link
@@ -347,7 +351,10 @@ export function AcademyGrokLearnPage() {
                     </div>
                     <div className="space-y-3">
                       {quiz.questions.map((question, qIndex) => (
-                        <div key={question.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                        <div
+                          key={question.id}
+                          className="rounded-lg border border-slate-200 bg-white p-4"
+                        >
                           <p className="text-sm font-medium text-slate-900">
                             {qIndex + 1}. {question.text}
                           </p>
@@ -396,9 +403,7 @@ export function AcademyGrokLearnPage() {
                         variant={lessonCompleted ? 'secondary' : 'primary'}
                         disabled={lessonCompleted}
                         loading={markComplete.isPending}
-                        onClick={() =>
-                          markComplete.mutate({ courseId, lessonId: lesson.id })
-                        }
+                        onClick={() => markComplete.mutate({ courseId, lessonId: lesson.id })}
                       >
                         <Check className="size-4" />
                         {lessonCompleted
@@ -422,8 +427,7 @@ export function AcademyGrokLearnPage() {
                     {!nextLesson && progress?.status === 'completed' && (
                       <Link to={`/academy-grok/courses/${course.id}`}>
                         <Button variant="secondary">
-                          <Award className="size-4" />
-                          К карточке курса
+                          <Award className="size-4" />К карточке курса
                         </Button>
                       </Link>
                     )}
