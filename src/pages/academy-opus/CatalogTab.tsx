@@ -7,7 +7,16 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, BookOpen, PlayCircle, Search, Settings2, UserPlus } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookOpen,
+  PlayCircle,
+  Plus,
+  Search,
+  Settings2,
+  UserPlus,
+  Wrench,
+} from 'lucide-react';
 import type { Course, Lesson, User } from '@/types';
 import type { LearnerRow } from '@/types/academyOpus';
 import { Badge, Button, Input, Select } from '@/components/ui';
@@ -29,6 +38,7 @@ export function CatalogTab({
   canEdit,
   onSettings,
   onAssign,
+  onCreate,
 }: {
   courses: Course[];
   lessons: Lesson[];
@@ -37,6 +47,7 @@ export function CatalogTab({
   canEdit: boolean;
   onSettings: (courseId: string) => void;
   onAssign: (courseId: string) => void;
+  onCreate: () => void;
 }) {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -86,6 +97,12 @@ export function CatalogTab({
           onValueChange={setStatus}
           options={statusOptions}
         />
+        {canEdit && (
+          <Button onClick={onCreate}>
+            <Plus className="size-4" />
+            Новый курс
+          </Button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -100,7 +117,9 @@ export function CatalogTab({
             const total = lessonCount.get(course.id) ?? 0;
             const entry = stats.get(course.id);
             const completionRate =
-              entry && entry.assigned > 0 ? Math.round((entry.completed / entry.assigned) * 100) : 0;
+              entry && entry.assigned > 0
+                ? Math.round((entry.completed / entry.assigned) * 100)
+                : 0;
             const myProgress = learnerRows.find(
               (row) => row.courseId === course.id && row.userId === currentUser?.id,
             );
@@ -168,6 +187,14 @@ export function CatalogTab({
                   </Button>
                   {canEdit && (
                     <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => navigate(`/academy-opus/${course.id}/builder`)}
+                      >
+                        <Wrench className="size-4" />
+                        Конструктор
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => onSettings(course.id)}>
                         <Settings2 className="size-4" />
                         Настройки
@@ -189,7 +216,19 @@ export function CatalogTab({
         <EmptyState
           icon={BookOpen}
           title="Курсов пока нет"
-          description="Курсы создаются в базовой Академии — Opus работает с теми же данными."
+          description={
+            canEdit
+              ? 'Создайте первый курс: план можно вставить текстом, структура соберётся сама.'
+              : 'Как только вам назначат курс, он появится здесь.'
+          }
+          action={
+            canEdit && (
+              <Button onClick={onCreate}>
+                <Plus className="size-4" />
+                Новый курс
+              </Button>
+            )
+          }
         />
       )}
     </div>

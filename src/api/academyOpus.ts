@@ -14,6 +14,7 @@ import {
   resolveDueDate,
 } from '@/lib/courseAssignments';
 import { buildLearnerRows, lessonDropOff } from '@/lib/courseProgress';
+import type { OutlineSection } from '@/lib/courseOutline';
 import type { Course, CourseAssignment, ID, Lesson } from '@/types';
 
 async function getServerSnapshot() {
@@ -48,6 +49,47 @@ export const academyOpusApi = {
   markLessonComplete: httpAcademyApi.markLessonComplete,
   updateCourse: httpAcademyApi.updateCourse,
   upsertQuiz: httpAcademyApi.upsertQuiz,
+
+  // Конструктор курсов
+  createCourse: httpAcademyApi.createCourse,
+  deleteCourse: httpAcademyApi.deleteCourse,
+  createSection: httpAcademyApi.createCourseSection,
+  updateSection: httpAcademyApi.updateCourseSection,
+  deleteSection: httpAcademyApi.deleteCourseSection,
+  createLesson: httpAcademyApi.createLesson,
+  updateLesson: httpAcademyApi.updateLesson,
+  deleteLesson: httpAcademyApi.deleteLesson,
+  moveLesson: httpAcademyApi.moveLesson,
+
+  /**
+   * Создание курса сразу со структурой по текстовому плану.
+   *
+   * Разделы и уроки создаются последовательно: сервер выдаёт `order` по
+   * числу уже существующих соседей, поэтому параллельные запросы дали бы
+   * непредсказуемый порядок.
+   */
+  createCourseWithOutline: async (input: {
+    course: Parameters<typeof httpAcademyApi.createCourse>[0];
+    outline: OutlineSection[];
+  }): Promise<Course> => {
+    const course = await httpAcademyApi.createCourse(input.course);
+
+    for (const section of input.outline) {
+      const created = await httpAcademyApi.createCourseSection({
+        courseId: course.id,
+        title: section.title,
+      });
+      for (const lessonTitle of section.lessons) {
+        await httpAcademyApi.createLesson({
+          courseId: course.id,
+          sectionId: created.id,
+          title: lessonTitle,
+        });
+      }
+    }
+
+    return course;
+  },
 
   getMyAssignments: async () => {
     const [user, courses, assignments, positions] = await Promise.all([

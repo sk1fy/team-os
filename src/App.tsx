@@ -31,6 +31,11 @@ const AcademyOpusPage = lazy(() =>
     default: module.AcademyOpusPage,
   })),
 );
+const CourseBuilderPage = lazy(() =>
+  import('@/pages/academy-opus/CourseBuilderPage').then((module) => ({
+    default: module.CourseBuilderPage,
+  })),
+);
 const LearnOpusPage = lazy(() =>
   import('@/pages/academy-opus/LearnOpusPage').then((module) => ({
     default: module.LearnOpusPage,
@@ -171,6 +176,7 @@ export function App() {
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:courseId" element={<AcademyPage />} />
           <Route path="/academy-opus" element={<AcademyOpusPage />} />
+          <Route path="/academy-opus/:courseId/builder" element={<CourseBuilderPage />} />
           <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
           <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
           <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />

@@ -9,19 +9,21 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Plus } from 'lucide-react';
 import { academyOpusApi } from '@/api/academyOpus';
 import { httpAuthApi, httpOrgApi } from '@/api/http';
 import { queryKeys } from '@/api/queryKeys';
 import { ApiError } from '@/api/client';
 import type { ID } from '@/types';
-import { Badge, Tabs } from '@/components/ui';
+import { Badge, Button, Tabs } from '@/components/ui';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { canManageContent } from '@/lib/permissions';
 import { toast } from '@/stores/toast';
 import { CatalogTab } from './CatalogTab';
+import { CreateCourseModal } from './CreateCourseModal';
 import { MyLearningTab } from './MyLearningTab';
 import { ReportsTab } from './ReportsTab';
 import { AssignDrawer, CourseSettingsDrawer } from './drawers';
@@ -29,10 +31,12 @@ import { AssignDrawer, CourseSettingsDrawer } from './drawers';
 export function AcademyOpusPage() {
   useTitle('Академия Opus — TeamOS');
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [tab, setTab] = useState('learning');
   const [settingsCourseId, setSettingsCourseId] = useState<ID | null>(null);
   const [assignCourseId, setAssignCourseId] = useState<ID | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const currentUserQuery = useQuery({
     queryKey: queryKeys.academyOpus.currentUser,
     queryFn: httpAuthApi.getCurrentUser,
@@ -112,6 +116,7 @@ export function AcademyOpusPage() {
           canEdit={canEdit}
           onSettings={setSettingsCourseId}
           onAssign={setAssignCourseId}
+          onCreate={() => setCreateOpen(true)}
         />
       ),
     },
@@ -154,6 +159,17 @@ export function AcademyOpusPage() {
             и подробной отчётности.
           </p>
         </div>
+        {canEdit && (
+          <Button
+            onClick={() => {
+              setTab('catalog');
+              setCreateOpen(true);
+            }}
+          >
+            <Plus className="size-4" />
+            Новый курс
+          </Button>
+        )}
       </header>
 
       <Tabs items={items} value={tab} onValueChange={setTab} />
@@ -162,6 +178,14 @@ export function AcademyOpusPage() {
         course={courses.find((course) => course.id === settingsCourseId)}
         open={settingsCourseId !== null}
         onClose={() => setSettingsCourseId(null)}
+      />
+      <CreateCourseModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(course) => {
+          setCreateOpen(false);
+          navigate(`/academy-opus/${course.id}/builder`);
+        }}
       />
       <AssignDrawer
         course={courses.find((course) => course.id === assignCourseId)}
