@@ -11,5 +11,8 @@ export { Tooltip, TooltipProvider, type TooltipProps } from './Tooltip';
 export { Toaster } from './Toast';
 export { Drawer, type DrawerProps } from './Drawer';
 export { Textarea, type TextareaProps } from './Textarea';
+export { Switch, type SwitchProps } from './Switch';
+export { Checkbox, type CheckboxProps } from './Checkbox';
+export { RadioGroup, type RadioGroupProps, type RadioOption } from './RadioGroup';
 export { RichTextEditor } from '../rich-text/RichTextEditor';
 export { RichTextView } from '../rich-text/RichTextView';

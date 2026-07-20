@@ -33,6 +33,16 @@ VITE_API_MODE_AUTH=http        # auth | org | kb | tasks | academy | notificatio
 
 Сигнатуры функций в `src/api/index.ts` — контракт с бэкендом: HTTP-реализации в `src/api/http.ts` повторяют их один в один.
 
+### Текущие интеграции Rakurs
+
+Разделы «Контроль активности» и «Автопоиск дубликатов» временно обращаются напрямую к
+действующим сервисам Rakurs. URL задаются через `VITE_RAKURS_ACTIVITY_API_URL`,
+`VITE_RAKURS_DUPLICATES_API_URL` и `VITE_RAKURS_ACCOUNT_API_URL`. Идентификатор amoCRM берётся
+из настроек компании (`amoAccountId`); тестовые значения из старых виджетов не используются.
+
+Клиенты интеграций изолированы в `src/api/rakurs/`, чтобы при переносе backend на микросервисы
+заменить транспорт без изменения страниц и моделей форм.
+
 ## Структура
 
 - `src/api/` — мок- и HTTP-клиенты, фикстуры, фабрика query-ключей (`queryKeys.ts`)

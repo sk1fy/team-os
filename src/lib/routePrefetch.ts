@@ -12,6 +12,8 @@ const loaders: Record<string, () => Promise<unknown>> = {
   '/knowledge': () => import('@/pages/knowledge/KnowledgePage'),
   '/academy': () => import('@/pages/academy/AcademyPage'),
   '/settings': () => import('@/pages/SettingsPage'),
+  '/activity-control': () => import('@/pages/activity-control/ActivityControlPage'),
+  '/duplicate-search': () => import('@/pages/duplicate-search/DuplicateSearchPage'),
 };
 
 const prefetched = new Set<string>();

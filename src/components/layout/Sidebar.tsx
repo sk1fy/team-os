@@ -2,6 +2,7 @@ import { queryKeys } from '@/api/queryKeys';
 import { NavLink, useLocation } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
+  Activity,
   CalendarDays,
   GraduationCap,
   Home,
@@ -11,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  ScanSearch,
   Shuffle,
   Users,
   X,
@@ -22,10 +24,17 @@ import { cn } from '@/lib/cn';
 import { useLogout } from '@/components/auth/useLogout';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
-import { canAccessRoute } from '@/lib/permissions';
+import { canAccessRoute, canManageIntegrations } from '@/lib/permissions';
 import { prefetchRoute } from '@/lib/routePrefetch';
 
-const navItems = [
+type NavItemDefinition = {
+  to: string;
+  label: string;
+  icon: typeof Home;
+  end?: boolean;
+};
+
+const navItems: NavItemDefinition[] = [
   { to: '/', label: 'Главная', icon: Home, end: true },
   { to: '/employees', label: 'Сотрудники', icon: Users },
   { to: '/schedule', label: 'График', icon: CalendarDays },
@@ -35,13 +44,18 @@ const navItems = [
   { to: '/academy', label: 'Академия', icon: GraduationCap },
 ];
 
+const integrationItems: NavItemDefinition[] = [
+  { to: '/activity-control', label: 'Контроль активности', icon: Activity },
+  { to: '/duplicate-search', label: 'Автопоиск дубликатов', icon: ScanSearch },
+];
+
 function NavItem({
   to,
   label,
   icon: Icon,
   end,
   collapsed,
-}: (typeof navItems)[number] & { collapsed: boolean }) {
+}: NavItemDefinition & { collapsed: boolean }) {
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
   // Активность считаем вручную: функция-className у NavLink ломается внутри
   // Radix Tooltip (Slot приводит её к строке), поэтому передаём готовую строку.
@@ -92,6 +106,7 @@ function SidebarContent({
     queryFn: authApi.getCurrentUser,
   });
   const visibleNavItems = navItems.filter((item) => canAccessRoute(currentUser?.role, item.to));
+  const visibleIntegrationItems = canManageIntegrations(currentUser?.role) ? integrationItems : [];
 
   const logoutButton = (
     <button
@@ -146,6 +161,20 @@ function SidebarContent({
         {visibleNavItems.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
         ))}
+        {visibleIntegrationItems.length > 0 && (
+          <div className="mt-3 border-t border-slate-200 pt-3">
+            {!collapsed && (
+              <p className="px-3 pb-1 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
+                Интеграции
+              </p>
+            )}
+            <div className="space-y-1">
+              {visibleIntegrationItems.map((item) => (
+                <NavItem key={item.to} {...item} collapsed={collapsed} />
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="space-y-1 border-t border-slate-200 p-2">
