@@ -134,6 +134,7 @@ export function App() {
           <Route path="/distribution" element={<DistributionPage />} />
           <Route path="/distribution/:groupId" element={<DistributionGroupPage />} />
           <Route path="/academy" element={<AcademyPage />} />
+          <Route path="/academy/:courseId" element={<AcademyPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route

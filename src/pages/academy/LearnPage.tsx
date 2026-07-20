@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
-import { Award, Check, ChevronLeft, Lock } from 'lucide-react';
+import { Award, Check, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { academyApi, authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import type { CourseProgress, ID, Lesson } from '@/types';
@@ -47,6 +47,11 @@ export function LearnPage() {
   const progress = progressQuery.data?.find((item) => item.userId === currentUserQuery.data?.id);
   const lesson = lessons.find((item) => item.id === lessonId) ?? lessons[0];
   const quiz = quizzesQuery.data?.find((item) => item.id === lesson?.quizId);
+  const lessonIndex = lesson ? lessons.findIndex((item) => item.id === lesson.id) : -1;
+  const nextLesson = lessonIndex >= 0 ? lessons[lessonIndex + 1] : undefined;
+  const lessonCompleted = Boolean(
+    lesson && progress?.completedLessonIds.includes(lesson.id),
+  );
   const courseNotFound = courseQuery.error instanceof ApiError && courseQuery.error.status === 404;
   const courseUnauthorized =
     courseQuery.error instanceof ApiError && courseQuery.error.status === 401;
@@ -152,12 +157,13 @@ export function LearnPage() {
         <aside className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
           <h1 className="mb-4 text-lg">{course?.title ?? 'Курс'}</h1>
           <div className="space-y-2">
-            {lessons.map((item, index) => {
+            {lessons.map((item) => {
               const completed = progress?.completedLessonIds.includes(item.id);
-              const previousComplete =
-                index === 0 || progress?.completedLessonIds.includes(lessons[index - 1]?.id);
               const locked = Boolean(
-                currentUserQuery.data && course?.sequential && !previousComplete,
+                currentUserQuery.data &&
+                  course?.sequential &&
+                  item.id !== lesson?.id &&
+                  !completed,
               );
               return (
                 <button
@@ -195,7 +201,7 @@ export function LearnPage() {
                     </p>
                   )}
                 </div>
-                {currentUserQuery.data ? (
+                {currentUserQuery.data && !quiz ? (
                   <Button
                     size="sm"
                     variant={
@@ -246,7 +252,34 @@ export function LearnPage() {
                       </div>
                     ))}
                   </div>
+                  {currentUserQuery.data && (
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant={lessonCompleted ? 'secondary' : 'primary'}
+                        disabled={lessonCompleted}
+                        loading={markComplete.isPending}
+                        onClick={() => markComplete.mutate({ courseId, lessonId: lesson.id })}
+                      >
+                        <Check className="size-4" />
+                        {lessonCompleted ? 'Тест завершён' : 'Завершить тест'}
+                      </Button>
+                    </div>
+                  )}
                 </section>
+              )}
+              {nextLesson && (
+                <div className="mt-6 flex justify-end border-t border-slate-100 pt-4">
+                  <Button
+                    onClick={() => setLessonId(nextLesson.id)}
+                    disabled={Boolean(
+                      currentUserQuery.data && course.sequential && !lessonCompleted,
+                    )}
+                  >
+                    Далее
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
               )}
             </>
           )}

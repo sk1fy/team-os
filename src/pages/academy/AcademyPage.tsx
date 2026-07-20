@@ -1,6 +1,6 @@
 import { queryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
@@ -19,6 +19,7 @@ import {
   Award,
   BookOpen,
   Check,
+  CircleHelp,
   ChevronRight,
   Download,
   ExternalLink,
@@ -46,6 +47,7 @@ import type {
   ArticleSection,
   AssigneeType,
   Course,
+  CourseAssignment,
   CourseVisibility,
   CourseProgress,
   CourseSection,
@@ -77,6 +79,7 @@ import {
   Select,
   Tabs,
   Textarea,
+  Tooltip,
 } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -364,6 +367,18 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
     onError: showApiError,
   });
 
+  const updateStatus = useMutation({
+    mutationFn: academyApi.updateCourse,
+    onSuccess: (updatedCourse) => {
+      setStatus(updatedCourse.status);
+      queryClient.invalidateQueries({ queryKey: queryKeys.academy.courses });
+      toast.success(
+        updatedCourse.status === 'published' ? 'Курс опубликован' : 'Курс переведён в черновики',
+      );
+    },
+    onError: showApiError,
+  });
+
   if (!course) return null;
 
   return (
@@ -375,16 +390,53 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
         onChange={(event) => setDescription(event.target.value)}
         rows={3}
       />
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Select
-          label="Статус"
-          value={status}
-          onValueChange={(value) => setStatus(value as Course['status'])}
-          options={[
-            { value: 'draft', label: 'Черновик' },
-            { value: 'published', label: 'Опубликован' },
-          ]}
-        />
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+              Статус курса
+              <Tooltip
+                content="Опубликованный курс доступен сотрудникам согласно настройкам видимости. Черновик виден только тем, кто редактирует курс."
+                side="right"
+              >
+                <button
+                  type="button"
+                  aria-label="Что означает статус курса"
+                  className="rounded-full text-slate-400 hover:text-slate-600"
+                >
+                  <CircleHelp className="size-4" />
+                </button>
+              </Tooltip>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {status === 'published' ? 'Курс доступен для прохождения' : 'Курс ещё не опубликован'}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-pressed={status === 'published'}
+            disabled={updateStatus.isPending}
+            onClick={() => {
+              const nextStatus = status === 'published' ? 'draft' : 'published';
+              updateStatus.mutate({ id: course.id, status: nextStatus });
+            }}
+            className="flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+          >
+            {statusLabels[status]}
+            <span
+              className={cn(
+                'flex h-6 w-11 items-center rounded-full p-0.5 transition-colors',
+                status === 'published'
+                  ? 'justify-end bg-success-600'
+                  : 'justify-start bg-slate-300',
+              )}
+            >
+              <span className="size-5 rounded-full bg-white shadow" />
+            </span>
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
         <Select
           label="Видимость"
           value={visibility}
@@ -447,6 +499,88 @@ function CourseSettings({ course, onDelete }: { course?: Course; onDelete: () =>
           <Trash2 className="size-4" />
           Удалить курс
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function CourseAssignmentsPanel({
+  course,
+  assignments,
+  onAssign,
+}: {
+  course?: Course;
+  assignments: CourseAssignment[];
+  onAssign: () => void;
+}) {
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
+  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
+  const departmentsQuery = useQuery({
+    queryKey: queryKeys.departments,
+    queryFn: orgApi.getDepartments,
+  });
+  const courseAssignments = assignments.filter((item) => item.courseId === course?.id);
+
+  const assigneeLabel = (assignment: CourseAssignment) => {
+    if (assignment.assigneeType === 'external') return 'Внешний партнёр';
+    if (assignment.assigneeType === 'user') {
+      const user = usersQuery.data?.find((item) => item.id === assignment.assigneeId);
+      return user ? fullName(user) : 'Сотрудник';
+    }
+    if (assignment.assigneeType === 'position') {
+      return (
+        positionsQuery.data?.find((item) => item.id === assignment.assigneeId)?.name ?? 'Должность'
+      );
+    }
+    return (
+      departmentsQuery.data?.find((item) => item.id === assignment.assigneeId)?.name ?? 'Отдел'
+    );
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-slate-950">Назначения</h3>
+          <p className="mt-0.5 text-xs text-slate-500">Кому назначен этот курс</p>
+        </div>
+        <Button size="sm" onClick={onAssign} disabled={!course || course.status !== 'published'}>
+          <Send className="size-4" />
+          Назначить
+        </Button>
+      </div>
+      {course?.status !== 'published' && (
+        <p className="mt-3 rounded-md bg-warning-50 px-3 py-2 text-xs text-warning-800">
+          Опубликуйте курс, чтобы назначить его сотрудникам.
+        </p>
+      )}
+      <div className="mt-3 space-y-2">
+        {courseAssignments.length > 0 ? (
+          courseAssignments.map((assignment) => (
+            <div
+              key={assignment.id}
+              className="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-slate-900">
+                  {assigneeLabel(assignment)}
+                </div>
+                <div className="text-xs text-slate-500">
+                  Назначен {formatRelativeDate(assignment.createdAt)}
+                </div>
+              </div>
+              {assignment.dueDate && (
+                <span className="shrink-0 text-xs text-slate-500">
+                  до {formatDate(assignment.dueDate)}
+                </span>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="rounded-md border border-dashed border-slate-200 p-3 text-sm text-slate-400">
+            Курс пока никому не назначен.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1520,10 +1654,12 @@ type ConfirmTarget =
 
 export function AcademyPage() {
   useTitle('Академия — TeamOS');
+  const { courseId } = useParams<{ courseId?: ID }>();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [tab, setTab] = useState('catalog');
-  const [selectedCourseId, setSelectedCourseId] = useState<ID>('course-1');
+  const [selectedCourseId, setSelectedCourseId] = useState<ID>(courseId ?? 'course-1');
   const [selectedLessonId, setSelectedLessonId] = useState<ID | null>(null);
   const [activeDragLesson, setActiveDragLesson] = useState<Lesson | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -1598,6 +1734,14 @@ export function AcademyPage() {
     (item) => item.courseId === selectedCourseId && item.userId === currentUser?.id,
   );
   const selectedQuiz = quizzes.find((quiz) => quiz.id === selectedLesson?.quizId);
+  const selectedLessonIndex = selectedLesson
+    ? orderedLessons.findIndex((lesson) => lesson.id === selectedLesson.id)
+    : -1;
+  const nextLesson =
+    selectedLessonIndex >= 0 ? orderedLessons[selectedLessonIndex + 1] : undefined;
+  const selectedLessonCompleted = Boolean(
+    selectedLesson && selectedProgress?.completedLessonIds.includes(selectedLesson.id),
+  );
 
   const visibleCourses = useMemo(() => {
     const query = courseSearch.trim().toLowerCase();
@@ -1612,6 +1756,12 @@ export function AcademyPage() {
   }, [courseSearch, courses, statusFilter]);
 
   // Не сбрасываем выбор во время рефетча: свежесозданного курса ещё нет в кэше.
+  useEffect(() => {
+    if (!courseId || !courses.some((course) => course.id === courseId)) return;
+    setSelectedCourseId(courseId);
+    setTab(canEdit ? 'builder' : 'player');
+  }, [canEdit, courseId, courses]);
+
   useEffect(() => {
     if (coursesQuery.isFetching) return;
     if (courses.length > 0 && !courses.some((course) => course.id === selectedCourseId)) {
@@ -1778,20 +1928,12 @@ export function AcademyPage() {
         description="Создавайте курсы с нуля или из базы знаний, назначайте команде и следите за прогрессом."
         actions={
           canEdit ? (
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => setAssignmentOpen(true)}
-                disabled={!selectedCourse}
-              >
-                <Send className="size-4" />
-                Назначить
-              </Button>
+            !courseId ? (
               <Button onClick={() => setCreateOpen(true)}>
                 <Plus className="size-4" />
                 Курс
               </Button>
-            </>
+            ) : undefined
           ) : undefined
         }
       />
@@ -1847,13 +1989,15 @@ export function AcademyPage() {
                                 item.courseId === course.id && item.userId === currentUser?.id,
                             )}
                             active={course.id === selectedCourseId}
-                            onSelect={() => setSelectedCourseId(course.id)}
+                            onSelect={() => navigate(`/academy/${course.id}`)}
                             onOpenBuilder={() => {
                               setSelectedCourseId(course.id);
+                              navigate(`/academy/${course.id}`);
                               setTab('builder');
                             }}
                             onOpenPlayer={() => {
                               setSelectedCourseId(course.id);
+                              navigate(`/academy/${course.id}`);
                               setTab('player');
                             }}
                             canEdit={canEdit}
@@ -1902,7 +2046,7 @@ export function AcademyPage() {
                               <button
                                 key={assignment.id}
                                 type="button"
-                                onClick={() => setSelectedCourseId(course.id)}
+                                onClick={() => navigate(`/academy/${course.id}`)}
                                 className="w-full rounded-md border border-slate-200 px-3 py-2 text-left hover:bg-slate-50"
                               >
                                 <span className="block text-sm font-medium text-slate-900">
@@ -1942,7 +2086,19 @@ export function AcademyPage() {
             label: 'Конструктор',
             hideTrigger: true,
             content: (
-              <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTab('catalog');
+                    navigate('/academy');
+                  }}
+                >
+                  <ChevronRight className="size-4 rotate-180" />
+                  Назад к каталогу
+                </Button>
+                <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
                 <div className="space-y-4">
                   <CourseSettings
                     course={selectedCourse}
@@ -1954,6 +2110,11 @@ export function AcademyPage() {
                         title: selectedCourse.title,
                       })
                     }
+                  />
+                  <CourseAssignmentsPanel
+                    course={selectedCourse}
+                    assignments={assignmentsQuery.data ?? []}
+                    onAssign={() => setAssignmentOpen(true)}
                   />
                   <DndContext
                     sensors={sensors}
@@ -2100,6 +2261,7 @@ export function AcademyPage() {
                     </div>
                   )}
                 </div>
+                </div>
               </div>
             ),
           },
@@ -2108,7 +2270,19 @@ export function AcademyPage() {
             label: 'Прохождение',
             hideTrigger: true,
             content: selectedCourse ? (
-              <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTab('catalog');
+                    navigate('/academy');
+                  }}
+                >
+                  <ChevronRight className="size-4 rotate-180" />
+                  Назад к каталогу
+                </Button>
+                <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
                 <aside className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
                   <div className="mb-3 text-sm font-semibold text-slate-950">
                     {selectedCourse?.title}
@@ -2126,19 +2300,13 @@ export function AcademyPage() {
                           </div>
                           <div className="space-y-1">
                             {sectionLessons.map((lesson) => {
-                              const index = orderedLessons.findIndex(
-                                (item) => item.id === lesson.id,
-                              );
                               const completed = selectedProgress?.completedLessonIds.includes(
                                 lesson.id,
                               );
-                              const previousComplete =
-                                index === 0 ||
-                                selectedProgress?.completedLessonIds.includes(
-                                  orderedLessons[index - 1]?.id,
-                                );
                               const locked = Boolean(
-                                selectedCourse?.sequential && !previousComplete,
+                                selectedCourse?.sequential &&
+                                  lesson.id !== selectedLesson?.id &&
+                                  !completed,
                               );
                               return (
                                 <button
@@ -2184,30 +2352,24 @@ export function AcademyPage() {
                             </p>
                           )}
                         </div>
-                        <Button
-                          size="sm"
-                          variant={
-                            selectedProgress?.completedLessonIds.includes(selectedLesson.id)
-                              ? 'secondary'
-                              : 'primary'
-                          }
-                          disabled={selectedProgress?.completedLessonIds.includes(
-                            selectedLesson.id,
-                          )}
-                          loading={markComplete.isPending}
-                          onClick={() =>
-                            selectedCourse &&
-                            markComplete.mutate({
-                              courseId: selectedCourse.id,
-                              lessonId: selectedLesson.id,
-                            })
-                          }
-                        >
-                          <Check className="size-4" />
-                          {selectedProgress?.completedLessonIds.includes(selectedLesson.id)
-                            ? 'Урок завершён'
-                            : 'Завершить урок'}
-                        </Button>
+                        {!selectedQuiz && (
+                          <Button
+                            size="sm"
+                            variant={selectedLessonCompleted ? 'secondary' : 'primary'}
+                            disabled={selectedLessonCompleted}
+                            loading={markComplete.isPending}
+                            onClick={() =>
+                              selectedCourse &&
+                              markComplete.mutate({
+                                courseId: selectedCourse.id,
+                                lessonId: selectedLesson.id,
+                              })
+                            }
+                          >
+                            <Check className="size-4" />
+                            {selectedLessonCompleted ? 'Урок завершён' : 'Завершить урок'}
+                          </Button>
+                        )}
                       </div>
                       <RichTextView content={selectedLesson.content} />
                       {selectedQuiz && (
@@ -2246,6 +2408,35 @@ export function AcademyPage() {
                               </div>
                             ))}
                           </div>
+                          <div className="mt-4 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant={selectedLessonCompleted ? 'secondary' : 'primary'}
+                              disabled={selectedLessonCompleted}
+                              loading={markComplete.isPending}
+                              onClick={() =>
+                                selectedCourse &&
+                                markComplete.mutate({
+                                  courseId: selectedCourse.id,
+                                  lessonId: selectedLesson.id,
+                                })
+                              }
+                            >
+                              <Check className="size-4" />
+                              {selectedLessonCompleted ? 'Тест завершён' : 'Завершить тест'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {nextLesson && (
+                        <div className="mt-6 flex justify-end border-t border-slate-100 pt-4">
+                          <Button
+                            onClick={() => setSelectedLessonId(nextLesson.id)}
+                            disabled={selectedCourse.sequential && !selectedLessonCompleted}
+                          >
+                            Далее
+                            <ChevronRight className="size-4" />
+                          </Button>
                         </div>
                       )}
                     </>
@@ -2264,6 +2455,7 @@ export function AcademyPage() {
                     </div>
                   )}
                 </main>
+                </div>
               </div>
             ) : (
               <EmptyState
@@ -2399,6 +2591,7 @@ export function AcademyPage() {
           onCreated={(course) => {
             setCreateOpen(false);
             setSelectedCourseId(course.id);
+            navigate(`/academy/${course.id}`);
             setTab('builder');
           }}
         />
