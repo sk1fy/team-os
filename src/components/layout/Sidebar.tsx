@@ -44,6 +44,7 @@ const navItems: NavItemDefinition[] = [
   { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/academy', label: 'Академия', icon: GraduationCap },
   { to: '/academy-opus', label: 'Академия Opus', icon: Sparkles },
+  { to: '/academy-grok', label: 'Академия Grok', icon: Sparkles },
 ];
 
 const integrationItems: NavItemDefinition[] = [

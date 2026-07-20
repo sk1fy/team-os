@@ -36,6 +36,31 @@ const LearnOpusPage = lazy(() =>
     default: module.LearnOpusPage,
   })),
 );
+const AcademyGrokHomePage = lazy(() =>
+  import('@/pages/academy-grok/AcademyGrokHomePage').then((module) => ({
+    default: module.AcademyGrokHomePage,
+  })),
+);
+const AcademyGrokCatalogPage = lazy(() =>
+  import('@/pages/academy-grok/AcademyGrokCatalogPage').then((module) => ({
+    default: module.AcademyGrokCatalogPage,
+  })),
+);
+const AcademyGrokCoursePage = lazy(() =>
+  import('@/pages/academy-grok/AcademyGrokCoursePage').then((module) => ({
+    default: module.AcademyGrokCoursePage,
+  })),
+);
+const AcademyGrokReportsPage = lazy(() =>
+  import('@/pages/academy-grok/AcademyGrokReportsPage').then((module) => ({
+    default: module.AcademyGrokReportsPage,
+  })),
+);
+const AcademyGrokLearnPage = lazy(() =>
+  import('@/pages/academy-grok/AcademyGrokLearnPage').then((module) => ({
+    default: module.AcademyGrokLearnPage,
+  })),
+);
 const KnowledgePage = lazy(() =>
   import('@/pages/knowledge/KnowledgePage').then((module) => ({ default: module.KnowledgePage })),
 );
@@ -146,6 +171,10 @@ export function App() {
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:courseId" element={<AcademyPage />} />
           <Route path="/academy-opus" element={<AcademyOpusPage />} />
+          <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
+          <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
+          <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />
+          <Route path="/academy-grok/reports" element={<AcademyGrokReportsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
@@ -177,6 +206,7 @@ export function App() {
 
         <Route path="/learn/:courseId" element={<LearnPage />} />
         <Route path="/learn-opus/:courseId" element={<LearnOpusPage />} />
+        <Route path="/learn-grok/:courseId" element={<AcademyGrokLearnPage />} />
         <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
         <Route path="/access/:token" element={<AccessLinkPage />} />
 
