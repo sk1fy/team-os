@@ -66,6 +66,11 @@ const AcademyGrokLearnPage = lazy(() =>
     default: module.AcademyGrokLearnPage,
   })),
 );
+const AcademyGrokBuilderPage = lazy(() =>
+  import('@/pages/academy-grok/AcademyGrokBuilderPage').then((module) => ({
+    default: module.AcademyGrokBuilderPage,
+  })),
+);
 const KnowledgePage = lazy(() =>
   import('@/pages/knowledge/KnowledgePage').then((module) => ({ default: module.KnowledgePage })),
 );
@@ -180,6 +185,10 @@ export function App() {
           <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
           <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
           <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />
+          <Route
+            path="/academy-grok/courses/:courseId/builder"
+            element={<AcademyGrokBuilderPage />}
+          />
           <Route path="/academy-grok/reports" element={<AcademyGrokReportsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />

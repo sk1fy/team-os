@@ -9,8 +9,8 @@ import {
   Check,
   ChevronRight,
   Clock3,
-  ExternalLink,
   Lock,
+  Pencil,
   Play,
   Send,
   UsersRound,
@@ -182,6 +182,14 @@ export function AcademyGrokCoursePage() {
               <ArrowLeft className="size-4" />
               Каталог
             </Button>
+            {canManage && (
+              <Link to={`/academy-grok/courses/${course.id}/builder`}>
+                <Button variant="secondary">
+                  <Pencil className="size-4" />
+                  Конструктор
+                </Button>
+              </Link>
+            )}
             {ordered.length > 0 && course.status === 'published' && (
               <Link
                 to={`/learn-grok/${course.id}${resumeLesson ? `?lesson=${resumeLesson.id}` : ''}`}
@@ -287,15 +295,15 @@ export function AcademyGrokCoursePage() {
                 title="Уроков пока нет"
                 description={
                   canManage
-                    ? 'Добавьте разделы и уроки в классической Академии — контент общий.'
+                    ? 'Откройте конструктор: добавьте разделы, уроки и наполните их содержимым.'
                     : 'Автор ещё наполняет курс.'
                 }
                 action={
                   canManage ? (
-                    <Link to={`/academy/${course.id}`}>
+                    <Link to={`/academy-grok/courses/${course.id}/builder`}>
                       <Button variant="secondary" size="sm">
+                        <Pencil className="size-4" />
                         Открыть конструктор
-                        <ExternalLink className="size-4" />
                       </Button>
                     </Link>
                   ) : undefined
@@ -375,9 +383,15 @@ export function AcademyGrokCoursePage() {
             <div className="rounded-xl border border-slate-200 bg-surface p-4 shadow-card">
               <h3 className="text-sm font-semibold text-slate-950">Управление</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Контент редактируется в общей Академии; здесь — публикация и назначения.
+                Структура и контент — в конструкторе; здесь — публикация и назначения.
               </p>
               <div className="mt-3 flex flex-col gap-2">
+                <Link to={`/academy-grok/courses/${course.id}/builder`}>
+                  <Button size="sm" className="w-full">
+                    <Pencil className="size-4" />
+                    Конструктор курса
+                  </Button>
+                </Link>
                 <Button
                   size="sm"
                   variant="secondary"
@@ -400,12 +414,6 @@ export function AcademyGrokCoursePage() {
                   <Send className="size-4" />
                   Назначить
                 </Button>
-                <Link to={`/academy/${course.id}`}>
-                  <Button size="sm" variant="ghost" className="w-full">
-                    Конструктор (классика)
-                    <ExternalLink className="size-4" />
-                  </Button>
-                </Link>
               </div>
             </div>
           )}

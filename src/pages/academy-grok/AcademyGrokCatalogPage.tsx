@@ -158,7 +158,7 @@ export function AcademyGrokCatalogPage() {
           onClose={() => setCreateOpen(false)}
           onCreated={(course) => {
             setCreateOpen(false);
-            navigate(`/academy-grok/courses/${course.id}`);
+            navigate(`/academy-grok/courses/${course.id}/builder`);
           }}
         />
       )}
