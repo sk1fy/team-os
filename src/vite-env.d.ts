@@ -10,6 +10,9 @@ interface ImportMetaEnv {
   readonly VITE_API_MODE_NOTIFICATIONS?: 'http' | 'mock';
   readonly VITE_API_MODE_SCHEDULE?: 'http' | 'mock';
   readonly VITE_API_MODE_DISTRIBUTION?: 'http' | 'mock';
+  readonly VITE_RAKURS_ACTIVITY_API_URL?: string;
+  readonly VITE_RAKURS_DUPLICATES_API_URL?: string;
+  readonly VITE_RAKURS_ACCOUNT_API_URL?: string;
 }
 
 interface ImportMeta {

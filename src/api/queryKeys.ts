@@ -65,4 +65,24 @@ export const queryKeys = {
       ['academy', 'learn', 'lessons', courseId] as const,
   },
   schedule: scheduleQueryKeys,
+  activity: {
+    all: ['activity'] as const,
+    settings: (accountId: string | undefined) => ['activity', accountId, 'settings'] as const,
+    employees: (accountId: string | undefined) => ['activity', accountId, 'employees'] as const,
+    pipelines: (accountId: string | undefined) => ['activity', accountId, 'pipelines'] as const,
+    link: (accountId: string | undefined) => ['activity', accountId, 'link'] as const,
+    telegramStatus: (accountId: string | undefined, panelId: string | undefined) =>
+      ['activity', accountId, 'telegram', panelId] as const,
+  },
+  duplicates: {
+    all: ['duplicates'] as const,
+    settings: (accountId: string | undefined) => ['duplicates', accountId, 'settings'] as const,
+    resources: (accountId: string | undefined) => ['duplicates', accountId, 'resources'] as const,
+    paidStatus: (accountId: string | undefined) => ['duplicates', accountId, 'paid'] as const,
+    rules: (accountId: string | undefined) => ['duplicates', accountId, 'rules'] as const,
+    massStatus: (accountId: string | undefined) =>
+      ['duplicates', accountId, 'mass', 'status'] as const,
+    massResults: (accountId: string | undefined, page: number) =>
+      ['duplicates', accountId, 'mass', 'results', page] as const,
+  },
 };

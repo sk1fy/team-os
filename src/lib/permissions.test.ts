@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { canAccessRoute, canManageAccess, canManageContent, employeeHomePath } from './permissions';
+import {
+  canAccessRoute,
+  canManageAccess,
+  canManageContent,
+  canManageIntegrations,
+  employeeHomePath,
+} from './permissions';
 
 describe('permissions', () => {
   it('ограничивает сотрудника тремя рабочими разделами и служебными страницами', () => {
@@ -26,5 +32,13 @@ describe('permissions', () => {
     expect(canManageContent('employee')).toBe(false);
     expect(canManageAccess('owner')).toBe(true);
     expect(canManageAccess('admin')).toBe(false);
+  });
+
+  it('разрешает управление интеграциями только owner/admin', () => {
+    expect(canManageIntegrations('owner')).toBe(true);
+    expect(canManageIntegrations('admin')).toBe(true);
+    expect(canManageIntegrations('employee')).toBe(false);
+    expect(canManageIntegrations('partner')).toBe(false);
+    expect(canManageIntegrations(undefined)).toBe(false);
   });
 });

@@ -28,3 +28,7 @@ export function canManageContent(role: UserRole | undefined) {
 export function canManageAccess(role: UserRole | undefined) {
   return role === 'owner';
 }
+
+export function canManageIntegrations(role: UserRole | undefined) {
+  return role === 'owner' || role === 'admin';
+}

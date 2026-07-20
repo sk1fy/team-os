@@ -6,7 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireAuth } from '@/components/auth/AuthBootstrap';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { authApi } from '@/api';
-import { canAccessRoute, employeeHomePath } from '@/lib/permissions';
+import { canAccessRoute, canManageIntegrations, employeeHomePath } from '@/lib/permissions';
 
 const DashboardPage = lazy(() =>
   import('@/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
@@ -70,6 +70,16 @@ const DistributionGroupPage = lazy(() =>
     default: module.DistributionGroupPage,
   })),
 );
+const ActivityControlPage = lazy(() =>
+  import('@/pages/activity-control/ActivityControlPage').then((module) => ({
+    default: module.ActivityControlPage,
+  })),
+);
+const DuplicateSearchPage = lazy(() =>
+  import('@/pages/duplicate-search/DuplicateSearchPage').then((module) => ({
+    default: module.DuplicateSearchPage,
+  })),
+);
 
 function RequireModule({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
@@ -78,6 +88,17 @@ function RequireModule({ children }: { children: ReactNode }) {
     queryFn: authApi.getCurrentUser,
   });
   if (currentUser && !canAccessRoute(currentUser.role, pathname)) {
+    return <Navigate to={employeeHomePath} replace />;
+  }
+  return children;
+}
+
+function RequireIntegrationAccess({ children }: { children: ReactNode }) {
+  const { data: currentUser } = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
+  if (currentUser && !canManageIntegrations(currentUser.role)) {
     return <Navigate to={employeeHomePath} replace />;
   }
   return children;
@@ -115,6 +136,22 @@ export function App() {
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route
+            path="/activity-control"
+            element={
+              <RequireIntegrationAccess>
+                <ActivityControlPage />
+              </RequireIntegrationAccess>
+            }
+          />
+          <Route
+            path="/duplicate-search"
+            element={
+              <RequireIntegrationAccess>
+                <DuplicateSearchPage />
+              </RequireIntegrationAccess>
+            }
+          />
         </Route>
 
         {/* Аутентификация */}
