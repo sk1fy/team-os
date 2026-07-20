@@ -64,6 +64,31 @@ export const queryKeys = {
     learnLessons: (courseId: ID | null | undefined) =>
       ['academy', 'learn', 'lessons', courseId] as const,
   },
+  /**
+   * Академия Opus — параллельная реализация раздела. Отдельное поддерево
+   * ключей: данные те же, но набор запросов другой, и инвалидация одной
+   * Академии не должна дёргать вторую.
+   */
+  academyOpus: {
+    all: ['academy-opus'] as const,
+    courses: ['academy-opus', 'courses'] as const,
+    course: (courseId: ID | null | undefined) => ['academy-opus', 'course', courseId] as const,
+    sectionsFor: (courseId: ID | null | undefined) =>
+      ['academy-opus', 'sections', courseId] as const,
+    lessons: ['academy-opus', 'lessons'] as const,
+    lessonsFor: (courseId: ID | null | undefined) =>
+      ['academy-opus', 'lessons', courseId] as const,
+    quizzes: ['academy-opus', 'quizzes'] as const,
+    progress: ['academy-opus', 'progress'] as const,
+    progressFor: (courseId: ID | null | undefined) =>
+      ['academy-opus', 'progress', courseId] as const,
+    assignments: ['academy-opus', 'assignments'] as const,
+    myAssignments: ['academy-opus', 'my-assignments'] as const,
+    learnerRows: ['academy-opus', 'learner-rows'] as const,
+    reviewQueue: ['academy-opus', 'review-queue'] as const,
+    certificates: ['academy-opus', 'certificates'] as const,
+    dropOff: (courseId: ID | null | undefined) => ['academy-opus', 'drop-off', courseId] as const,
+  },
   schedule: scheduleQueryKeys,
   activity: {
     all: ['activity'] as const,

@@ -6,9 +6,11 @@ const employeeRoutes = [
   '/schedule',
   '/knowledge',
   '/academy',
+  '/academy-opus',
   '/notifications',
   '/settings',
   '/learn/',
+  '/learn-opus/',
   '/share/article/',
 ] as const;
 

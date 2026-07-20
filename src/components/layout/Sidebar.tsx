@@ -14,6 +14,7 @@ import {
   Settings,
   ScanSearch,
   Shuffle,
+  Sparkles,
   Users,
   X,
 } from 'lucide-react';
@@ -42,6 +43,7 @@ const navItems: NavItemDefinition[] = [
   { to: '/distribution', label: 'Распределение', icon: Shuffle },
   { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/academy', label: 'Академия', icon: GraduationCap },
+  { to: '/academy-opus', label: 'Академия Opus', icon: Sparkles },
 ];
 
 const integrationItems: NavItemDefinition[] = [

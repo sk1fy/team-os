@@ -11,6 +11,7 @@ const loaders: Record<string, () => Promise<unknown>> = {
   '/distribution': () => import('@/pages/distribution/DistributionPage'),
   '/knowledge': () => import('@/pages/knowledge/KnowledgePage'),
   '/academy': () => import('@/pages/academy/AcademyPage'),
+  '/academy-opus': () => import('@/pages/academy-opus/AcademyOpusPage'),
   '/settings': () => import('@/pages/SettingsPage'),
   '/activity-control': () => import('@/pages/activity-control/ActivityControlPage'),
   '/duplicate-search': () => import('@/pages/duplicate-search/DuplicateSearchPage'),

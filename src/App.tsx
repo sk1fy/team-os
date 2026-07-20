@@ -26,6 +26,16 @@ const AcademyPage = lazy(() =>
 const LearnPage = lazy(() =>
   import('@/pages/academy/LearnPage').then((module) => ({ default: module.LearnPage })),
 );
+const AcademyOpusPage = lazy(() =>
+  import('@/pages/academy-opus/AcademyOpusPage').then((module) => ({
+    default: module.AcademyOpusPage,
+  })),
+);
+const LearnOpusPage = lazy(() =>
+  import('@/pages/academy-opus/LearnOpusPage').then((module) => ({
+    default: module.LearnOpusPage,
+  })),
+);
 const KnowledgePage = lazy(() =>
   import('@/pages/knowledge/KnowledgePage').then((module) => ({ default: module.KnowledgePage })),
 );
@@ -135,6 +145,7 @@ export function App() {
           <Route path="/distribution/:groupId" element={<DistributionGroupPage />} />
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:courseId" element={<AcademyPage />} />
+          <Route path="/academy-opus" element={<AcademyOpusPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
@@ -165,6 +176,7 @@ export function App() {
         </Route>
 
         <Route path="/learn/:courseId" element={<LearnPage />} />
+        <Route path="/learn-opus/:courseId" element={<LearnOpusPage />} />
         <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
         <Route path="/access/:token" element={<AccessLinkPage />} />
 
