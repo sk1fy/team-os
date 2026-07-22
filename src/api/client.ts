@@ -7,14 +7,24 @@ const MIN_DELAY_MS = IS_TEST ? 0 : 300;
 const MAX_DELAY_MS = IS_TEST ? 0 : 500;
 const ERROR_RATE = IS_TEST ? 0 : 0.05;
 
-/** Ошибка мок-API — аналог сетевой/серверной ошибки. */
+/** Ошибка API — сетевая/серверная ошибка с опциональным structured code. */
 export class ApiError extends Error {
+  status: number;
+  code?: string;
+  details?: unknown;
+  requestId?: string;
+
   constructor(
     message = 'Что-то пошло не так. Попробуйте ещё раз.',
-    public status = 500,
+    status = 500,
+    options?: { code?: string; details?: unknown; requestId?: string },
   ) {
     super(message);
     this.name = 'ApiError';
+    this.status = status;
+    this.code = options?.code;
+    this.details = options?.details;
+    this.requestId = options?.requestId;
   }
 }
 
@@ -31,7 +41,12 @@ interface ErrorResponse {
   error?: {
     message?: string;
     status?: number;
+    code?: string;
+    details?: unknown;
   };
+  code?: string;
+  details?: unknown;
+  requestId?: string;
 }
 
 export interface HttpRequestOptions {
@@ -78,9 +93,16 @@ async function responseError(response: Response): Promise<ApiError> {
   } catch {
     // Ответ прокси или сети может быть не в JSON-формате.
   }
+  const requestId =
+    payload?.requestId ?? response.headers.get('x-request-id') ?? response.headers.get('X-Request-Id') ?? undefined;
   return new ApiError(
     payload?.error?.message ?? 'Что-то пошло не так. Попробуйте ещё раз.',
     payload?.error?.status ?? response.status,
+    {
+      code: payload?.error?.code ?? payload?.code,
+      details: payload?.error?.details ?? payload?.details,
+      requestId: requestId ?? undefined,
+    },
   );
 }
 

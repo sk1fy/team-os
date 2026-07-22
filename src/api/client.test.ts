@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { httpRequest } from './client';
+import { ApiError, httpRequest } from './client';
 import { useAuthStore } from '@/stores/auth';
 
 afterEach(() => {
@@ -37,6 +37,42 @@ describe('httpRequest', () => {
 
     const promise = httpRequest('/kb/articles', {}, { skipAuthRefresh: true });
     await expect(promise).rejects.toMatchObject({ message: 'Нет доступа', status: 403 });
+  });
+
+  it('парсит structured code, details и requestId', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: 'Курс заблокирован',
+              status: 403,
+              code: 'COURSE_BLOCKED',
+              details: { courseId: 'c-1' },
+            },
+            requestId: 'req-123',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json', 'x-request-id': 'header-req' },
+          },
+        ),
+      ),
+    );
+
+    try {
+      await httpRequest('/academy/v2/courses/c-1', {}, { skipAuthRefresh: true });
+      throw new Error('expected ApiError');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'expected ApiError') throw error;
+      expect(error).toBeInstanceOf(ApiError);
+      const apiError = error as ApiError;
+      expect(apiError.code).toBe('COURSE_BLOCKED');
+      expect(apiError.details).toEqual({ courseId: 'c-1' });
+      expect(apiError.requestId).toBe('req-123');
+      expect(apiError.status).toBe(403);
+    }
   });
 
   it('один раз обновляет токен после 401 и повторяет запрос', async () => {
