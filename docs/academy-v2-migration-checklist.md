@@ -62,8 +62,8 @@ See `src/api/academy/`.
 | 6 Templates | done | gallery + instantiate + system fallback |
 | 7 External learner | done | landing, verify, activate, player |
 | 8 Campaigns + analytics | partial | API adapters; campaign UI shell |
-| 9 Cutover | pending | set `VITE_ACADEMY_V2=true`, hide Opus/Grok |
-| 10 Cleanup | pending | delete Opus/Grok after soak |
+| 9 Cutover | done (flag) | code ready: set `VITE_ACADEMY_V2=true` in env |
+| 10 Cleanup | pending | delete Opus/Grok source after soak — do not run yet |
 
 ## Rollback
 
