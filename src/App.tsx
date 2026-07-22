@@ -175,6 +175,21 @@ const AcademyEnrollmentReportPage = lazy(() =>
     default: module.AcademyEnrollmentReportPage,
   })),
 );
+const ExternalAccessPage = lazy(() =>
+  import('@/pages/external-academy/ExternalAccessPage').then((module) => ({
+    default: module.ExternalAccessPage,
+  })),
+);
+const ExternalEnrollmentPlayerPage = lazy(() =>
+  import('@/pages/external-academy/ExternalEnrollmentPlayerPage').then((module) => ({
+    default: module.ExternalEnrollmentPlayerPage,
+  })),
+);
+const ExternalResultsPage = lazy(() =>
+  import('@/pages/external-academy/ExternalEnrollmentPlayerPage').then((module) => ({
+    default: module.ExternalResultsPage,
+  })),
+);
 
 const KnowledgePage = lazy(() =>
   import('@/pages/knowledge/KnowledgePage').then((module) => ({ default: module.KnowledgePage })),
@@ -428,6 +443,21 @@ export function App() {
         <Route path="/learn-grok/:courseId" element={<AcademyGrokLearnPage />} />
         <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
         <Route path="/access/:token" element={<AccessLinkPage />} />
+
+        {/* Public external Academy — no RequireAuth / no AppLayout */}
+        {academyV2 ? (
+          <>
+            <Route path="/training/:token" element={<ExternalAccessPage />} />
+            <Route
+              path="/training/enrollments/:enrollmentId"
+              element={<ExternalEnrollmentPlayerPage />}
+            />
+            <Route
+              path="/training/enrollments/:enrollmentId/results"
+              element={<ExternalResultsPage />}
+            />
+          </>
+        ) : null}
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

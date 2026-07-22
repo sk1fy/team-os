@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
-import { academyCoursesApi } from '@/api/academy';
+import {
+  academyCoursesApi,
+  academyDistributionApi,
+  academyVersionsApi,
+} from '@/api/academy';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -154,20 +158,65 @@ function WorkspaceTab({ to, label }: { to: string; label: string }) {
 export function CourseVersionsPage() {
   const { courseId = '' } = useParams();
   useTitle('Версии курса — Академия — TeamOS');
+
+  const versionsQuery = useQuery({
+    queryKey: queryKeys.academyV2.versions(courseId),
+    queryFn: ({ signal }) => academyVersionsApi.list(courseId, { signal }),
+    enabled: Boolean(courseId),
+  });
+
   return (
     <div className="space-y-4">
       <PageHeader
         title="Версии и история"
-        description="Неизменяемые опубликованные версии и черновик."
+        description="Неизменяемые опубликованные версии и черновик. Прохождения фиксируют courseVersionId."
         actions={
           <Link to={academyRoutes.course(courseId)}>
             <Button variant="secondary">К курсу</Button>
           </Link>
         }
       />
-      <p className="text-sm text-slate-500">
-        Список версий подключается к `GET /academy/v2/courses/:id/versions` в Phase 3.
-      </p>
+      {versionsQuery.isError ? (
+        <ErrorState onRetry={() => void versionsQuery.refetch()} />
+      ) : versionsQuery.isLoading ? (
+        <div className="h-32 animate-pulse rounded-xl bg-slate-100" />
+      ) : (versionsQuery.data ?? []).length === 0 ? (
+        <p className="text-sm text-slate-500">Версий пока нет. Опубликуйте draft в конструкторе.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-surface">
+          {(versionsQuery.data ?? []).map((version) => (
+            <li
+              key={version.id}
+              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+            >
+              <div>
+                <p className="font-medium text-slate-900">
+                  v{version.versionNumber} · {version.title}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {version.status === 'published' ? 'Опубликована' : 'Черновик'}
+                  {version.publishedAt
+                    ? ` · ${new Date(version.publishedAt).toLocaleString('ru-RU')}`
+                    : ''}
+                </p>
+              </div>
+              {version.status === 'published' ? (
+                <Link to={academyRoutes.previewVersion(version.id)}>
+                  <Button size="sm" variant="secondary">
+                    Предпросмотр
+                  </Button>
+                </Link>
+              ) : (
+                <Link to={academyRoutes.builder(courseId)}>
+                  <Button size="sm" variant="secondary">
+                    В конструктор
+                  </Button>
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -175,18 +224,77 @@ export function CourseVersionsPage() {
 export function CourseDistributionPage() {
   const { courseId = '' } = useParams();
   useTitle('Распространение — Академия — TeamOS');
+
+  const courseQuery = useQuery({
+    queryKey: queryKeys.academyV2.course(courseId),
+    queryFn: ({ signal }) => academyCoursesApi.get(courseId, { signal }),
+    enabled: Boolean(courseId),
+  });
+  const assignmentsQuery = useQuery({
+    queryKey: queryKeys.academyV2.assignments(courseId),
+    queryFn: ({ signal }) => academyDistributionApi.listAssignments(courseId, { signal }),
+    enabled: Boolean(courseId && courseQuery.data?.capabilities.canAssignInternally),
+  });
+
+  const caps = courseQuery.data?.capabilities;
+
   return (
     <div className="space-y-4">
       <PageHeader
         title="Распространение"
-        description="Назначения, персональные доступы и кампании — по capabilities курса."
+        description="Внутренние назначения, внешние доступы и кампании — по capabilities."
         actions={
           <Link to={academyRoutes.course(courseId)}>
             <Button variant="secondary">К курсу</Button>
           </Link>
         }
       />
-      <p className="text-sm text-slate-500">UI назначений и внешних доступов — Phases 3–8.</p>
+
+      {caps?.canAssignInternally ? (
+        <section className="space-y-3 rounded-xl border border-slate-200 bg-surface p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Внутренние назначения</h2>
+          {assignmentsQuery.isLoading ? (
+            <div className="h-16 animate-pulse rounded bg-slate-100" />
+          ) : (assignmentsQuery.data ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500">Назначений пока нет.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 text-sm">
+              {(assignmentsQuery.data ?? []).map((row) => (
+                <li key={row.id} className="flex flex-wrap justify-between gap-2 py-2">
+                  <span>
+                    {row.targetName ?? row.targetId}{' '}
+                    <span className="text-slate-400">({row.targetType})</span>
+                  </span>
+                  <span className="text-slate-500">
+                    {row.completedEnrollments}/{row.activeEnrollments + row.completedEnrollments}{' '}
+                    завершили
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      {caps?.canCreatePersonalAccess || caps?.canCreatePromoCampaign ? (
+        <section className="rounded-xl border border-slate-200 bg-surface p-4 text-sm text-slate-600">
+          Персональные ссылки и промокампании — Phase 7–8 (API adapters уже в{' '}
+          <code>academyExternalAdminApi</code>).
+        </section>
+      ) : null}
+
+      {caps?.canCreateCandidateCampaign ? (
+        <section className="rounded-xl border border-slate-200 bg-surface p-4 text-sm text-slate-600">
+          Candidate-кампании компании — Phase 8.
+        </section>
+      ) : null}
+
+      {!caps?.canAssignInternally &&
+      !caps?.canCreatePersonalAccess &&
+      !caps?.canCreatePromoCampaign &&
+      !caps?.canCreateCandidateCampaign ? (
+        <p className="text-sm text-slate-500">Нет доступных действий распространения для этой роли.</p>
+      ) : null}
     </div>
   );
 }
@@ -194,18 +302,28 @@ export function CourseDistributionPage() {
 export function CourseReportsPage() {
   const { courseId = '' } = useParams();
   useTitle('Отчёты курса — Академия — TeamOS');
+
   return (
     <div className="space-y-4">
       <PageHeader
         title="Отчёты курса"
-        description="Серверные read models с фильтрами и pagination."
+        description="Серверные read models. Фильтры синхронизированы с URL на странице «Отчёты»."
         actions={
-          <Link to={academyRoutes.course(courseId)}>
-            <Button variant="secondary">К курсу</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to={`${academyRoutes.reports}?courseId=${encodeURIComponent(courseId)}`}>
+              <Button size="sm">Открыть в центре отчётов</Button>
+            </Link>
+            <Link to={academyRoutes.course(courseId)}>
+              <Button size="sm" variant="secondary">
+                К курсу
+              </Button>
+            </Link>
+          </div>
         }
       />
-      <p className="text-sm text-slate-500">Internal/external course reports — Phases 3–8.</p>
+      <p className="text-sm text-slate-500">
+        Детальная таблица, CSV и external funnel доступны в ролевом центре отчётности.
+      </p>
     </div>
   );
 }

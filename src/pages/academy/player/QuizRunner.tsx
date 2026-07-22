@@ -58,12 +58,16 @@ export function QuizRunner({
 
   useEffect(() => {
     setDraft(emptyQuizDraft(quiz));
+    // Reset answers only when quiz identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: quiz.id
   }, [quiz.id]);
 
   useEffect(() => {
     if (lastResult && summaryRef.current) {
       summaryRef.current.focus();
     }
+    // Focus summary when a new attempt arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: lastResult?.attemptId
   }, [lastResult?.attemptId]);
 
   const complete = useMemo(() => isQuizDraftComplete(quiz, draft), [quiz, draft]);

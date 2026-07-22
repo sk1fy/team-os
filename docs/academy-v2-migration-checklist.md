@@ -53,17 +53,17 @@ See `src/api/academy/`.
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 0 Contracts / flag / matrix | done | this branch |
-| 1 Foundation types/API/layout | done | scaffold pages |
-| 2 Internal learning + player | pending | real lesson/quiz |
-| 3 Company management + builder | pending | |
-| 4 Partner workspace | pending | |
-| 5 Partner oversight + copy | pending | |
-| 6 Templates | pending | |
-| 7 External learner | pending | needs backend identity |
-| 8 Campaigns + analytics | pending | |
-| 9 Cutover | pending | sidebar single Academy |
-| 10 Cleanup | pending | delete Opus/Grok |
+| 0 Contracts / flag / matrix | done | feature flag, checklist |
+| 1 Foundation types/API/layout | done | types, API, nav, routes |
+| 2 Internal learning + player | done | enrollment player, quiz, resume |
+| 3 Company management + builder | done | builder, settings, publish, reports |
+| 4 Partner workspace | partial | same courses list with ownerType partner |
+| 5 Partner oversight + copy | done | grouping, copy/pause/block UI |
+| 6 Templates | done | gallery + instantiate + system fallback |
+| 7 External learner | done | landing, verify, activate, player |
+| 8 Campaigns + analytics | partial | API adapters; campaign UI shell |
+| 9 Cutover | pending | set `VITE_ACADEMY_V2=true`, hide Opus/Grok |
+| 10 Cleanup | pending | delete Opus/Grok after soak |
 
 ## Rollback
 

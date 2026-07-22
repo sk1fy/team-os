@@ -24,14 +24,7 @@ export function AcademyPlaceholderPage({
   );
 }
 
-export function AcademyPartnerCoursesPage() {
-  return (
-    <AcademyPlaceholderPage
-      title="Курсы партнёров"
-      description="Группировка партнёрских курсов, read-only просмотр, копирование и ограничения."
-    />
-  );
-}
+export { AcademyPartnerCoursesPage } from './partners/AcademyPartnerCoursesPage';
 
 export function AcademyPartnerPage() {
   return (
@@ -42,14 +35,7 @@ export function AcademyPartnerPage() {
   );
 }
 
-export function AcademyTemplatesPage() {
-  return (
-    <AcademyPlaceholderPage
-      title="Шаблоны"
-      description="Системные и корпоративные шаблоны курсов."
-    />
-  );
-}
+export { AcademyTemplatesPage } from './templates/AcademyTemplatesPage';
 
 export function AcademyTemplatePage() {
   return (
@@ -60,14 +46,7 @@ export function AcademyTemplatePage() {
   );
 }
 
-export function AcademyReportsPage() {
-  return (
-    <AcademyPlaceholderPage
-      title="Отчёты"
-      description="Ролевой центр внутренней и внешней отчётности."
-    />
-  );
-}
+export { AcademyReportsPage } from './reports/AcademyReportsPage';
 
 export function AcademyLearnersPage() {
   return (

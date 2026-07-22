@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
@@ -17,11 +17,27 @@ import {
   lifecycleStatusLabel,
 } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from './components/StatusBadge';
+import { CreateCourseModal } from './CreateCourseModal';
 
 export function AcademyCoursesPage() {
   useTitle('Курсы — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') ?? '';
+  const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setCreateOpen(true);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('create');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, setSearchParams]);
 
   const userQuery = useQuery({
     queryKey: queryKeys.currentUser,
@@ -77,12 +93,10 @@ export function AcademyCoursesPage() {
             : 'Курсы компании: конструктор, назначения, версии и отчёты.'
         }
         actions={
-          <Link to={`${academyRoutes.courses}?create=1`}>
-            <Button>
-              <Plus className="size-4" />
-              Создать курс
-            </Button>
-          </Link>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            Создать курс
+          </Button>
         }
       />
 
@@ -115,9 +129,7 @@ export function AcademyCoursesPage() {
           description="Создайте первый курс или возьмите системный шаблон."
           action={
             <div className="flex flex-wrap gap-2">
-              <Link to={`${academyRoutes.courses}?create=1`}>
-                <Button>Создать курс</Button>
-              </Link>
+              <Button onClick={() => setCreateOpen(true)}>Создать курс</Button>
               <Link to={academyRoutes.templates}>
                 <Button variant="secondary">Шаблоны</Button>
               </Link>
@@ -174,6 +186,12 @@ export function AcademyCoursesPage() {
           </table>
         </div>
       )}
+
+      <CreateCourseModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        ownerType={isPartner ? 'partner' : 'company'}
+      />
     </div>
   );
 }
