@@ -1,6 +1,6 @@
 import { queryKeys } from '@/api/queryKeys';
 import { lazy, Suspense, type ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireAuth } from '@/components/auth/AuthBootstrap';
@@ -248,6 +248,16 @@ const DuplicateSearchPage = lazy(() =>
 
 const academyV2 = isAcademyV2Enabled();
 
+function RedirectAcademyBuilder() {
+  const { courseId = '' } = useParams();
+  return <Navigate to={`/academy/courses/${courseId}/builder`} replace />;
+}
+
+function RedirectAcademyCourse() {
+  const { courseId = '' } = useParams();
+  return <Navigate to={`/academy/courses/${courseId}`} replace />;
+}
+
 function RequireModule({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { data: currentUser } = useQuery({
@@ -330,17 +340,34 @@ export function App() {
             </>
           )}
 
-          {/* Experimental academies remain until Phase 9 cutover */}
-          <Route path="/academy-opus" element={<AcademyOpusPage />} />
-          <Route path="/academy-opus/:courseId/builder" element={<CourseBuilderPageOpus />} />
-          <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
-          <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
-          <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />
-          <Route
-            path="/academy-grok/courses/:courseId/builder"
-            element={<AcademyGrokBuilderPage />}
-          />
-          <Route path="/academy-grok/reports" element={<AcademyGrokReportsPage />} />
+          {/* Experimental academies: live until cutover; redirect when V2 enabled */}
+          {academyV2 ? (
+            <>
+              <Route path="/academy-opus" element={<Navigate to="/academy" replace />} />
+              <Route path="/academy-opus/:courseId/builder" element={<RedirectAcademyBuilder />} />
+              <Route path="/academy-grok" element={<Navigate to="/academy" replace />} />
+              <Route path="/academy-grok/catalog" element={<Navigate to="/academy/catalog" replace />} />
+              <Route path="/academy-grok/reports" element={<Navigate to="/academy/reports" replace />} />
+              <Route path="/academy-grok/courses/:courseId" element={<RedirectAcademyCourse />} />
+              <Route
+                path="/academy-grok/courses/:courseId/builder"
+                element={<RedirectAcademyBuilder />}
+              />
+            </>
+          ) : (
+            <>
+              <Route path="/academy-opus" element={<AcademyOpusPage />} />
+              <Route path="/academy-opus/:courseId/builder" element={<CourseBuilderPageOpus />} />
+              <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
+              <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
+              <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />
+              <Route
+                path="/academy-grok/courses/:courseId/builder"
+                element={<AcademyGrokBuilderPage />}
+              />
+              <Route path="/academy-grok/reports" element={<AcademyGrokReportsPage />} />
+            </>
+          )}
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route

@@ -26,6 +26,7 @@ import { useLogout } from '@/components/auth/useLogout';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
 import { canAccessRoute, canManageIntegrations } from '@/lib/permissions';
+import { isAcademyV2Enabled } from '@/lib/academy';
 import { prefetchRoute } from '@/lib/routePrefetch';
 
 type NavItemDefinition = {
@@ -35,6 +36,8 @@ type NavItemDefinition = {
   end?: boolean;
 };
 
+const academyV2 = isAcademyV2Enabled();
+
 const navItems: NavItemDefinition[] = [
   { to: '/', label: 'Главная', icon: Home, end: true },
   { to: '/employees', label: 'Сотрудники', icon: Users },
@@ -43,8 +46,13 @@ const navItems: NavItemDefinition[] = [
   { to: '/distribution', label: 'Распределение', icon: Shuffle },
   { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/academy', label: 'Академия', icon: GraduationCap },
-  { to: '/academy-opus', label: 'Академия Opus', icon: Sparkles },
-  { to: '/academy-grok', label: 'Академия Grok', icon: Sparkles },
+  // Experimental academies hidden after V2 cutover (routes may still redirect).
+  ...(!academyV2
+    ? ([
+        { to: '/academy-opus', label: 'Академия Opus', icon: Sparkles },
+        { to: '/academy-grok', label: 'Академия Grok', icon: Sparkles },
+      ] as NavItemDefinition[])
+    : []),
 ];
 
 const integrationItems: NavItemDefinition[] = [
