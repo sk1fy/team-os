@@ -124,11 +124,15 @@ export function CourseBuilderPage() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.course(courseId) });
   };
 
+  const draftVersionId = draft?.id;
+
   const createSection = useMutation({
-    mutationFn: () =>
-      academyVersionsApi.createSection(courseId, {
+    mutationFn: () => {
+      if (!draftVersionId) throw new Error('no draft');
+      return academyVersionsApi.createSection(draftVersionId, {
         title: `Раздел ${sections.length + 1}`,
-      }),
+      });
+    },
     onSuccess: () => {
       invalidateDraft();
       toast.success('Раздел создан');
@@ -153,11 +157,13 @@ export function CourseBuilderPage() {
   });
 
   const createLesson = useMutation({
-    mutationFn: (sectionId: string) =>
-      academyVersionsApi.createLesson(courseId, {
+    mutationFn: (sectionId: string) => {
+      if (!draftVersionId) throw new Error('no draft');
+      return academyVersionsApi.createLesson(draftVersionId, {
         sectionId,
         title: 'Новый урок',
-      }),
+      });
+    },
     onSuccess: (lesson) => {
       setSelectedLessonId(lesson.id);
       invalidateDraft();
@@ -193,7 +199,8 @@ export function CourseBuilderPage() {
         content,
       });
       if (quiz) {
-        await academyVersionsApi.upsertQuiz({ ...quiz, lessonId: selectedLesson.id });
+        const { lessonId: _lessonId, ...quizBody } = quiz;
+        await academyVersionsApi.upsertQuiz(selectedLesson.id, quizBody);
       }
       return updated;
     },
@@ -213,7 +220,7 @@ export function CourseBuilderPage() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.course(courseId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.versions(courseId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.draft(courseId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.courses() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
     onError: (e) => {
       const err = e instanceof ApiError ? e : null;

@@ -359,6 +359,8 @@ export interface AcademyTemplateSummary {
   category?: string;
   lessonCount?: number;
   latestVersionNumber?: number;
+  /** Published template version id required for instantiate. */
+  latestVersionId?: ID;
   archived?: boolean;
   capabilities: {
     canInstantiate: boolean;

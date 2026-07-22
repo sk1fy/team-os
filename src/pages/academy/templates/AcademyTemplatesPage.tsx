@@ -39,10 +39,14 @@ export function AcademyTemplatesPage() {
   });
 
   const instantiate = useMutation({
-    mutationFn: (templateId: string) =>
-      academyTemplatesApi.instantiate(templateId, {}, { idempotencyKey: crypto.randomUUID() }),
+    mutationFn: (templateVersionId: string) =>
+      academyTemplatesApi.instantiate(
+        templateVersionId,
+        {},
+        { idempotencyKey: crypto.randomUUID() },
+      ),
     onSuccess: (course) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.courses() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Курс создан из шаблона');
       window.location.assign(academyRoutes.builder(course.id));
     },
@@ -126,11 +130,11 @@ export function AcademyTemplatesPage() {
                     Открыть
                   </Button>
                 </Link>
-                {tpl.capabilities.canInstantiate ? (
+                {tpl.capabilities.canInstantiate && tpl.latestVersionId ? (
                   <Button
                     size="sm"
                     loading={instantiate.isPending}
-                    onClick={() => instantiate.mutate(tpl.id)}
+                    onClick={() => instantiate.mutate(tpl.latestVersionId!)}
                   >
                     Создать курс
                   </Button>

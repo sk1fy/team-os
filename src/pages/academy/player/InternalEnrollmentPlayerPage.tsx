@@ -181,18 +181,22 @@ export function InternalEnrollmentPlayerPage() {
   const quizMutation = useMutation({
     mutationFn: (answers: QuizAttemptAnswer[]) =>
       academyLearningApi.submitQuiz(enrollmentId, lesson!.quiz!.id, { answers }),
-    onSuccess: (result) => {
-      setQuizResult(result);
-      // Atomic enrollment refresh after grade (unlock / completion flags)
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.academyV2.enrollment(enrollmentId),
-      });
-      if (result.passed) {
-        toast.success(`Тест пройден · ${result.score}%`);
-      } else if (result.pendingReview) {
+    onSuccess: ({ attempt, enrollment: updated }) => {
+      // Atomic server payload: attempt + enrollment (completion/unlock) in one response.
+      setQuizResult(attempt);
+      applyEnrollmentUpdate(updated);
+      if (attempt.passed) {
+        toast.success(`Тест пройден · ${attempt.score}%`);
+        // Server already completed the lesson on pass — advance if next lesson unlocked.
+        const nextId =
+          updated.currentLessonId && updated.currentLessonId !== currentLessonId
+            ? updated.currentLessonId
+            : undefined;
+        if (nextId) selectLesson(nextId);
+      } else if (attempt.pendingReview) {
         toast.info('Ответы отправлены на проверку');
       } else {
-        toast.error(`Тест не пройден · ${result.score}%`);
+        toast.error(`Тест не пройден · ${attempt.score}%`);
       }
     },
     onError: (error) => {
@@ -245,15 +249,15 @@ export function InternalEnrollmentPlayerPage() {
 
   const hasQuiz = Boolean(lesson?.quiz);
   const lessonCompleted = Boolean(lesson?.completed || outlineLesson?.completed);
-  const quizPassed = Boolean(quizResult?.passed);
-  const quizBlocksComplete = hasQuiz && !lessonCompleted && !quizPassed;
+  // Quiz lessons complete via submitQuiz atomic response — never completeLesson bypass.
+  const quizBlocksComplete = hasQuiz && !lessonCompleted;
 
   const showComplete =
     !readOnly &&
     !lessonCompleted &&
     Boolean(lesson && !lesson.locked) &&
     enrollment.canCompleteLessons &&
-    (!hasQuiz || quizPassed);
+    !hasQuiz;
 
   const completeLabel =
     nextLesson && !nextLesson.locked ? 'Завершить и продолжить' : 'Завершить урок';
@@ -343,7 +347,93 @@ export function InternalEnrollmentPlayerPage() {
   );
 }
 
-/** Legacy /learn-legacy/:courseId → resolve enrollment → replace. */
+/**
+ * Entry for /learn/:id when V2 is on.
+ * 1) Treat id as enrollmentId (canonical).
+ * 2) On 404, treat id as legacy courseId and resolve → replace with enrollment URL.
+ * Also used for /learn-opus/:courseId and /learn-grok/:courseId redirects.
+ */
+export function LearnRouteEntry() {
+  const { enrollmentId: id = '' } = useParams();
+  const navigate = useNavigate();
+  const [mode, setMode] = useState<'enrollment' | 'resolve' | 'player'>('enrollment');
+
+  const enrollmentProbe = useQuery({
+    queryKey: queryKeys.academyV2.enrollment(id),
+    queryFn: ({ signal }) => academyLearningApi.getEnrollment(id, { signal }),
+    enabled: Boolean(id) && mode === 'enrollment',
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (mode !== 'enrollment') return;
+    if (enrollmentProbe.isSuccess) {
+      setMode('player');
+      return;
+    }
+    if (enrollmentProbe.isError) {
+      const status =
+        enrollmentProbe.error instanceof ApiError ? enrollmentProbe.error.status : 0;
+      // 404 → try legacy courseId resolution; other errors stay on player error UI
+      if (status === 404) setMode('resolve');
+      else setMode('player');
+    }
+  }, [mode, enrollmentProbe.isSuccess, enrollmentProbe.isError, enrollmentProbe.error]);
+
+  const resolveQuery = useQuery({
+    queryKey: ['academy-v2', 'resolve-enrollment', id],
+    queryFn: ({ signal }) => academyLearningApi.resolveEnrollmentForCourse(id, { signal }),
+    enabled: Boolean(id) && mode === 'resolve',
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (resolveQuery.data?.enrollmentId) {
+      navigate(academyRoutes.learn(resolveQuery.data.enrollmentId), { replace: true });
+    }
+  }, [navigate, resolveQuery.data?.enrollmentId]);
+
+  if (mode === 'enrollment' && enrollmentProbe.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page text-sm text-slate-500">
+        Загружаем прохождение…
+      </div>
+    );
+  }
+
+  if (mode === 'resolve') {
+    if (resolveQuery.isError) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-page p-6">
+          <div className="max-w-md space-y-4 text-center">
+            <h1 className="text-lg font-semibold">Не удалось открыть курс</h1>
+            <p className="text-sm text-slate-500">
+              Нет активного прохождения для этого курса. Откройте «Моё обучение» или каталог.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link to={academyRoutes.home}>
+                <Button>Моё обучение</Button>
+              </Link>
+              <Link to={academyRoutes.catalog}>
+                <Button variant="secondary">Каталог</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page text-sm text-slate-500">
+        Ищем прохождение по курсу…
+      </div>
+    );
+  }
+
+  // Player mode (enrollment exists or non-404 error handled inside player)
+  return <InternalEnrollmentPlayerPage />;
+}
+
+/** @deprecated Prefer LearnRouteEntry on /learn/:id */
 export function LegacyCourseEnrollmentResolver() {
   const { courseId = '' } = useParams();
   const navigate = useNavigate();

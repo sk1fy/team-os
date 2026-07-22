@@ -24,18 +24,18 @@ export function CreateCourseModal({
 
   const create = useMutation({
     mutationFn: () =>
+      // Server sets company vs partner owner from role — do not send ownerType.
       academyCoursesApi.create(
         {
           title: title.trim(),
           description: description.trim() || undefined,
-          ownerType,
           sequential: true,
           visibility: 'restricted',
         },
         { idempotencyKey: crypto.randomUUID() },
       ),
     onSuccess: (course) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.courses() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Курс создан');
       onClose();
       setTitle('');

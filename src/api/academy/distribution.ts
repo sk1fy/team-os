@@ -4,7 +4,7 @@ import { academyGet, academyMutate, encodeId, type RequestOptions } from './http
 
 export const academyDistributionApi = {
   listAssignments(courseId: ID, options?: RequestOptions): Promise<CourseAssignmentSummary[]> {
-    return academyGet(`/academy/v2/courses/${encodeId(courseId)}/assignments`, options);
+    return academyGet(`/academy/courses/${encodeId(courseId)}/assignments`, options);
   },
 
   assign(
@@ -18,7 +18,7 @@ export const academyDistributionApi = {
     options?: RequestOptions,
   ): Promise<CourseAssignmentSummary> {
     return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/assignments`,
+      `/academy/courses/${encodeId(courseId)}/assignments`,
       'POST',
       input,
       options,
@@ -27,7 +27,7 @@ export const academyDistributionApi = {
 
   revokeAssignment(assignmentId: ID, options?: RequestOptions): Promise<void> {
     return academyMutate(
-      `/academy/v2/assignments/${encodeId(assignmentId)}`,
+      `/academy/assignments/${encodeId(assignmentId)}`,
       'DELETE',
       undefined,
       options,

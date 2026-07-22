@@ -11,7 +11,6 @@ import { academyGet, academyMutate, buildQuery, encodeId, type RequestOptions } 
 export type CreateCourseInput = {
   title: string;
   description?: string;
-  ownerType?: 'company' | 'partner';
   sequential?: boolean;
   deadlineDays?: number;
   visibility?: 'public' | 'company' | 'restricted';
@@ -28,16 +27,20 @@ export type UpdateCourseInput = {
   coverUrl?: string | null;
 };
 
+/**
+ * Paths aligned with teamos-academy-backend-plan §11.1–11.4.
+ * Base: /api/v1 (API_URL) + /academy/...
+ */
 export const academyCoursesApi = {
   list(
     filters: AcademyListFilters = {},
     options?: RequestOptions,
   ): Promise<PaginatedResult<AcademyCourseSummary>> {
     return academyGet(
-      `/academy/v2/courses${buildQuery({
+      `/academy/courses${buildQuery({
         q: filters.q,
-        lifecycleStatus: filters.lifecycleStatus === 'all' ? undefined : filters.lifecycleStatus,
-        distributionStatus:
+        lifecycle: filters.lifecycleStatus === 'all' ? undefined : filters.lifecycleStatus,
+        distribution:
           filters.distributionStatus === 'all' ? undefined : filters.distributionStatus,
         ownerType: filters.ownerType === 'all' ? undefined : filters.ownerType,
         page: filters.page,
@@ -49,31 +52,33 @@ export const academyCoursesApi = {
   },
 
   get(courseId: ID, options?: RequestOptions): Promise<AcademyCourseDetail> {
-    return academyGet(`/academy/v2/courses/${encodeId(courseId)}`, options);
+    return academyGet(`/academy/courses/${encodeId(courseId)}`, options);
   },
 
   create(input: CreateCourseInput, options?: RequestOptions): Promise<AcademyCourseDetail> {
-    return academyMutate('/academy/v2/courses', 'POST', input, options);
+    // Server sets owner type from role — body must not spoof owner.
+    return academyMutate('/academy/courses', 'POST', input, options);
   },
 
+  /** Patch draft metadata on the course. */
   update(
     courseId: ID,
     input: UpdateCourseInput,
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
-    return academyMutate(`/academy/v2/courses/${encodeId(courseId)}`, 'PATCH', input, options);
+    return academyMutate(`/academy/courses/${encodeId(courseId)}/draft`, 'PATCH', input, options);
   },
 
   archive(courseId: ID, options?: RequestOptions): Promise<AcademyCourseDetail> {
-    return academyMutate(`/academy/v2/courses/${encodeId(courseId)}/archive`, 'POST', {}, options);
+    return academyMutate(`/academy/courses/${encodeId(courseId)}/archive`, 'POST', {}, options);
   },
 
   restore(courseId: ID, options?: RequestOptions): Promise<AcademyCourseDetail> {
-    return academyMutate(`/academy/v2/courses/${encodeId(courseId)}/restore`, 'POST', {}, options);
+    return academyMutate(`/academy/courses/${encodeId(courseId)}/restore`, 'POST', {}, options);
   },
 
   delete(courseId: ID, options?: RequestOptions): Promise<void> {
-    return academyMutate(`/academy/v2/courses/${encodeId(courseId)}`, 'DELETE', undefined, options);
+    return academyMutate(`/academy/courses/${encodeId(courseId)}`, 'DELETE', undefined, options);
   },
 
   pauseDistribution(
@@ -82,7 +87,7 @@ export const academyCoursesApi = {
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
     return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/pause`,
+      `/academy/courses/${encodeId(courseId)}/restrictions/pause`,
       'POST',
       input,
       options,
@@ -95,7 +100,7 @@ export const academyCoursesApi = {
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
     return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/block`,
+      `/academy/courses/${encodeId(courseId)}/restrictions/block`,
       'POST',
       input,
       options,
@@ -104,7 +109,7 @@ export const academyCoursesApi = {
 
   resolveRestriction(courseId: ID, options?: RequestOptions): Promise<AcademyCourseDetail> {
     return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/resolve-restriction`,
+      `/academy/courses/${encodeId(courseId)}/restrictions/resolve`,
       'POST',
       {},
       options,
@@ -117,14 +122,19 @@ export const academyCoursesApi = {
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
     return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/copy-to-company`,
+      `/academy/partner-courses/${encodeId(courseId)}/versions/${encodeId(input.versionId)}/copy-to-company`,
       'POST',
-      input,
+      {},
       options,
     );
   },
 
   getDraft(courseId: ID, options?: RequestOptions): Promise<CourseVersionAuthorDetail> {
-    return academyGet(`/academy/v2/courses/${encodeId(courseId)}/draft`, options);
+    return academyGet(`/academy/courses/${encodeId(courseId)}/draft`, options);
+  },
+
+  /** Ensure draft exists (backend may create version 1). */
+  ensureDraft(courseId: ID, options?: RequestOptions): Promise<CourseVersionAuthorDetail> {
+    return academyMutate(`/academy/courses/${encodeId(courseId)}/draft`, 'POST', {}, options);
   },
 };

@@ -115,14 +115,19 @@ const AcademyV2BuilderPage = lazy(() =>
     default: module.CourseBuilderPage,
   })),
 );
-const InternalEnrollmentPlayerPage = lazy(() =>
+const LearnRouteEntry = lazy(() =>
   import('@/pages/academy/player/InternalEnrollmentPlayerPage').then((module) => ({
-    default: module.InternalEnrollmentPlayerPage,
+    default: module.LearnRouteEntry,
   })),
 );
 const LegacyCourseEnrollmentResolver = lazy(() =>
   import('@/pages/academy/player/InternalEnrollmentPlayerPage').then((module) => ({
     default: module.LegacyCourseEnrollmentResolver,
+  })),
+);
+const TemplateBuilderPlaceholder = lazy(() =>
+  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+    default: module.AcademyTemplatePage,
   })),
 );
 const CoursePreviewPage = lazy(() =>
@@ -406,7 +411,7 @@ export function App() {
               element={
                 <RequireAuth>
                   <RequireModule>
-                    <AcademyV2BuilderPage />
+                    <TemplateBuilderPlaceholder />
                   </RequireModule>
                 </RequireAuth>
               }
@@ -436,12 +441,12 @@ export function App() {
               element={
                 <RequireAuth>
                   <RequireModule>
-                    <InternalEnrollmentPlayerPage />
+                    <LearnRouteEntry />
                   </RequireModule>
                 </RequireAuth>
               }
             />
-            {/* Legacy courseId player URLs → enrollment resolver */}
+            {/* Explicit legacy alias */}
             <Route
               path="/learn-legacy/:courseId"
               element={
@@ -466,8 +471,36 @@ export function App() {
           <Route path="invite/:token" element={<InvitePage />} />
         </Route>
 
-        <Route path="/learn-opus/:courseId" element={<LearnOpusPage />} />
-        <Route path="/learn-grok/:courseId" element={<AcademyGrokLearnPage />} />
+        {academyV2 ? (
+          <>
+            {/* Old experiment players → V2 learn entry (courseId resolve) */}
+            <Route
+              path="/learn-opus/:courseId"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <LegacyCourseEnrollmentResolver />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn-grok/:courseId"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <LegacyCourseEnrollmentResolver />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+          </>
+        ) : (
+          <>
+            <Route path="/learn-opus/:courseId" element={<LearnOpusPage />} />
+            <Route path="/learn-grok/:courseId" element={<AcademyGrokLearnPage />} />
+          </>
+        )}
         <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
         <Route path="/access/:token" element={<AccessLinkPage />} />
 

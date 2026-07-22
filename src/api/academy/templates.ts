@@ -1,15 +1,20 @@
-import type { AcademyTemplateSummary, CourseVersionAuthorDetail, PaginatedResult } from '@/types/academy';
-import type { AcademyCourseDetail } from '@/types/academy';
+import type {
+  AcademyCourseDetail,
+  AcademyTemplateSummary,
+  CourseVersionAuthorDetail,
+  PaginatedResult,
+} from '@/types/academy';
 import type { ID } from '@/types';
 import { academyGet, academyMutate, buildQuery, encodeId, type RequestOptions } from './httpHelpers';
 
+/** Backend-plan §11.5 */
 export const academyTemplatesApi = {
   list(
     filters: { q?: string; ownerType?: string; page?: number; pageSize?: number } = {},
     options?: RequestOptions,
   ): Promise<PaginatedResult<AcademyTemplateSummary>> {
     return academyGet(
-      `/academy/v2/templates${buildQuery({
+      `/academy/templates${buildQuery({
         q: filters.q,
         ownerType: filters.ownerType,
         page: filters.page,
@@ -20,20 +25,21 @@ export const academyTemplatesApi = {
   },
 
   get(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {
-    return academyGet(`/academy/v2/templates/${encodeId(templateId)}`, options);
+    return academyGet(`/academy/templates/${encodeId(templateId)}`, options);
   },
 
   getPreview(templateId: ID, options?: RequestOptions): Promise<CourseVersionAuthorDetail> {
-    return academyGet(`/academy/v2/templates/${encodeId(templateId)}/preview`, options);
+    return academyGet(`/academy/templates/${encodeId(templateId)}/preview`, options);
   },
 
+  /** Instantiate a published template version into an independent course draft. */
   instantiate(
-    templateId: ID,
+    templateVersionId: ID,
     input: { title?: string } = {},
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
     return academyMutate(
-      `/academy/v2/templates/${encodeId(templateId)}/instantiate`,
+      `/academy/template-versions/${encodeId(templateVersionId)}/instantiate`,
       'POST',
       input,
       options,
@@ -42,7 +48,7 @@ export const academyTemplatesApi = {
 
   archive(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {
     return academyMutate(
-      `/academy/v2/templates/${encodeId(templateId)}/archive`,
+      `/academy/templates/${encodeId(templateId)}/archive`,
       'POST',
       {},
       options,

@@ -49,9 +49,23 @@ interface ErrorResponse {
   requestId?: string;
 }
 
+/**
+ * Auth transport mode for gateway requests.
+ * - internal: Bearer from auth store + cookie refresh on 401
+ * - external: cookies only (external learner session), never internal Bearer/refresh
+ * - none: no Bearer, no internal refresh (public pre-session endpoints)
+ */
+export type AuthMode = 'internal' | 'external' | 'none';
+
 export interface HttpRequestOptions {
-  /** Не пытаться обновить access-токен после 401 (для login/refresh и публичных ручек). */
+  authMode?: AuthMode;
+  /**
+   * @deprecated Prefer authMode. Mapped to authMode 'none' when true and authMode omitted.
+   * Не пытаться обновить access-токен после 401.
+   */
   skipAuthRefresh?: boolean;
+  /** Explicit override; defaults true only for authMode internal. */
+  retryInternalRefresh?: boolean;
 }
 
 export interface AuthSession<TUser> {
@@ -76,10 +90,20 @@ export function notFound(entity: string): never {
   throw new ApiError(`${entity} не найден`, 404);
 }
 
-function requestHeaders(init: RequestInit): Headers {
+function resolveAuthMode(options: HttpRequestOptions): AuthMode {
+  if (options.authMode) return options.authMode;
+  // Backward-compatible mapping for call sites that only set skipAuthRefresh.
+  if (options.skipAuthRefresh) return 'none';
+  return 'internal';
+}
+
+function requestHeaders(init: RequestInit, authMode: AuthMode): Headers {
   const headers = new Headers(init.headers);
-  const token = useAuthStore.getState().accessToken;
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  // Never attach internal TeamOS Bearer outside authMode=internal.
+  if (authMode === 'internal') {
+    const token = useAuthStore.getState().accessToken;
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
   if (init.body !== undefined && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -136,23 +160,29 @@ export function refreshAccessToken<TUser>(): Promise<boolean> {
 }
 
 /**
- * HTTP-клиент gateway: cookie, bearer-токен, ApiError и одна прозрачная
- * попытка refresh после 401.
+ * HTTP-клиент gateway: authMode, cookie/bearer, ApiError и refresh только
+ * для internal auth.
  */
 export async function httpRequest<T>(
   path: string,
   init: RequestInit = {},
   options: HttpRequestOptions = {},
 ): Promise<T> {
+  const authMode = resolveAuthMode(options);
+  const retryInternalRefresh =
+    options.retryInternalRefresh ?? (authMode === 'internal' && !options.skipAuthRefresh);
+
   const execute = () =>
     fetch(`${API_URL}${path}`, {
       ...init,
+      // external/none rely on HttpOnly cookies when the browser has them;
+      // never attach internal Authorization for those modes.
       credentials: 'include',
-      headers: requestHeaders(init),
+      headers: requestHeaders(init, authMode),
     });
 
   let response = await execute();
-  if (response.status === 401 && !options.skipAuthRefresh && (await refreshAccessToken())) {
+  if (response.status === 401 && retryInternalRefresh && (await refreshAccessToken())) {
     response = await execute();
   }
   if (!response.ok) throw await responseError(response);
@@ -169,7 +199,7 @@ export async function openEventStream(path: string, signal: AbortSignal): Promis
   const execute = () =>
     fetch(`${API_URL}${path}`, {
       credentials: 'include',
-      headers: requestHeaders({ headers: { Accept: 'text/event-stream' } }),
+      headers: requestHeaders({ headers: { Accept: 'text/event-stream' } }, 'internal'),
       signal,
     });
   let response = await execute();

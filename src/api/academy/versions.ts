@@ -9,9 +9,10 @@ import type {
 import type { ID, RichTextContent } from '@/types';
 import { academyGet, academyMutate, encodeId, type RequestOptions } from './httpHelpers';
 
+/** Paths aligned with backend-plan §11.1–11.2 (course-versions content). */
 export const academyVersionsApi = {
   list(courseId: ID, options?: RequestOptions): Promise<CourseVersionSummary[]> {
-    return academyGet(`/academy/v2/courses/${encodeId(courseId)}/versions`, options);
+    return academyGet(`/academy/courses/${encodeId(courseId)}/versions`, options);
   },
 
   getAuthor(
@@ -20,34 +21,29 @@ export const academyVersionsApi = {
     options?: RequestOptions,
   ): Promise<CourseVersionAuthorDetail> {
     return academyGet(
-      `/academy/v2/courses/${encodeId(courseId)}/versions/${encodeId(versionId)}`,
+      `/academy/courses/${encodeId(courseId)}/versions/${encodeId(versionId)}`,
       options,
     );
   },
 
   getLearner(versionId: ID, options?: RequestOptions): Promise<CourseVersionLearnerDetail> {
-    return academyGet(`/academy/v2/course-versions/${encodeId(versionId)}/learner`, options);
+    return academyGet(`/academy/course-versions/${encodeId(versionId)}/learner`, options);
   },
 
   publish(
     courseId: ID,
     options?: RequestOptions,
   ): Promise<{ courseId: ID; version: CourseVersionSummary }> {
-    return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/publish`,
-      'POST',
-      {},
-      options,
-    );
+    return academyMutate(`/academy/courses/${encodeId(courseId)}/publish`, 'POST', {}, options);
   },
 
   createSection(
-    courseId: ID,
+    versionId: ID,
     input: { title: string },
     options?: RequestOptions,
   ): Promise<SectionAuthor> {
     return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/draft/sections`,
+      `/academy/course-versions/${encodeId(versionId)}/sections`,
       'POST',
       input,
       options,
@@ -60,7 +56,7 @@ export const academyVersionsApi = {
     options?: RequestOptions,
   ): Promise<SectionAuthor> {
     return academyMutate(
-      `/academy/v2/draft/sections/${encodeId(sectionId)}`,
+      `/academy/course-version-sections/${encodeId(sectionId)}`,
       'PATCH',
       input,
       options,
@@ -69,7 +65,7 @@ export const academyVersionsApi = {
 
   deleteSection(sectionId: ID, options?: RequestOptions): Promise<void> {
     return academyMutate(
-      `/academy/v2/draft/sections/${encodeId(sectionId)}`,
+      `/academy/course-version-sections/${encodeId(sectionId)}`,
       'DELETE',
       undefined,
       options,
@@ -77,7 +73,7 @@ export const academyVersionsApi = {
   },
 
   createLesson(
-    courseId: ID,
+    versionId: ID,
     input: {
       sectionId: ID;
       title: string;
@@ -88,7 +84,7 @@ export const academyVersionsApi = {
     options?: RequestOptions,
   ): Promise<LessonAuthor> {
     return academyMutate(
-      `/academy/v2/courses/${encodeId(courseId)}/draft/lessons`,
+      `/academy/course-versions/${encodeId(versionId)}/lessons`,
       'POST',
       input,
       options,
@@ -106,7 +102,7 @@ export const academyVersionsApi = {
     options?: RequestOptions,
   ): Promise<LessonAuthor> {
     return academyMutate(
-      `/academy/v2/draft/lessons/${encodeId(lessonId)}`,
+      `/academy/course-version-lessons/${encodeId(lessonId)}`,
       'PATCH',
       input,
       options,
@@ -115,7 +111,7 @@ export const academyVersionsApi = {
 
   deleteLesson(lessonId: ID, options?: RequestOptions): Promise<void> {
     return academyMutate(
-      `/academy/v2/draft/lessons/${encodeId(lessonId)}`,
+      `/academy/course-version-lessons/${encodeId(lessonId)}`,
       'DELETE',
       undefined,
       options,
@@ -128,14 +124,23 @@ export const academyVersionsApi = {
     options?: RequestOptions,
   ): Promise<LessonAuthor> {
     return academyMutate(
-      `/academy/v2/draft/lessons/${encodeId(lessonId)}/move`,
+      `/academy/course-version-lessons/${encodeId(lessonId)}/move`,
       'POST',
       input,
       options,
     );
   },
 
-  upsertQuiz(input: Omit<QuizAuthor, 'id'> & { id?: ID }, options?: RequestOptions): Promise<QuizAuthor> {
-    return academyMutate('/academy/v2/draft/quizzes', 'PUT', input, options);
+  upsertQuiz(
+    lessonId: ID,
+    input: Omit<QuizAuthor, 'id' | 'lessonId'> & { id?: ID },
+    options?: RequestOptions,
+  ): Promise<QuizAuthor> {
+    return academyMutate(
+      `/academy/course-version-lessons/${encodeId(lessonId)}/quiz`,
+      'PUT',
+      input,
+      options,
+    );
   },
 };

@@ -1,26 +1,45 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
 import { BookOpen } from 'lucide-react';
 import { academyLearningApi } from '@/api/academy';
+import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { Button, Input } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
+import { toast } from '@/stores/toast';
 
 export function AcademyCatalogPage() {
   useTitle('Каталог — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const q = searchParams.get('q') ?? '';
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
   const filters = useMemo(() => ({ q: q || undefined, page: 1, pageSize: 24 }), [q]);
 
   const catalogQuery = useQuery({
     queryKey: queryKeys.academyV2.catalog(filters),
     queryFn: ({ signal }) => academyLearningApi.catalog(filters, { signal }),
+  });
+
+  const enroll = useMutation({
+    mutationFn: (courseId: string) => academyLearningApi.enrollFromCatalog(courseId),
+    onSuccess: (enrollment) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.myLearning });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.catalog(filters) });
+      toast.success('Курс добавлен в обучение');
+      navigate(academyRoutes.learn(enrollment.id));
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось записаться на курс');
+    },
+    onSettled: () => setEnrollingId(null),
   });
 
   if (catalogQuery.isError) {
@@ -39,7 +58,7 @@ export function AcademyCatalogPage() {
     <div className="space-y-6">
       <PageHeader
         title="Каталог компании"
-        description="Доступные курсы компании. Назначение и прогресс отображаются, если курс уже в вашем обучении."
+        description="Доступные курсы компании. Начните обучение — откроется enrollment player."
       />
 
       <div className="max-w-md">
@@ -69,7 +88,9 @@ export function AcademyCatalogPage() {
         <EmptyState
           icon={BookOpen}
           title="Курсы не найдены"
-          description={q ? 'Измените поисковый запрос.' : 'В каталоге пока нет опубликованных курсов.'}
+          description={
+            q ? 'Измените поисковый запрос.' : 'В каталоге пока нет опубликованных курсов.'
+          }
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -99,11 +120,17 @@ export function AcademyCatalogPage() {
                     </Link>
                   </>
                 ) : (
-                  <Link to={academyRoutes.course(course.id)} className="ml-auto">
-                    <Button size="sm" variant="secondary">
-                      Подробнее
-                    </Button>
-                  </Link>
+                  <Button
+                    size="sm"
+                    className="ml-auto"
+                    loading={enrollingId === course.id && enroll.isPending}
+                    onClick={() => {
+                      setEnrollingId(course.id);
+                      enroll.mutate(course.id);
+                    }}
+                  >
+                    Начать обучение
+                  </Button>
                 )}
               </div>
             </article>

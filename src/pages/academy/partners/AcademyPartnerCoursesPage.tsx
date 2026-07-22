@@ -36,7 +36,7 @@ export function AcademyPartnerCoursesPage() {
       academyCoursesApi.copyToCompany(input.courseId, { versionId: input.versionId }),
     onSuccess: (course) => {
       toast.success('Копия создана как draft компании');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.courses() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       window.location.assign(academyRoutes.builder(course.id));
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Не удалось скопировать'),
@@ -47,7 +47,7 @@ export function AcademyPartnerCoursesPage() {
       academyCoursesApi.pauseDistribution(courseId, { reason: 'Приостановлено администрацией' }),
     onSuccess: () => {
       toast.success('Распространение приостановлено');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.courses() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка'),
   });
@@ -61,7 +61,7 @@ export function AcademyPartnerCoursesPage() {
     },
     onSuccess: () => {
       toast.success('Курс заблокирован');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.courses() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
     onError: (e) => {
       if (e instanceof Error && e.message === 'cancelled') return;

@@ -65,11 +65,19 @@ export function ExternalEnrollmentPlayerPage() {
   const quizMutation = useMutation({
     mutationFn: (answers: QuizAttemptAnswer[]) =>
       academyExternalPublicApi.submitQuiz(enrollmentId, lessonQuery.data!.quiz!.id, { answers }),
-    onSuccess: (result) => {
-      setQuizResult(result);
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.externalAcademy.enrollment(enrollmentId),
-      });
+    onSuccess: ({ attempt, enrollment: updated }) => {
+      setQuizResult(attempt);
+      queryClient.setQueryData(queryKeys.externalAcademy.enrollment(enrollmentId), updated);
+      if (attempt.passed) {
+        toast.success(`Тест пройден · ${attempt.score}%`);
+        if (updated.currentLessonId && updated.currentLessonId !== currentLessonId) {
+          setSearchParams({ lesson: updated.currentLessonId });
+        }
+      } else if (attempt.pendingReview) {
+        toast.info('Ответы отправлены на проверку');
+      } else {
+        toast.error(`Тест не пройден · ${attempt.score}%`);
+      }
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка проверки'),
   });
@@ -103,9 +111,9 @@ export function ExternalEnrollmentPlayerPage() {
 
   const lesson = lessonQuery.data;
   const hasQuiz = Boolean(lesson?.quiz);
-  const quizPassed = Boolean(quizResult?.passed);
+  // Quiz completion is atomic via submitQuiz — never completeLesson for quiz lessons.
   const showComplete =
-    !readOnly && lesson && !lesson.locked && !lesson.completed && (!hasQuiz || quizPassed);
+    !readOnly && lesson && !lesson.locked && !lesson.completed && !hasQuiz;
 
   return (
     <CoursePlayerShell

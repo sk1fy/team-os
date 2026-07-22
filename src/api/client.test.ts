@@ -75,6 +75,38 @@ describe('httpRequest', () => {
     }
   });
 
+  it('authMode external/none не отправляет internal Bearer', async () => {
+    useAuthStore.getState().setAccessToken('secret-internal-token');
+    const ok = () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok()).mockResolvedValueOnce(ok());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await httpRequest('/public/academy/access/tok', {}, { authMode: 'none' });
+    await httpRequest('/public/academy/enrollments/e1', {}, { authMode: 'external' });
+
+    for (const call of fetchMock.mock.calls) {
+      const init = call[1] as RequestInit;
+      expect(new Headers(init.headers).get('Authorization')).toBeNull();
+    }
+  });
+
+  it('authMode external не делает internal refresh после 401', async () => {
+    useAuthStore.getState().setAccessToken('secret-internal-token');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      httpRequest('/public/academy/enrollments/e1', {}, { authMode: 'external' }),
+    ).rejects.toMatchObject({ status: 401 });
+    // Only the original request — no /auth/refresh
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('/auth/refresh');
+  });
+
   it('один раз обновляет токен после 401 и повторяет запрос', async () => {
     const fetchMock = vi
       .fn()

@@ -31,8 +31,11 @@ export interface ExternalAccessLanding {
   courseCoverUrl?: string;
   partnerName?: string;
   companyName?: string;
-  deadlineDaysOptions: number[];
-  defaultDeadlineDays: number;
+  /** Author-configured deadline (1–7). Learner must not choose this. */
+  deadlineDays: number;
+  /** @deprecated Prefer deadlineDays; kept if backend still sends options for display. */
+  deadlineDaysOptions?: number[];
+  defaultDeadlineDays?: number;
   requiresEmailVerification: boolean;
   existingEnrollmentId?: ID;
   message?: string;

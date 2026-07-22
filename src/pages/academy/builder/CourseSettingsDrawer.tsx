@@ -46,7 +46,7 @@ export function CourseSettingsDrawer({
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(queryKeys.academyV2.course(course.id), updated);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.courses() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Настройки сохранены');
       onClose();
     },

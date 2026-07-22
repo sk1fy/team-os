@@ -77,7 +77,12 @@ export const queryKeys = {
     myLearning: ['academy-v2', 'my-learning'] as const,
     myEnrollments: (filters?: unknown) => ['academy-v2', 'my-enrollments', filters] as const,
     catalog: (filters?: unknown) => ['academy-v2', 'catalog', filters] as const,
-    courses: (filters?: unknown) => ['academy-v2', 'courses', filters] as const,
+    /**
+     * Prefix-friendly list key: invalidate with queryKeys.academyV2.coursesRoot
+     * so all filtered list queries refresh after mutations.
+     */
+    coursesRoot: ['academy-v2', 'courses'] as const,
+    courses: (filters?: unknown) => ['academy-v2', 'courses', 'list', filters] as const,
     course: (courseId: ID | null | undefined) => ['academy-v2', 'course', courseId] as const,
     versions: (courseId: ID | null | undefined) => ['academy-v2', 'versions', courseId] as const,
     version: (courseId: ID | null | undefined, versionId: ID | null | undefined) =>

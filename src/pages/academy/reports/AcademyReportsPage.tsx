@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
-import { Download } from 'lucide-react';
+import { BarChart3, Download } from 'lucide-react';
 import { academyReportsApi } from '@/api/academy';
+import { authApi } from '@/api';
 import { API_URL } from '@/api/config';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -17,21 +18,46 @@ import {
   reportRowStatusLabel,
 } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from '../components/StatusBadge';
-import { BarChart3 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 
 /**
- * Internal reports from server read model — no client-side joins of all entities.
- * Filters/page/sort live in the URL.
+ * Role-aware reports:
+ * - owner/admin → internal employee report
+ * - partner → external own-courses report (never reports/internal)
  */
 export function AcademyReportsPage() {
   useTitle('Отчёты — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => parseReportFilters(searchParams), [searchParams]);
 
-  const reportQuery = useQuery({
+  const userQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
+
+  const role = userQuery.data?.role;
+  const isPartner = role === 'partner';
+  const isManager = role === 'owner' || role === 'admin';
+
+  const internalQuery = useQuery({
     queryKey: queryKeys.academyV2.internalReport(filters),
     queryFn: ({ signal }) => academyReportsApi.internal(filters, { signal }),
+    enabled: isManager,
+  });
+
+  const partnerQuery = useQuery({
+    queryKey: ['academy-v2', 'partner-external-report', filters],
+    queryFn: ({ signal }) =>
+      academyReportsApi.partnerExternal(
+        {
+          q: filters.q,
+          courseId: filters.courseId,
+          page: filters.page,
+          pageSize: filters.pageSize,
+        },
+        { signal },
+      ),
+    enabled: isPartner,
   });
 
   const setFilter = (key: string, value: string) => {
@@ -45,6 +71,7 @@ export function AcademyReportsPage() {
   };
 
   const downloadCsv = async () => {
+    if (!isManager) return;
     const path = academyReportsApi.internalCsvPath(filters);
     const token = useAuthStore.getState().accessToken;
     const response = await fetch(`${API_URL}${path}`, {
@@ -61,11 +88,97 @@ export function AcademyReportsPage() {
     URL.revokeObjectURL(url);
   };
 
+  if (userQuery.isLoading) {
+    return <div className="h-40 animate-pulse rounded-xl bg-slate-100" />;
+  }
+
+  if (role === 'employee') {
+    return (
+      <ErrorState
+        title="Недостаточно прав"
+        description="Отчёты команды доступны владельцу, администратору и партнёру (только свои курсы)."
+      />
+    );
+  }
+
+  if (isPartner) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Отчёты"
+          description="Внешние прохождения по вашим курсам. Backend ограничивает scope — внутренних сотрудников здесь нет."
+        />
+        <Input
+          label="Поиск"
+          value={filters.q ?? ''}
+          onChange={(e) => setFilter('q', e.target.value)}
+          placeholder="Email или курс"
+          className="max-w-md"
+        />
+        {partnerQuery.isError ? (
+          <ErrorState
+            title="Не удалось загрузить отчёт"
+            description="Нужен backend GET /academy/reports/external (partner-scoped)."
+            onRetry={() => void partnerQuery.refetch()}
+          />
+        ) : partnerQuery.isLoading ? (
+          <div className="h-48 animate-pulse rounded-xl bg-slate-100" />
+        ) : (partnerQuery.data?.items.length ?? 0) === 0 ? (
+          <EmptyState
+            icon={BarChart3}
+            title="Нет данных"
+            description="Когда внешние ученики пройдут ваши курсы, строки появятся здесь."
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-surface">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">Ученик</th>
+                  <th className="px-3 py-2">Курс</th>
+                  <th className="px-3 py-2">Статус</th>
+                  <th className="px-3 py-2">Прогресс</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {partnerQuery.data!.items.map((row) => (
+                  <tr key={row.enrollmentId} className="border-b border-slate-100">
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-slate-900">
+                        {row.learnerName ?? row.learnerEmail}
+                      </div>
+                      <div className="text-xs text-slate-500">{row.learnerEmail}</div>
+                    </td>
+                    <td className="px-3 py-2">{row.courseTitle}</td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {row.progressStatus} · {row.accessStatus}
+                    </td>
+                    <td className="px-3 py-2">{row.percent}%</td>
+                    <td className="px-3 py-2 text-right">
+                      <Link
+                        to={academyRoutes.enrollmentReport(row.enrollmentId)}
+                        className="text-sm font-medium text-primary-600 hover:underline"
+                      >
+                        Отчёт
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // owner / admin
   return (
     <div className="space-y-6">
       <PageHeader
         title="Отчёты"
-        description="Готовый server read model: not started, in progress, completed, overdue. Без загрузки всех сущностей на клиент."
+        description="Готовый server read model по назначениям сотрудников (включая not started)."
         actions={
           <Button
             variant="secondary"
@@ -116,15 +229,15 @@ export function AcademyReportsPage() {
         />
       </div>
 
-      {reportQuery.isError ? (
+      {internalQuery.isError ? (
         <ErrorState
           title="Не удалось загрузить отчёт"
-          description="Нужен backend read model GET /academy/v2/reports/internal"
-          onRetry={() => void reportQuery.refetch()}
+          description="Нужен backend read model GET /academy/reports/internal"
+          onRetry={() => void internalQuery.refetch()}
         />
-      ) : reportQuery.isLoading ? (
+      ) : internalQuery.isLoading ? (
         <div className="h-48 animate-pulse rounded-xl bg-slate-100" />
-      ) : (reportQuery.data?.items.length ?? 0) === 0 ? (
+      ) : (internalQuery.data?.items.length ?? 0) === 0 ? (
         <EmptyState
           icon={BarChart3}
           title="Нет строк"
@@ -145,8 +258,11 @@ export function AcademyReportsPage() {
                 </tr>
               </thead>
               <tbody>
-                {reportQuery.data!.items.map((row, index) => (
-                  <tr key={`${row.userId}-${row.courseId}-${index}`} className="border-b border-slate-100">
+                {internalQuery.data!.items.map((row, index) => (
+                  <tr
+                    key={`${row.userId}-${row.courseId}-${index}`}
+                    className="border-b border-slate-100"
+                  >
                     <td className="px-3 py-2">
                       <div className="font-medium text-slate-900">{row.userName}</div>
                       <div className="text-xs text-slate-500">
@@ -180,14 +296,14 @@ export function AcademyReportsPage() {
           </div>
           <div className="flex items-center justify-between text-sm text-slate-500">
             <span>
-              Стр. {reportQuery.data!.page} из {reportQuery.data!.totalPages} · всего{' '}
-              {reportQuery.data!.total}
+              Стр. {internalQuery.data!.page} из {internalQuery.data!.totalPages} · всего{' '}
+              {internalQuery.data!.total}
             </span>
             <div className="flex gap-2">
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={reportQuery.data!.page <= 1}
+                disabled={internalQuery.data!.page <= 1}
                 onClick={() =>
                   setSearchParams(
                     reportFiltersToSearchParams({
@@ -202,7 +318,7 @@ export function AcademyReportsPage() {
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={reportQuery.data!.page >= reportQuery.data!.totalPages}
+                disabled={internalQuery.data!.page >= internalQuery.data!.totalPages}
                 onClick={() =>
                   setSearchParams(
                     reportFiltersToSearchParams({

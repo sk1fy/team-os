@@ -1,6 +1,6 @@
 /**
- * Public external Academy transport.
- * Does not use internal auth store; tokens are request-scoped secrets.
+ * Public external Academy — authMode none/external, never internal Bearer.
+ * Paths: backend-plan §11.8
  */
 
 import type {
@@ -8,82 +8,92 @@ import type {
   ExternalSessionState,
   ExternalVerificationChallenge,
 } from '@/types/academyExternal';
-import type { EnrollmentDetail, LessonLearner, QuizAttemptAnswer, QuizAttemptResult } from '@/types/academy';
+import type {
+  EnrollmentDetail,
+  LessonLearner,
+  QuizAttemptAnswer,
+} from '@/types/academy';
+import type { QuizSubmitResponse } from './learning';
 import type { ID } from '@/types';
 import { encodeId, externalGet, externalMutate, type RequestOptions } from './httpHelpers';
 
+type PublicOptions = RequestOptions & { authMode?: 'external' | 'none' };
+
 export const academyExternalPublicApi = {
-  getLanding(token: string, options?: RequestOptions): Promise<ExternalAccessLanding> {
-    return externalGet(`/public/training/${encodeId(token)}`, options);
+  getLanding(token: string, options?: PublicOptions): Promise<ExternalAccessLanding> {
+    return externalGet(`/public/academy/access/${encodeId(token)}`, {
+      ...options,
+      authMode: options?.authMode ?? 'none',
+    });
   },
 
   startVerification(
     token: string,
     input: { email: string; displayName?: string },
-    options?: RequestOptions,
+    options?: PublicOptions,
   ): Promise<ExternalVerificationChallenge> {
     return externalMutate(
-      `/public/training/${encodeId(token)}/verify/start`,
+      `/public/academy/access/${encodeId(token)}/request-verification`,
       'POST',
       input,
-      options,
+      { ...options, authMode: options?.authMode ?? 'none' },
     );
   },
 
   confirmVerification(
-    token: string,
-    input: { challengeId: ID; code: string },
-    options?: RequestOptions,
+    challengeId: ID,
+    input: { code: string },
+    options?: PublicOptions,
   ): Promise<ExternalSessionState & { readyEnrollmentId?: ID }> {
     return externalMutate(
-      `/public/training/${encodeId(token)}/verify/confirm`,
+      `/public/academy/verifications/${encodeId(challengeId)}/confirm`,
       'POST',
       input,
-      options,
+      { ...options, authMode: options?.authMode ?? 'none' },
     );
   },
 
-  activate(
-    token: string,
-    input: { deadlineDays: number },
-    options?: RequestOptions,
-  ): Promise<{ enrollmentId: ID }> {
+  /**
+   * Activation uses author-configured deadlineDays on the access/campaign.
+   * Body must not let the learner pick a different duration.
+   */
+  activate(token: string, options?: PublicOptions): Promise<{ enrollmentId: ID }> {
     return externalMutate(
-      `/public/training/${encodeId(token)}/activate`,
+      `/public/academy/access/${encodeId(token)}/activate`,
       'POST',
-      input,
-      options,
+      {},
+      { ...options, authMode: options?.authMode ?? 'external' },
     );
   },
 
-  getEnrollment(
-    enrollmentId: ID,
-    options?: RequestOptions,
-  ): Promise<EnrollmentDetail> {
-    return externalGet(`/public/training/enrollments/${encodeId(enrollmentId)}`, options);
+  getEnrollment(enrollmentId: ID, options?: PublicOptions): Promise<EnrollmentDetail> {
+    return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}`, {
+      ...options,
+      authMode: options?.authMode ?? 'external',
+    });
   },
 
   getLesson(
     enrollmentId: ID,
     lessonId: ID,
-    options?: RequestOptions,
+    options?: PublicOptions,
   ): Promise<LessonLearner> {
     return externalGet(
-      `/public/training/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}`,
-      options,
+      `/public/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}`,
+      { ...options, authMode: options?.authMode ?? 'external' },
     );
   },
 
   completeLesson(
     enrollmentId: ID,
     lessonId: ID,
-    options?: RequestOptions,
+    options?: PublicOptions,
   ): Promise<EnrollmentDetail> {
     return externalMutate(
-      `/public/training/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}/complete`,
+      `/public/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}/complete`,
       'POST',
       {},
-      options,
+      { ...options, authMode: options?.authMode ?? 'external' },
     );
   },
 
@@ -91,13 +101,20 @@ export const academyExternalPublicApi = {
     enrollmentId: ID,
     quizId: ID,
     input: { answers: QuizAttemptAnswer[] },
-    options?: RequestOptions,
-  ): Promise<QuizAttemptResult> {
+    options?: PublicOptions,
+  ): Promise<QuizSubmitResponse> {
     return externalMutate(
-      `/public/training/enrollments/${encodeId(enrollmentId)}/quizzes/${encodeId(quizId)}/attempts`,
+      `/public/academy/enrollments/${encodeId(enrollmentId)}/quizzes/${encodeId(quizId)}/attempts`,
       'POST',
       input,
-      options,
+      { ...options, authMode: options?.authMode ?? 'external' },
     );
+  },
+
+  getResults(enrollmentId: ID, options?: PublicOptions): Promise<unknown> {
+    return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}/results`, {
+      ...options,
+      authMode: options?.authMode ?? 'external',
+    });
   },
 };
