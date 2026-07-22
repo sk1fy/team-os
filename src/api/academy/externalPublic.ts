@@ -5,15 +5,17 @@
 
 import type {
   ExternalAccessLanding,
+  ExternalEnrollmentDetail,
+  ExternalEnrollmentResults,
+  ExternalQuizSubmitResponse,
   ExternalSessionState,
   ExternalVerificationChallenge,
 } from '@/types/academyExternal';
 import type {
-  EnrollmentDetail,
+  CourseVersionLearnerDetail,
   LessonLearner,
   QuizAttemptAnswer,
 } from '@/types/academy';
-import type { QuizSubmitResponse } from './learning';
 import type { ID } from '@/types';
 import { encodeId, externalGet, externalMutate, type RequestOptions } from './httpHelpers';
 
@@ -29,7 +31,12 @@ export const academyExternalPublicApi = {
 
   startVerification(
     token: string,
-    input: { email: string; displayName?: string },
+    input: {
+      email: string;
+      firstName: string;
+      lastName?: string;
+      phone?: string;
+    },
     options?: PublicOptions,
   ): Promise<ExternalVerificationChallenge> {
     return externalMutate(
@@ -66,8 +73,15 @@ export const academyExternalPublicApi = {
     );
   },
 
-  getEnrollment(enrollmentId: ID, options?: PublicOptions): Promise<EnrollmentDetail> {
+  getEnrollment(enrollmentId: ID, options?: PublicOptions): Promise<ExternalEnrollmentDetail> {
     return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}`, {
+      ...options,
+      authMode: options?.authMode ?? 'external',
+    });
+  },
+
+  getOutline(enrollmentId: ID, options?: PublicOptions): Promise<CourseVersionLearnerDetail> {
+    return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}/outline`, {
       ...options,
       authMode: options?.authMode ?? 'external',
     });
@@ -88,7 +102,7 @@ export const academyExternalPublicApi = {
     enrollmentId: ID,
     lessonId: ID,
     options?: PublicOptions,
-  ): Promise<EnrollmentDetail> {
+  ): Promise<ExternalEnrollmentDetail> {
     return externalMutate(
       `/public/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}/complete`,
       'POST',
@@ -102,7 +116,7 @@ export const academyExternalPublicApi = {
     quizId: ID,
     input: { answers: QuizAttemptAnswer[] },
     options?: PublicOptions,
-  ): Promise<QuizSubmitResponse> {
+  ): Promise<ExternalQuizSubmitResponse> {
     return externalMutate(
       `/public/academy/enrollments/${encodeId(enrollmentId)}/quizzes/${encodeId(quizId)}/attempts`,
       'POST',
@@ -111,7 +125,7 @@ export const academyExternalPublicApi = {
     );
   },
 
-  getResults(enrollmentId: ID, options?: PublicOptions): Promise<unknown> {
+  getResults(enrollmentId: ID, options?: PublicOptions): Promise<ExternalEnrollmentResults> {
     return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}/results`, {
       ...options,
       authMode: options?.authMode ?? 'external',

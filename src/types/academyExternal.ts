@@ -5,12 +5,14 @@
 
 import type { ID, ISODate } from './index';
 import type {
+  CourseVersionLearnerDetail,
   EnrollmentDetail,
   EnrollmentSummary,
   QuizAttemptResult,
 } from './academy';
 
-export type ExternalAccessPurpose = 'personal' | 'promo' | 'candidate';
+export type CampaignPurpose = 'company_candidate' | 'partner_promo';
+export type ExternalAccessPurpose = 'personal' | CampaignPurpose;
 
 export type ExternalLandingStatus =
   | 'valid'
@@ -37,6 +39,10 @@ export interface ExternalAccessLanding {
   deadlineDaysOptions?: number[];
   defaultDeadlineDays?: number;
   requiresEmailVerification: boolean;
+  /** Personal links may prefill and lock the recipient email. */
+  expectedEmail?: string;
+  maskedEmail?: string;
+  emailLocked?: boolean;
   existingEnrollmentId?: ID;
   message?: string;
 }
@@ -49,9 +55,17 @@ export interface ExternalVerificationChallenge {
 }
 
 export interface ExternalSessionState {
-  enrollmentId: ID;
+  enrollmentId?: ID;
   accessStatus: EnrollmentSummary['accessStatus'];
   expiresAt?: ISODate;
+}
+
+/** Public enrollment state. Outline is fetched separately by contract. */
+export type ExternalEnrollmentDetail = Omit<EnrollmentDetail, 'outline'>;
+
+export interface ExternalQuizSubmitResponse {
+  attempt: QuizAttemptResult;
+  enrollment: ExternalEnrollmentDetail;
 }
 
 export interface ExternalLearnerSummary {
@@ -90,12 +104,13 @@ export interface PersonalAccessSummary {
   id: ID;
   courseId: ID;
   courseVersionId: ID;
-  email?: string;
+  email: string;
   displayName?: string;
-  status: 'active' | 'revoked' | 'expired' | 'used';
+  status: 'issued' | 'activated' | 'revoked' | 'closed';
   deadlineDays: number;
-  createdAt: ISODate;
+  issuedAt: ISODate;
   activatedAt?: ISODate;
+  revokedAt?: ISODate;
   enrollmentId?: ID;
   lastRotatedAt?: ISODate;
   /** One-time raw token — only present on create/rotate response. */
@@ -103,15 +118,13 @@ export interface PersonalAccessSummary {
   publicUrl?: string;
 }
 
-export type CampaignPurpose = 'promo' | 'candidate';
-
 export interface ExternalCampaignSummary {
   id: ID;
   courseId: ID;
   courseVersionId: ID;
   purpose: CampaignPurpose;
   name: string;
-  status: 'active' | 'paused' | 'archived';
+  status: 'active' | 'paused' | 'revoked' | 'closed';
   createdAt: ISODate;
   publicUrl?: string;
   /** One-time raw token on create. */
@@ -182,5 +195,12 @@ export interface EnrollmentReport {
   learnerName?: string;
 }
 
+export type ExternalEnrollmentResults = EnrollmentReport;
+
 /** Re-export for external player adapters. */
-export type { EnrollmentDetail, EnrollmentSummary, QuizAttemptResult };
+export type {
+  CourseVersionLearnerDetail,
+  EnrollmentDetail,
+  EnrollmentSummary,
+  QuizAttemptResult,
+};

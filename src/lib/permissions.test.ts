@@ -8,8 +8,13 @@ import {
   employeeHomePath,
   moduleForPath,
   modulesForRole,
+  safeHomePath,
 } from './permissions';
-import { canAccessAcademyPath, academyNavForRole } from './academy/routes';
+import {
+  academyNavForRole,
+  canAccessAcademyPath,
+  legacyAcademyRedirects,
+} from './academy/routes';
 import { resolveCourseCapabilities } from './academy/capabilities';
 
 describe('permissions', () => {
@@ -50,6 +55,13 @@ describe('permissions', () => {
     expect(canManageIntegrations('employee')).toBe(false);
     expect(canManageIntegrations('partner')).toBe(false);
     expect(canManageIntegrations(undefined)).toBe(false);
+  });
+
+  it('возвращает доступный home для каждой роли', () => {
+    expect(safeHomePath('employee')).toBe('/schedule');
+    expect(safeHomePath('partner')).toBe('/academy');
+    expect(safeHomePath('owner')).toBe('/');
+    expect(safeHomePath(undefined)).toBe('/auth/login');
   });
 });
 
@@ -117,6 +129,7 @@ describe('academy route policy', () => {
   it('partner: courses/templates/reports/learners, no partners admin', () => {
     expect(canAccessAcademyPath('partner', '/academy/courses')).toBe(true);
     expect(canAccessAcademyPath('partner', '/academy/templates')).toBe(true);
+    expect(canAccessAcademyPath('partner', '/academy/templates/t-1/builder')).toBe(false);
     expect(canAccessAcademyPath('partner', '/academy/reports')).toBe(true);
     expect(canAccessAcademyPath('partner', '/academy/learners')).toBe(true);
     expect(canAccessAcademyPath('partner', '/academy/partners')).toBe(false);
@@ -136,6 +149,13 @@ describe('academy route policy', () => {
     expect(ownerNav).toContain('Курсы компании');
     expect(ownerNav).toContain('Курсы партнёров');
     expect(academyNavForRole('employee').map((i) => i.id)).toEqual(['home', 'catalog']);
+  });
+
+  it('сохраняет legacy course workspace redirect', () => {
+    expect(legacyAcademyRedirects).toContainEqual({
+      from: '/academy/:courseId',
+      to: '/academy/courses/:courseId',
+    });
   });
 });
 

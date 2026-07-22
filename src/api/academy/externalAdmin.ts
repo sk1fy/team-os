@@ -1,5 +1,6 @@
 import type {
   CampaignReport,
+  CampaignPurpose,
   ExternalCampaignSummary,
   ExternalLearnerDetail,
   ExternalLearnerSummary,
@@ -26,7 +27,7 @@ export const academyExternalAdminApi = {
     courseId: ID,
     versionId: ID,
     input: {
-      email?: string;
+      email: string;
       firstName?: string;
       lastName?: string;
       deadlineDays: number;
@@ -85,11 +86,15 @@ export const academyExternalAdminApi = {
     return academyGet(`/academy/courses/${encodeId(courseId)}/campaigns`, options);
   },
 
+  getCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return academyGet(`/academy/campaigns/${encodeId(campaignId)}`, options);
+  },
+
   createCampaign(
     courseId: ID,
     versionId: ID,
     input: {
-      purpose: 'promo' | 'candidate' | 'partner_promo' | 'company_candidate';
+      purpose: CampaignPurpose;
       name: string;
       deadlineDays: number;
     },
@@ -103,8 +108,73 @@ export const academyExternalAdminApi = {
     );
   },
 
-  campaignReport(campaignId: ID, options?: RequestOptions): Promise<CampaignReport> {
-    return academyGet(`/academy/campaigns/${encodeId(campaignId)}/report`, options);
+  pauseCampaign(
+    campaignId: ID,
+    options?: RequestOptions,
+  ): Promise<ExternalCampaignSummary> {
+    return academyMutate(
+      `/academy/campaigns/${encodeId(campaignId)}/pause`,
+      'POST',
+      {},
+      options,
+    );
+  },
+
+  resumeCampaign(
+    campaignId: ID,
+    options?: RequestOptions,
+  ): Promise<ExternalCampaignSummary> {
+    return academyMutate(
+      `/academy/campaigns/${encodeId(campaignId)}/resume`,
+      'POST',
+      {},
+      options,
+    );
+  },
+
+  rotateCampaign(
+    campaignId: ID,
+    options?: RequestOptions,
+  ): Promise<ExternalCampaignSummary> {
+    return academyMutate(
+      `/academy/campaigns/${encodeId(campaignId)}/rotate-token`,
+      'POST',
+      {},
+      options,
+    );
+  },
+
+  revokeCampaign(
+    campaignId: ID,
+    options?: RequestOptions,
+  ): Promise<ExternalCampaignSummary> {
+    return academyMutate(
+      `/academy/campaigns/${encodeId(campaignId)}/revoke`,
+      'POST',
+      {},
+      options,
+    );
+  },
+
+  campaignReport(
+    campaignId: ID,
+    filtersOrOptions: { page?: number; pageSize?: number } | RequestOptions = {},
+    options?: RequestOptions,
+  ): Promise<CampaignReport> {
+    const isLegacyOptions =
+      'signal' in filtersOrOptions ||
+      'idempotencyKey' in filtersOrOptions ||
+      'authMode' in filtersOrOptions;
+    const filters: { page?: number; pageSize?: number } = isLegacyOptions
+      ? {}
+      : (filtersOrOptions as { page?: number; pageSize?: number });
+    const requestOptions: RequestOptions | undefined = isLegacyOptions
+      ? (filtersOrOptions as RequestOptions)
+      : options;
+    return academyGet(
+      `/academy/campaigns/${encodeId(campaignId)}/report${buildQuery(filters)}`,
+      requestOptions,
+    );
   },
 
   listLearners(

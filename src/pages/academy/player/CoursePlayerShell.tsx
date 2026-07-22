@@ -1,8 +1,17 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, PanelLeft, X } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { academyVersionsApi } from '@/api/academy';
+import { ApiError } from '@/api/client';
+import { queryKeys } from '@/api/queryKeys';
+import { Button } from '@/components/ui';
 import { cn } from '@/lib/cn';
-import type { CourseVersionLearnerDetail } from '@/types/academy';
+import type { CourseVersionLearnerDetail, LessonLearner } from '@/types/academy';
+import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
+import { LessonArticle } from './LessonArticle';
+import { QuizRunner } from './QuizRunner';
 export type CoursePlayerMode = 'internal' | 'external' | 'preview';
 
 export interface CoursePlayerShellProps {
@@ -75,7 +84,14 @@ export function CoursePlayerShell({
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-semibold text-slate-900 sm:text-base">{title}</h1>
           <div className="mt-0.5 flex items-center gap-2">
-            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100 sm:w-32">
+            <div
+              className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100 sm:w-32"
+              role="progressbar"
+              aria-label="Прогресс курса"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.min(100, Math.max(0, percent))}
+            >
               <div
                 className="h-full rounded-full bg-primary-500"
                 style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
@@ -156,6 +172,7 @@ function CourseOutlinePanel({
                       type="button"
                       disabled={lesson.locked}
                       onClick={() => onSelectLesson(lesson.id)}
+                      title={lesson.locked ? lesson.lockReason ?? 'Урок пока недоступен' : lesson.title}
                       className={cn(
                         'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition',
                         active && 'bg-primary-50 font-medium text-primary-800',
@@ -174,7 +191,7 @@ function CourseOutlinePanel({
                         )}
                         aria-hidden
                       />
-                      <span className="min-w-0 flex-1 truncate">{lesson.title}</span>
+                      <span className="line-clamp-2 min-w-0 flex-1">{lesson.title}</span>
                       {lesson.hasQuiz ? (
                         <span className="text-[10px] font-medium uppercase text-slate-400">
                           тест
@@ -193,9 +210,140 @@ function CourseOutlinePanel({
 }
 
 export function CoursePreviewPage() {
+  const { versionId, draftVersionId } = useParams();
+  const previewVersionId = versionId ?? draftVersionId ?? '';
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lessonFromUrl = searchParams.get('lesson') ?? undefined;
+  const previewQuery = useQuery({
+    queryKey: queryKeys.academyV2.draftOutline(previewVersionId),
+    queryFn: ({ signal }) => academyVersionsApi.getLearner(previewVersionId, { signal }),
+    enabled: Boolean(previewVersionId),
+    retry: false,
+  });
+  const outline = previewQuery.data;
+  const lessons = useMemo(
+    () =>
+      (outline?.sections ?? [])
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .flatMap((section) =>
+          section.lessons
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .map((lesson) => ({ ...lesson, sectionId: section.id })),
+        ),
+    [outline],
+  );
+
+  useEffect(() => {
+    if (!lessons[0]) return;
+    if (lessonFromUrl && lessons.some((lesson) => lesson.id === lessonFromUrl)) return;
+    setSearchParams({ lesson: lessons[0].id }, { replace: true });
+  }, [lessonFromUrl, lessons, setSearchParams]);
+
+  if (previewQuery.isError) {
+    const status = previewQuery.error instanceof ApiError ? previewQuery.error.status : 0;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page p-6">
+        <div className="max-w-md space-y-4 text-center">
+          <h1 className="text-lg font-semibold text-slate-900">
+            {status === 403 ? 'Предпросмотр недоступен' : 'Не удалось открыть предпросмотр'}
+          </h1>
+          <p className="text-sm text-slate-500">
+            Проверьте права на версию курса или повторите попытку.
+          </p>
+          <Button variant="secondary" onClick={() => navigate(-1)}>
+            Назад
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!outline) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page text-sm text-slate-500">
+        Загружаем предпросмотр…
+      </div>
+    );
+  }
+
+  const selected = lessons.find((lesson) => lesson.id === lessonFromUrl) ?? lessons[0];
+  const selectedLesson: LessonLearner | undefined = selected
+    ? {
+        id: selected.id,
+        courseId: outline.courseId,
+        sectionId: selected.sectionId,
+        versionId: outline.id,
+        title: selected.title,
+        order: selected.order,
+        content: selected.content ?? { type: 'doc', content: [] },
+        quiz: selected.quiz,
+        estimatedMinutes: selected.estimatedMinutes,
+        locked: false,
+        completed: false,
+      }
+    : undefined;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-page p-6 text-sm text-slate-500">
-      Preview player scaffold — Phase 3 (shared CoursePlayerShell, no writes).
-    </div>
+    <CoursePlayerShell
+      mode="preview"
+      title={outline.title}
+      percent={0}
+      headerLeft={
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <ArrowLeft className="size-4" />
+          <span className="hidden sm:inline">Назад</span>
+        </Button>
+      }
+      headerMeta={
+        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
+          {draftVersionId ? 'Черновик · без сохранения прогресса' : 'Версия · без сохранения прогресса'}
+        </span>
+      }
+      outline={{
+        ...outline,
+        sections: outline.sections.map((section) => ({
+          ...section,
+          lessons: section.lessons.map((lesson) => ({
+            ...lesson,
+            locked: false,
+            completed: false,
+          })),
+        })),
+      }}
+      currentLessonId={selected?.id}
+      onSelectLesson={(lessonId) => setSearchParams({ lesson: lessonId })}
+      outlineToggleIcon={<PanelLeft className="size-4" />}
+      callout={
+        <AcademyStatusCallout
+          tone="info"
+          title="Режим предпросмотра"
+          description="Завершение уроков, попытки тестов и прогресс в этом режиме не записываются."
+        />
+      }
+      content={
+        <div>
+          <LessonArticle lesson={selectedLesson} />
+          {selected && !selected.content ? (
+            <div className="mx-auto max-w-3xl px-4 pb-4 sm:px-6">
+              <AcademyStatusCallout
+                tone="neutral"
+                title="Содержимое урока пока недоступно"
+                description="Программа версии загружена, но сервер не вернул безопасное содержимое выбранного урока для предпросмотра."
+              />
+            </div>
+          ) : null}
+          {selectedLesson?.quiz ? (
+            <QuizRunner
+              quiz={selectedLesson.quiz}
+              disabled
+              onSubmit={() => undefined}
+            />
+          ) : null}
+        </div>
+      }
+    />
   );
 }

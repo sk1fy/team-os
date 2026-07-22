@@ -44,6 +44,7 @@ export function QuizRunner({
   lastResult,
   onSubmit,
   onRetry,
+  onContinue,
 }: {
   quiz: QuizLearner;
   disabled?: boolean;
@@ -51,6 +52,7 @@ export function QuizRunner({
   lastResult?: QuizAttemptResult | null;
   onSubmit: (answers: QuizAttemptAnswer[]) => void;
   onRetry?: () => void;
+  onContinue?: () => void;
 }) {
   const [draft, setDraft] = useState<QuizDraftAnswers>(() => emptyQuizDraft(quiz));
   const summaryRef = useRef<HTMLDivElement>(null);
@@ -145,7 +147,9 @@ export function QuizRunner({
                 {lastResult.pendingReview
                   ? '. Открытые ответы ждут проверки — урок нельзя завершить до решения.'
                   : lastResult.passed
-                    ? '. Можно завершить урок и продолжить.'
+                    ? onContinue
+                      ? '. Результат сохранён. Можно перейти к следующему уроку.'
+                      : '. Результат сохранён.'
                     : canRetry
                       ? `. Осталось попыток: ${
                           lastResult.maxAttempts == null
@@ -186,7 +190,11 @@ export function QuizRunner({
                   rows={3}
                 />
               ) : (
-                <ul className="mt-3 space-y-2">
+                <ul
+                  className="mt-3 space-y-2"
+                  role={question.type === 'single' ? 'radiogroup' : undefined}
+                  aria-label={question.type === 'single' ? question.text : undefined}
+                >
                   {question.options.map((option) => {
                     const checked = answer.optionIds.includes(option.id);
                     const isCorrectOption = feedback?.correctOptionIds?.includes(option.id);
@@ -202,13 +210,27 @@ export function QuizRunner({
                             isWrongSelected && 'border-red-300 bg-red-50',
                           )}
                         >
-                          <Checkbox
-                            checked={checked}
-                            disabled={disabled || showResult}
-                            onCheckedChange={() => toggleOption(question, option.id)}
-                            label={option.text}
-                            className="w-full"
-                          />
+                          {question.type === 'single' ? (
+                            <label className="flex w-full cursor-pointer items-center gap-2 text-sm text-slate-700">
+                              <input
+                                type="radio"
+                                name={`quiz-${quiz.id}-question-${question.id}`}
+                                checked={checked}
+                                disabled={disabled || showResult}
+                                onChange={() => toggleOption(question, option.id)}
+                                className="size-4 accent-primary-600"
+                              />
+                              <span>{option.text}</span>
+                            </label>
+                          ) : (
+                            <Checkbox
+                              checked={checked}
+                              disabled={disabled || showResult}
+                              onCheckedChange={() => toggleOption(question, option.id)}
+                              label={option.text}
+                              className="w-full"
+                            />
+                          )}
                         </div>
                       </li>
                     );
@@ -241,6 +263,10 @@ export function QuizRunner({
             onClick={() => onSubmit(draftToAnswers(draft))}
           >
             Проверить ответы
+          </Button>
+        ) : lastResult?.passed && onContinue ? (
+          <Button onClick={onContinue}>
+            Завершить и продолжить
           </Button>
         ) : canRetry ? (
           <Button

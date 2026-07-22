@@ -1,5 +1,5 @@
 import type { EnrollmentReport } from '@/types/academyExternal';
-import type { InternalReportResult, PaginatedResult } from '@/types/academy';
+import type { AcademyCourseSummary, InternalReportResult, PaginatedResult } from '@/types/academy';
 import type { ID } from '@/types';
 import type { InternalReportFilters } from '@/lib/academy/reportFilters';
 import { academyGet, buildQuery, encodeId, type RequestOptions } from './httpHelpers';
@@ -60,6 +60,18 @@ export const academyReportsApi = {
 
   enrollment(enrollmentId: ID, options?: RequestOptions): Promise<EnrollmentReport> {
     return academyGet(`/academy/enrollments/${encodeId(enrollmentId)}/report`, options);
+  },
+
+  /** Backend-plan §11.9: server-scoped partner course overview. */
+  partnerCourses(
+    partnerId: ID,
+    filters: { page?: number; pageSize?: number } = {},
+    options?: RequestOptions,
+  ): Promise<PaginatedResult<AcademyCourseSummary>> {
+    return academyGet(
+      `/academy/partners/${encodeId(partnerId)}/courses-report${buildQuery(filters)}`,
+      options,
+    );
   },
 
   internalCsvPath(filters: InternalReportFilters = {}): string {

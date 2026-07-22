@@ -19,6 +19,7 @@ import {
 } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 import { useAuthStore } from '@/stores/auth';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 
 /**
  * Role-aware reports:
@@ -29,6 +30,11 @@ export function AcademyReportsPage() {
   useTitle('Отчёты — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => parseReportFilters(searchParams), [searchParams]);
+  const debouncedQuery = useDebouncedValue(filters.q ?? '');
+  const serverFilters = useMemo(
+    () => ({ ...filters, q: debouncedQuery || undefined }),
+    [debouncedQuery, filters],
+  );
 
   const userQuery = useQuery({
     queryKey: queryKeys.currentUser,
@@ -40,17 +46,17 @@ export function AcademyReportsPage() {
   const isManager = role === 'owner' || role === 'admin';
 
   const internalQuery = useQuery({
-    queryKey: queryKeys.academyV2.internalReport(filters),
-    queryFn: ({ signal }) => academyReportsApi.internal(filters, { signal }),
+    queryKey: queryKeys.academyV2.internalReport(serverFilters),
+    queryFn: ({ signal }) => academyReportsApi.internal(serverFilters, { signal }),
     enabled: isManager,
   });
 
   const partnerQuery = useQuery({
-    queryKey: ['academy-v2', 'partner-external-report', filters],
+    queryKey: ['academy-v2', 'partner-external-report', serverFilters],
     queryFn: ({ signal }) =>
       academyReportsApi.partnerExternal(
         {
-          q: filters.q,
+          q: serverFilters.q,
           courseId: filters.courseId,
           page: filters.page,
           pageSize: filters.pageSize,

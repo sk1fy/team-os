@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { Button, Input } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { toast } from '@/stores/toast';
 
 export function AcademyCatalogPage() {
@@ -19,9 +20,15 @@ export function AcademyCatalogPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const q = searchParams.get('q') ?? '';
+  const debouncedQ = useDebouncedValue(q);
+  const requestedPage = Number(searchParams.get('page') ?? '1');
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
 
-  const filters = useMemo(() => ({ q: q || undefined, page: 1, pageSize: 24 }), [q]);
+  const filters = useMemo(
+    () => ({ q: debouncedQ || undefined, page, pageSize: 24 }),
+    [debouncedQ, page],
+  );
 
   const catalogQuery = useQuery({
     queryKey: queryKeys.academyV2.catalog(filters),
@@ -52,7 +59,8 @@ export function AcademyCatalogPage() {
     );
   }
 
-  const items = catalogQuery.data?.items ?? [];
+  const catalog = catalogQuery.data;
+  const items = catalog?.items ?? [];
 
   return (
     <div className="space-y-6">
@@ -70,6 +78,7 @@ export function AcademyCatalogPage() {
               const params = new URLSearchParams(prev);
               if (next) params.set('q', next);
               else params.delete('q');
+              params.delete('page');
               return params;
             });
           }}
@@ -137,6 +146,46 @@ export function AcademyCatalogPage() {
           ))}
         </div>
       )}
+
+      {catalog && catalog.totalPages > 1 ? (
+        <nav className="flex items-center justify-between gap-3" aria-label="Страницы каталога">
+          <span className="text-sm text-slate-500">
+            Страница {catalog.page} из {catalog.totalPages}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={page <= 1}
+              onClick={() => {
+                setSearchParams((prev) => {
+                  const params = new URLSearchParams(prev);
+                  const nextPage = page - 1;
+                  if (nextPage <= 1) params.delete('page');
+                  else params.set('page', String(nextPage));
+                  return params;
+                });
+              }}
+            >
+              Назад
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={page >= catalog.totalPages}
+              onClick={() => {
+                setSearchParams((prev) => {
+                  const params = new URLSearchParams(prev);
+                  params.set('page', String(page + 1));
+                  return params;
+                });
+              }}
+            >
+              Вперёд
+            </Button>
+          </div>
+        </nav>
+      ) : null}
     </div>
   );
 }

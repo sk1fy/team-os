@@ -41,6 +41,15 @@ const extensions = [
   TableCell,
 ];
 
+function isValidWebUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function ToolButton({
   active,
   label,
@@ -79,6 +88,13 @@ export function RichTextEditor({
   minHeight?: number;
   label?: string;
 }) {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkError, setLinkError] = useState<string>();
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageAlt, setImageAlt] = useState('');
+  const [imageError, setImageError] = useState<string>();
   const [videoOpen, setVideoOpen] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
   const [videoTitle, setVideoTitle] = useState('');
@@ -109,15 +125,28 @@ export function RichTextEditor({
   if (!editor) return null;
 
   const addLink = () => {
-    const href = window.prompt('URL');
-    if (!href) return;
+    const href = linkUrl.trim();
+    if (!isValidWebUrl(href)) {
+      setLinkError('Введите корректную ссылку, начинающуюся с http:// или https://.');
+      return;
+    }
     editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+    setLinkOpen(false);
+    setLinkUrl('');
+    setLinkError(undefined);
   };
 
   const addImage = () => {
-    const src = window.prompt('URL изображения');
-    if (!src) return;
-    editor.chain().focus().setImage({ src }).run();
+    const src = imageUrl.trim();
+    if (!isValidWebUrl(src)) {
+      setImageError('Введите корректную ссылку на изображение с http:// или https://.');
+      return;
+    }
+    editor.chain().focus().setImage({ src, alt: imageAlt.trim() || undefined }).run();
+    setImageOpen(false);
+    setImageUrl('');
+    setImageAlt('');
+    setImageError(undefined);
   };
 
   const addVideo = () => {
@@ -200,10 +229,26 @@ export function RichTextEditor({
           <ListOrdered className="size-4" />
         </ToolButton>
         <span className="mx-1 h-5 w-px bg-slate-200" />
-        <ToolButton label="Ссылка" active={editor.isActive('link')} onClick={addLink}>
+        <ToolButton
+          label="Ссылка"
+          active={editor.isActive('link')}
+          onClick={() => {
+            setLinkUrl(String(editor.getAttributes('link').href ?? ''));
+            setLinkError(undefined);
+            setLinkOpen(true);
+          }}
+        >
           <LinkIcon className="size-4" />
         </ToolButton>
-        <ToolButton label="Изображение" onClick={addImage}>
+        <ToolButton
+          label="Изображение"
+          onClick={() => {
+            setImageUrl('');
+            setImageAlt('');
+            setImageError(undefined);
+            setImageOpen(true);
+          }}
+        >
           <ImageIcon className="size-4" />
         </ToolButton>
         <ToolButton
@@ -225,6 +270,70 @@ export function RichTextEditor({
         </ToolButton>
       </div>
       <EditorContent editor={editor} className="px-4 py-3" />
+      <Modal
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
+        title="Добавить ссылку"
+        description="Укажите полный адрес страницы, начинающийся с http:// или https://."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setLinkOpen(false)}>
+              Отмена
+            </Button>
+            <Button disabled={!linkUrl.trim()} onClick={addLink}>
+              Добавить
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Ссылка"
+          value={linkUrl}
+          onChange={(event) => {
+            setLinkUrl(event.target.value);
+            setLinkError(undefined);
+          }}
+          placeholder="https://example.com"
+          error={linkError}
+          autoFocus
+        />
+      </Modal>
+      <Modal
+        open={imageOpen}
+        onOpenChange={setImageOpen}
+        title="Добавить изображение"
+        description="Вставьте прямую ссылку на изображение и при необходимости добавьте описание."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setImageOpen(false)}>
+              Отмена
+            </Button>
+            <Button disabled={!imageUrl.trim()} onClick={addImage}>
+              Добавить
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Ссылка на изображение"
+            value={imageUrl}
+            onChange={(event) => {
+              setImageUrl(event.target.value);
+              setImageError(undefined);
+            }}
+            placeholder="https://example.com/image.jpg"
+            error={imageError}
+            autoFocus
+          />
+          <Input
+            label="Описание для доступности"
+            value={imageAlt}
+            onChange={(event) => setImageAlt(event.target.value)}
+            placeholder="Например: схема рабочего процесса"
+          />
+        </div>
+      </Modal>
       <Modal
         open={videoOpen}
         onOpenChange={setVideoOpen}

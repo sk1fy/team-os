@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { academyExternalPublicApi } from '@/api/academy';
 import { ApiError } from '@/api/client';
@@ -17,13 +17,18 @@ import { AcademyStatusCallout } from '@/pages/academy/components/AcademyStatusCa
 export function ExternalAccessPage() {
   const { token = '' } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   useTitle('Обучение — TeamOS');
 
-  const [email, setEmail] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const activationKey = useRef(crypto.randomUUID());
 
   const landingQuery = useQuery({
     queryKey: queryKeys.externalAcademy.access(token),
@@ -32,14 +37,31 @@ export function ExternalAccessPage() {
     staleTime: 30_000,
   });
 
+  const landing = landingQuery.data;
+  const emailLocked = Boolean(landing?.emailLocked && landing.expectedEmail);
+
+  useEffect(() => {
+    if (!challengeId) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [challengeId]);
+
+  const clearSensitiveAccessQuery = () => {
+    queryClient.removeQueries({ queryKey: queryKeys.externalAcademy.access(token), exact: true });
+  };
+
   const startVerify = useMutation({
     mutationFn: () =>
       academyExternalPublicApi.startVerification(token, {
-        email: email.trim(),
-        displayName: displayName.trim() || undefined,
+        email: (email ?? landing?.expectedEmail ?? '').trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || undefined,
+        phone: phone.trim() || undefined,
       }),
     onSuccess: (challenge) => {
       setChallengeId(challenge.challengeId);
+      setCode('');
+      setNow(Date.now());
       toast.success('Код отправлен на email');
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Не удалось отправить код'),
@@ -50,23 +72,30 @@ export function ExternalAccessPage() {
       academyExternalPublicApi.confirmVerification(challengeId!, { code: code.trim() }),
     onSuccess: (session) => {
       setReady(true);
-      if (session.readyEnrollmentId) {
-        navigate(academyRoutes.externalPlayer(session.readyEnrollmentId), { replace: true });
+      const enrollmentId = session.readyEnrollmentId ?? session.enrollmentId;
+      if (enrollmentId) {
+        clearSensitiveAccessQuery();
+        navigate(academyRoutes.externalPlayer(enrollmentId), { replace: true });
       }
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Неверный код'),
   });
 
   const activate = useMutation({
-    mutationFn: () => academyExternalPublicApi.activate(token),
+    mutationFn: () =>
+      academyExternalPublicApi.activate(token, { idempotencyKey: activationKey.current }),
     onSuccess: ({ enrollmentId }) => {
+      clearSensitiveAccessQuery();
       navigate(academyRoutes.externalPlayer(enrollmentId), { replace: true });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Не удалось активировать'),
   });
 
-  const landing = landingQuery.data;
   const deadlineDays = landing?.deadlineDays ?? landing?.defaultDeadlineDays;
+  const resendAt = challengeId ? startVerify.data?.resendAvailableAt : undefined;
+  const resendSeconds = resendAt
+    ? Math.max(0, Math.ceil((Date.parse(resendAt) - now) / 1_000))
+    : 0;
 
   if (landingQuery.isLoading) {
     return (
@@ -84,6 +113,28 @@ export function ExternalAccessPage() {
           title="Ссылка недоступна"
           description="Ссылка недействительна, истекла или отозвана."
         />
+      </div>
+    );
+  }
+
+  if (landing.status === 'already_activated' && landing.existingEnrollmentId) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-6">
+        <AcademyStatusCallout
+          tone="info"
+          title={landing.courseTitle}
+          description="Этот доступ уже активирован. Продолжите с сохранённого места."
+        />
+        <Button
+          onClick={() => {
+            clearSensitiveAccessQuery();
+            navigate(academyRoutes.externalPlayer(landing.existingEnrollmentId!), {
+              replace: true,
+            });
+          }}
+        >
+          Продолжить обучение
+        </Button>
       </div>
     );
   }
@@ -106,11 +157,12 @@ export function ExternalAccessPage() {
         />
         {landing.existingEnrollmentId ? (
           <Button
-            onClick={() =>
+            onClick={() => {
+              clearSensitiveAccessQuery();
               navigate(academyRoutes.externalPlayer(landing.existingEnrollmentId!), {
                 replace: true,
-              })
-            }
+              });
+            }}
           >
             Открыть существующее прохождение
           </Button>
@@ -152,24 +204,51 @@ export function ExternalAccessPage() {
           }}
         >
           <Input
+            label="Имя"
+            required
+            pattern=".*\S.*"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            autoComplete="given-name"
+          />
+          <Input
+            label="Фамилия"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Необязательно"
+            autoComplete="family-name"
+          />
+          <Input
             label="Email"
             type="email"
             required
-            value={email}
+            value={email ?? landing.expectedEmail ?? ''}
+            disabled={emailLocked}
+            hint={
+              landing.maskedEmail && !emailLocked
+                ? `Ссылка предназначена для ${landing.maskedEmail}`
+                : undefined
+            }
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
           />
           <Input
-            label="Как к вам обращаться"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            label="Телефон"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
             placeholder="Необязательно"
+            autoComplete="tel"
           />
           <Button type="submit" className="w-full" loading={startVerify.isPending}>
             Получить код подтверждения
           </Button>
           <p className="text-xs text-slate-500">
             Подтверждение email не запускает срок. Срок начнётся после «Активировать и начать».
+          </p>
+          <p className="text-xs text-slate-500">
+            Продолжая, вы соглашаетесь на обработку указанных данных только для идентификации,
+            прохождения курса и сохранения результата. Аккаунт TeamOS не создаётся.
           </p>
         </form>
       ) : null}
@@ -187,11 +266,44 @@ export function ExternalAccessPage() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             inputMode="numeric"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            required
             autoComplete="one-time-code"
           />
           <Button type="submit" className="w-full" loading={confirmVerify.isPending}>
             Подтвердить email
           </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={startVerify.isPending || resendSeconds > 0}
+              onClick={() => startVerify.mutate()}
+            >
+              {resendSeconds > 0
+                ? `Отправить снова через ${resendSeconds} с`
+                : 'Отправить код снова'}
+            </Button>
+            {!emailLocked ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setChallengeId(null);
+                  setCode('');
+                  setReady(false);
+                }}
+              >
+                Изменить email
+              </Button>
+            ) : null}
+          </div>
+          {startVerify.data?.expiresAt ? (
+            <p className="text-xs text-slate-500">Код действует 10 минут с момента отправки.</p>
+          ) : null}
         </form>
       ) : null}
 
@@ -206,7 +318,12 @@ export function ExternalAccessPage() {
                 : 'Отсчёт срока начнётся сразу после активации.'
             }
           />
-          <Button className="w-full" loading={activate.isPending} onClick={() => activate.mutate()}>
+          <Button
+            className="w-full"
+            loading={activate.isPending}
+            disabled={activate.isPending}
+            onClick={() => activate.mutate()}
+          >
             Активировать и начать
           </Button>
         </div>

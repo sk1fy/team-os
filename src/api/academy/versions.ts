@@ -133,13 +133,25 @@ export const academyVersionsApi = {
 
   upsertQuiz(
     lessonId: ID,
-    input: Omit<QuizAuthor, 'id' | 'lessonId'> & { id?: ID },
+    input: Omit<QuizAuthor, 'id' | 'lessonId' | 'maxAttempts'> & {
+      id?: ID;
+      maxAttempts?: number | null;
+    },
     options?: RequestOptions,
   ): Promise<QuizAuthor> {
     return academyMutate(
       `/academy/course-version-lessons/${encodeId(lessonId)}/quiz`,
       'PUT',
       input,
+      options,
+    );
+  },
+
+  deleteQuiz(lessonId: ID, options?: RequestOptions): Promise<void> {
+    return academyMutate(
+      `/academy/course-version-lessons/${encodeId(lessonId)}/quiz`,
+      'DELETE',
+      undefined,
       options,
     );
   },

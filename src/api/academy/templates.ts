@@ -32,6 +32,32 @@ export const academyTemplatesApi = {
     return academyGet(`/academy/templates/${encodeId(templateId)}/preview`, options);
   },
 
+  createDraft(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {
+    return academyMutate(`/academy/templates/${encodeId(templateId)}/draft`, 'POST', {}, options);
+  },
+
+  updateDraft(
+    templateId: ID,
+    input: { title?: string; description?: string },
+    options?: RequestOptions,
+  ): Promise<AcademyTemplateSummary> {
+    return academyMutate(
+      `/academy/templates/${encodeId(templateId)}/draft`,
+      'PATCH',
+      input,
+      options,
+    );
+  },
+
+  publish(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {
+    return academyMutate(
+      `/academy/templates/${encodeId(templateId)}/publish`,
+      'POST',
+      {},
+      options,
+    );
+  },
+
   /** Instantiate a published template version into an independent course draft. */
   instantiate(
     templateVersionId: ID,

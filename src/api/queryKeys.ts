@@ -90,7 +90,9 @@ export const queryKeys = {
     draft: (courseId: ID | null | undefined) => ['academy-v2', 'draft', courseId] as const,
     draftOutline: (draftVersionId: ID | null | undefined) =>
       ['academy-v2', 'draft-outline', draftVersionId] as const,
-    templates: (filters?: unknown) => ['academy-v2', 'templates', filters] as const,
+    templatesRoot: ['academy-v2', 'templates'] as const,
+    templates: (filters?: unknown) =>
+      ['academy-v2', 'templates', 'list', filters] as const,
     template: (templateId: ID | null | undefined) =>
       ['academy-v2', 'template', templateId] as const,
     partnerCourses: (partnerId: ID | null | undefined, filters?: unknown) =>

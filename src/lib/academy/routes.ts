@@ -101,6 +101,8 @@ export function canAccessAcademyPath(role: UserRole | undefined, pathname: strin
   if (role === 'partner') {
     if (path.startsWith('/academy/partners')) return false;
     if (path.startsWith('/academy/courses')) return true;
+    // A partner may use templates, but editing company templates is owner/admin-only.
+    if (/^\/academy\/templates\/[^/]+\/builder\/?$/.test(path)) return false;
     if (path.startsWith('/academy/templates')) return true;
     if (path.startsWith('/academy/reports')) return true;
     if (path.startsWith('/academy/learners')) return true;
@@ -115,6 +117,7 @@ export function canAccessAcademyPath(role: UserRole | undefined, pathname: strin
 }
 
 export const legacyAcademyRedirects: Array<{ from: string; to: string }> = [
+  { from: '/academy/:courseId', to: '/academy/courses/:courseId' },
   { from: '/academy-opus', to: '/academy' },
   { from: '/academy-grok', to: '/academy' },
   { from: '/academy-grok/catalog', to: '/academy/catalog' },

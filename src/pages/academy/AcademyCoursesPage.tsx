@@ -18,11 +18,15 @@ import {
 } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from './components/StatusBadge';
 import { CreateCourseModal } from './CreateCourseModal';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 
 export function AcademyCoursesPage() {
   useTitle('Курсы — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') ?? '';
+  const debouncedQ = useDebouncedValue(q);
+  const requestedPage = Number(searchParams.get('page') ?? '1');
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -43,15 +47,17 @@ export function AcademyCoursesPage() {
     queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
+  const isPartner = userQuery.data?.role === 'partner';
 
   const filters = useMemo(
     () => ({
-      q: q || undefined,
-      page: 1,
+      q: debouncedQ || undefined,
+      ownerType: isPartner ? ('partner' as const) : ('company' as const),
+      page,
       pageSize: 30,
       sort: 'updated_desc' as const,
     }),
-    [q],
+    [debouncedQ, isPartner, page],
   );
 
   const coursesQuery = useQuery({
@@ -60,7 +66,6 @@ export function AcademyCoursesPage() {
     enabled: canManageAcademyCourses(userQuery.data?.role),
   });
 
-  const isPartner = userQuery.data?.role === 'partner';
   const title = isPartner ? 'Мои курсы' : 'Курсы компании';
 
   if (userQuery.data && !canManageAcademyCourses(userQuery.data.role)) {
@@ -108,6 +113,7 @@ export function AcademyCoursesPage() {
             const params = new URLSearchParams(prev);
             if (next) params.set('q', next);
             else params.delete('q');
+            params.delete('page');
             return params;
           });
         }}
@@ -186,6 +192,16 @@ export function AcademyCoursesPage() {
           </table>
         </div>
       )}
+
+      {coursesQuery.data && coursesQuery.data.totalPages > 1 ? (
+        <nav className="flex items-center justify-between gap-3" aria-label="Страницы списка курсов">
+          <span className="text-sm text-slate-500">Страница {coursesQuery.data.page} из {coursesQuery.data.totalPages}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); if (page <= 2) next.delete('page'); else next.set('page', String(page - 1)); return next; })}>Назад</Button>
+            <Button size="sm" variant="secondary" disabled={page >= coursesQuery.data.totalPages} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('page', String(page + 1)); return next; })}>Далее</Button>
+          </div>
+        </nav>
+      ) : null}
 
       <CreateCourseModal
         open={createOpen}

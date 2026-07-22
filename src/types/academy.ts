@@ -201,6 +201,12 @@ export interface SectionLearner {
     locked: boolean;
     completed: boolean;
     hasQuiz: boolean;
+    /** Optional reason supplied by the server for an unavailable lesson. */
+    lockReason?: string;
+    /** Preview read models may inline learner-safe lesson content. */
+    content?: RichTextContent;
+    quiz?: QuizLearner;
+    estimatedMinutes?: number;
   }>;
 }
 
@@ -361,6 +367,8 @@ export interface AcademyTemplateSummary {
   latestVersionNumber?: number;
   /** Published template version id required for instantiate. */
   latestVersionId?: ID;
+  /** Present for editable company templates when a mutable draft exists. */
+  draftVersionId?: ID;
   archived?: boolean;
   capabilities: {
     canInstantiate: boolean;

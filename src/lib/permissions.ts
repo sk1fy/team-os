@@ -4,6 +4,14 @@ import { isAcademyV2Enabled } from '@/lib/academy/featureFlag';
 
 export const employeeHomePath = '/schedule';
 
+/** A destination that is guaranteed to be available to the role. */
+export function safeHomePath(role: UserRole | undefined): string {
+  if (role === 'employee') return employeeHomePath;
+  if (role === 'partner') return '/academy';
+  if (role === 'owner' || role === 'admin') return '/';
+  return '/auth/login';
+}
+
 /** Explicit module matrix — never “allow all if not employee”. */
 export type AppModule =
   | 'dashboard'

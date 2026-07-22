@@ -33,7 +33,11 @@ export function AcademyPartnerCoursesPage() {
 
   const copy = useMutation({
     mutationFn: (input: { courseId: string; versionId: string }) =>
-      academyCoursesApi.copyToCompany(input.courseId, { versionId: input.versionId }),
+      academyCoursesApi.copyToCompany(
+        input.courseId,
+        { versionId: input.versionId },
+        { idempotencyKey: crypto.randomUUID() },
+      ),
     onSuccess: (course) => {
       toast.success('Копия создана как draft компании');
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
@@ -43,8 +47,8 @@ export function AcademyPartnerCoursesPage() {
   });
 
   const pause = useMutation({
-    mutationFn: (courseId: string) =>
-      academyCoursesApi.pauseDistribution(courseId, { reason: 'Приостановлено администрацией' }),
+    mutationFn: (input: { courseId: string; reason: string }) =>
+      academyCoursesApi.pauseDistribution(input.courseId, { reason: input.reason }),
     onSuccess: () => {
       toast.success('Распространение приостановлено');
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
@@ -53,20 +57,22 @@ export function AcademyPartnerCoursesPage() {
   });
 
   const block = useMutation({
-    mutationFn: (courseId: string) => {
-      if (!window.confirm('Экстренная блокировка остановит активные прохождения. Продолжить?')) {
-        return Promise.reject(new Error('cancelled'));
-      }
-      return academyCoursesApi.block(courseId, { reason: 'Экстренная блокировка' });
-    },
+    mutationFn: (input: { courseId: string; reason: string }) =>
+      academyCoursesApi.block(input.courseId, { reason: input.reason }),
     onSuccess: () => {
       toast.success('Курс заблокирован');
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
-    onError: (e) => {
-      if (e instanceof Error && e.message === 'cancelled') return;
-      toast.error(e instanceof ApiError ? e.message : 'Ошибка');
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка'),
+  });
+
+  const resolveRestriction = useMutation({
+    mutationFn: (courseId: string) => academyCoursesApi.resolveRestriction(courseId),
+    onSuccess: () => {
+      toast.success('Ограничение снято');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка'),
   });
 
   const items = coursesQuery.data?.items ?? [];
@@ -153,7 +159,10 @@ export function AcademyPartnerCoursesPage() {
                           size="sm"
                           variant="secondary"
                           loading={pause.isPending}
-                          onClick={() => pause.mutate(course.id)}
+                          onClick={() => {
+                            const reason = window.prompt('Причина приостановки распространения:')?.trim();
+                            if (reason) pause.mutate({ courseId: course.id, reason });
+                          }}
                         >
                           Пауза
                         </Button>
@@ -163,9 +172,23 @@ export function AcademyPartnerCoursesPage() {
                           size="sm"
                           variant="danger"
                           loading={block.isPending}
-                          onClick={() => block.mutate(course.id)}
+                          onClick={() => {
+                            if (!window.confirm('Экстренная блокировка остановит активные прохождения. Продолжить?')) return;
+                            const reason = window.prompt('Обязательная причина блокировки:')?.trim();
+                            if (reason) block.mutate({ courseId: course.id, reason });
+                          }}
                         >
                           Блок
+                        </Button>
+                      ) : null}
+                      {course.capabilities.canResolveRestriction && course.distributionStatus !== 'active' ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={resolveRestriction.isPending}
+                          onClick={() => resolveRestriction.mutate(course.id)}
+                        >
+                          Снять ограничение
                         </Button>
                       ) : null}
                     </div>

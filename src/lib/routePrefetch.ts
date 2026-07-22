@@ -5,6 +5,8 @@
  */
 import { isAcademyV2Enabled } from '@/lib/academy';
 
+const academyV2 = isAcademyV2Enabled();
+
 const loaders: Record<string, () => Promise<unknown>> = {
   '/': () => import('@/pages/DashboardPage'),
   '/employees': () => import('@/pages/employees/EmployeesPage'),
@@ -18,8 +20,16 @@ const loaders: Record<string, () => Promise<unknown>> = {
       : import('@/pages/academy/AcademyPage'),
   '/academy/catalog': () => import('@/pages/academy/AcademyCatalogPage'),
   '/academy/courses': () => import('@/pages/academy/AcademyCoursesPage'),
-  '/academy-opus': () => import('@/pages/academy-opus/AcademyOpusPage'),
-  '/academy-grok': () => import('@/pages/academy-grok/AcademyGrokHomePage'),
+  '/academy/partners': () => import('@/pages/academy/partners/AcademyPartnerCoursesPage'),
+  '/academy/templates': () => import('@/pages/academy/templates/AcademyTemplatesPage'),
+  '/academy/reports': () => import('@/pages/academy/reports/AcademyReportsPage'),
+  '/academy/learners': () => import('@/pages/academy/AcademyPlaceholderPage'),
+  ...(!academyV2
+    ? {
+        '/academy-opus': () => import('@/pages/academy-opus/AcademyOpusPage'),
+        '/academy-grok': () => import('@/pages/academy-grok/AcademyGrokHomePage'),
+      }
+    : {}),
   '/settings': () => import('@/pages/SettingsPage'),
   '/activity-control': () => import('@/pages/activity-control/ActivityControlPage'),
   '/duplicate-search': () => import('@/pages/duplicate-search/DuplicateSearchPage'),

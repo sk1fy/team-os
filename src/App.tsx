@@ -6,7 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireAuth } from '@/components/auth/AuthBootstrap';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { authApi } from '@/api';
-import { canAccessRoute, canManageIntegrations, employeeHomePath } from '@/lib/permissions';
+import { canAccessRoute, canManageIntegrations, safeHomePath } from '@/lib/permissions';
 import { isAcademyV2Enabled } from '@/lib/academy';
 
 const DashboardPage = lazy(() =>
@@ -125,9 +125,9 @@ const LegacyCourseEnrollmentResolver = lazy(() =>
     default: module.LegacyCourseEnrollmentResolver,
   })),
 );
-const TemplateBuilderPlaceholder = lazy(() =>
-  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
-    default: module.AcademyTemplatePage,
+const TemplateBuilderPage = lazy(() =>
+  import('@/pages/academy/templates/TemplateBuilderPage').then((module) => ({
+    default: module.TemplateBuilderPage,
   })),
 );
 const CoursePreviewPage = lazy(() =>
@@ -136,7 +136,7 @@ const CoursePreviewPage = lazy(() =>
   })),
 );
 const AcademyPartnerCoursesPage = lazy(() =>
-  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+  import('@/pages/academy/partners/AcademyPartnerCoursesPage').then((module) => ({
     default: module.AcademyPartnerCoursesPage,
   })),
 );
@@ -146,7 +146,7 @@ const AcademyPartnerPage = lazy(() =>
   })),
 );
 const AcademyTemplatesPage = lazy(() =>
-  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+  import('@/pages/academy/templates/AcademyTemplatesPage').then((module) => ({
     default: module.AcademyTemplatesPage,
   })),
 );
@@ -156,7 +156,7 @@ const AcademyTemplatePage = lazy(() =>
   })),
 );
 const AcademyReportsPage = lazy(() =>
-  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+  import('@/pages/academy/reports/AcademyReportsPage').then((module) => ({
     default: module.AcademyReportsPage,
   })),
 );
@@ -263,6 +263,55 @@ function RedirectAcademyCourse() {
   return <Navigate to={`/academy/courses/${courseId}`} replace />;
 }
 
+function AccessDenied({ homePath }: { homePath: string }) {
+  return (
+    <main className="flex min-h-dvh items-center justify-center bg-page p-6">
+      <div className="max-w-md space-y-4 text-center">
+        <h1 className="text-xl font-semibold text-slate-950">Недостаточно прав</h1>
+        <p className="text-sm text-slate-500">У вас нет доступа к этой странице.</p>
+        <a
+          href={homePath}
+          className="inline-flex rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+        >
+          Вернуться в доступный раздел
+        </a>
+      </div>
+    </main>
+  );
+}
+
+/**
+ * Old external assignments used /learn/:courseId?token=... . The new external
+ * contract needs a /training token and cannot safely translate this URL in the
+ * browser. Fail closed without sending the legacy token to authenticated APIs.
+ */
+function AcademyLearnEntry() {
+  const { search } = useLocation();
+  const hasLegacyExternalToken = new URLSearchParams(search).has('token');
+
+  if (hasLegacyExternalToken) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-page p-6">
+        <div className="max-w-md space-y-4 text-center">
+          <h1 className="text-xl font-semibold text-slate-950">Ссылка устарела</h1>
+          <p className="text-sm text-slate-500">
+            Эта внешняя ссылка создана в старой версии Академии. Попросите автора курса прислать
+            новую защищённую ссылку вида /training/…
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <RequireAuth>
+      <RequireModule>
+        <LearnRouteEntry />
+      </RequireModule>
+    </RequireAuth>
+  );
+}
+
 function RequireModule({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { data: currentUser } = useQuery({
@@ -270,7 +319,7 @@ function RequireModule({ children }: { children: ReactNode }) {
     queryFn: authApi.getCurrentUser,
   });
   if (currentUser && !canAccessRoute(currentUser.role, pathname)) {
-    return <Navigate to={employeeHomePath} replace />;
+    return <AccessDenied homePath={safeHomePath(currentUser.role)} />;
   }
   return children;
 }
@@ -281,7 +330,7 @@ function RequireIntegrationAccess({ children }: { children: ReactNode }) {
     queryFn: authApi.getCurrentUser,
   });
   if (currentUser && !canManageIntegrations(currentUser.role)) {
-    return <Navigate to={employeeHomePath} replace />;
+    return <AccessDenied homePath={safeHomePath(currentUser.role)} />;
   }
   return children;
 }
@@ -317,27 +366,30 @@ export function App() {
           <Route path="/distribution/:groupId" element={<DistributionGroupPage />} />
 
           {academyV2 ? (
-            <Route path="/academy" element={<AcademyLayout />}>
-              <Route index element={<AcademyHomePage />} />
-              <Route path="catalog" element={<AcademyCatalogPage />} />
-              <Route path="courses" element={<AcademyCoursesPage />} />
-              <Route path="courses/:courseId" element={<CourseWorkspacePage />} />
-              <Route path="courses/:courseId/versions" element={<CourseVersionsPage />} />
-              <Route path="courses/:courseId/distribution" element={<CourseDistributionPage />} />
-              <Route path="courses/:courseId/reports" element={<CourseReportsPage />} />
-              <Route path="partners" element={<AcademyPartnerCoursesPage />} />
-              <Route path="partners/:partnerId" element={<AcademyPartnerPage />} />
-              <Route path="templates" element={<AcademyTemplatesPage />} />
-              <Route path="templates/:templateId" element={<AcademyTemplatePage />} />
-              <Route path="reports" element={<AcademyReportsPage />} />
-              <Route path="learners" element={<AcademyLearnersPage />} />
-              <Route path="learners/:learnerId" element={<AcademyLearnerPage />} />
-              <Route path="campaigns/:campaignId" element={<AcademyCampaignPage />} />
-              <Route
-                path="enrollments/:enrollmentId/report"
-                element={<AcademyEnrollmentReportPage />}
-              />
-            </Route>
+            <>
+              <Route path="/academy" element={<AcademyLayout />}>
+                <Route index element={<AcademyHomePage />} />
+                <Route path="catalog" element={<AcademyCatalogPage />} />
+                <Route path="courses" element={<AcademyCoursesPage />} />
+                <Route path="courses/:courseId" element={<CourseWorkspacePage />} />
+                <Route path="courses/:courseId/versions" element={<CourseVersionsPage />} />
+                <Route path="courses/:courseId/distribution" element={<CourseDistributionPage />} />
+                <Route path="courses/:courseId/reports" element={<CourseReportsPage />} />
+                <Route path="partners" element={<AcademyPartnerCoursesPage />} />
+                <Route path="partners/:partnerId" element={<AcademyPartnerPage />} />
+                <Route path="templates" element={<AcademyTemplatesPage />} />
+                <Route path="templates/:templateId" element={<AcademyTemplatePage />} />
+                <Route path="reports" element={<AcademyReportsPage />} />
+                <Route path="learners" element={<AcademyLearnersPage />} />
+                <Route path="learners/:learnerId" element={<AcademyLearnerPage />} />
+                <Route path="campaigns/:campaignId" element={<AcademyCampaignPage />} />
+                <Route
+                  path="enrollments/:enrollmentId/report"
+                  element={<AcademyEnrollmentReportPage />}
+                />
+              </Route>
+              <Route path="/academy/:courseId" element={<RedirectAcademyCourse />} />
+            </>
           ) : (
             <>
               <Route path="/academy" element={<AcademyPage />} />
@@ -411,7 +463,7 @@ export function App() {
               element={
                 <RequireAuth>
                   <RequireModule>
-                    <TemplateBuilderPlaceholder />
+                    <TemplateBuilderPage />
                   </RequireModule>
                 </RequireAuth>
               }
@@ -438,13 +490,7 @@ export function App() {
             />
             <Route
               path="/learn/:enrollmentId"
-              element={
-                <RequireAuth>
-                  <RequireModule>
-                    <LearnRouteEntry />
-                  </RequireModule>
-                </RequireAuth>
-              }
+              element={<AcademyLearnEntry />}
             />
             {/* Explicit legacy alias */}
             <Route

@@ -13,6 +13,7 @@ import { authApi } from '@/api';
 import { queryKeys } from '@/api/queryKeys';
 import { academyNavForRole, type AcademyNavItemId } from '@/lib/academy';
 import { cn } from '@/lib/cn';
+import { prefetchRoute } from '@/lib/routePrefetch';
 
 const icons: Record<AcademyNavItemId, typeof LayoutDashboard> = {
   home: LayoutDashboard,
@@ -36,7 +37,7 @@ export function AcademyNav() {
 
   return (
     <nav
-      className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1"
+      className="flex flex-nowrap gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-1"
       aria-label="Разделы Академии"
     >
       {items.map(({ id, to, label, end }) => {
@@ -46,9 +47,11 @@ export function AcademyNav() {
             key={id}
             to={to}
             end={end}
+            onMouseEnter={() => prefetchRoute(to)}
+            onFocus={() => prefetchRoute(to)}
             className={({ isActive }) =>
               cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-surface text-slate-950 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900',

@@ -45,7 +45,7 @@ VITE_ACADEMY_V2=true
 
 - канонические маршруты `/academy/*`, player `/learn/:enrollmentId`;
 - публичный external flow `/training/:token`;
-- API adapters в `src/api/academy/` (`/academy/v2/*`);
+- API adapters в `src/api/academy/` (`/academy/*` относительно `/api/v1`);
 - query keys: `queryKeys.academyV2`, `queryKeys.externalAcademy`.
 
 Экспериментальные Opus/Grok остаются до cutover (Phase 9). Чеклист миграции:

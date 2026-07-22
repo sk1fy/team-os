@@ -47,6 +47,21 @@ function firstAvailableLessonId(enrollment: EnrollmentDetail): string | undefine
   );
 }
 
+function nextAvailableLessonId(
+  enrollment: EnrollmentDetail,
+  currentLessonId: string | undefined,
+): string | undefined {
+  if (enrollment.currentLessonId && enrollment.currentLessonId !== currentLessonId) {
+    const serverCurrent = flattenLessons(enrollment).find(
+      (lesson) => lesson.id === enrollment.currentLessonId && !lesson.locked,
+    );
+    if (serverCurrent) return serverCurrent.id;
+  }
+  const lessons = flattenLessons(enrollment);
+  const currentIndex = lessons.findIndex((lesson) => lesson.id === currentLessonId);
+  return lessons.slice(currentIndex + 1).find((lesson) => !lesson.locked)?.id;
+}
+
 export function InternalEnrollmentPlayerPage() {
   const { enrollmentId = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,6 +69,7 @@ export function InternalEnrollmentPlayerPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [quizResult, setQuizResult] = useState<QuizAttemptResult | null>(null);
+  const [quizContinueLessonId, setQuizContinueLessonId] = useState<string | null>(null);
 
   const enrollmentQuery = useQuery({
     queryKey: queryKeys.academyV2.enrollment(enrollmentId),
@@ -126,6 +142,7 @@ export function InternalEnrollmentPlayerPage() {
 
   useEffect(() => {
     setQuizResult(null);
+    setQuizContinueLessonId(null);
   }, [currentLessonId]);
 
   const selectLesson = (lessonId: string) => {
@@ -165,12 +182,7 @@ export function InternalEnrollmentPlayerPage() {
           ? 'Курс завершён!'
           : 'Урок отмечен как пройденный',
       );
-      const nextId =
-        updated.currentLessonId && updated.currentLessonId !== currentLessonId
-          ? updated.currentLessonId
-          : nextLesson && !nextLesson.locked
-            ? nextLesson.id
-            : undefined;
+      const nextId = nextAvailableLessonId(updated, currentLessonId);
       if (nextId) selectLesson(nextId);
     },
     onError: (error) => {
@@ -187,12 +199,8 @@ export function InternalEnrollmentPlayerPage() {
       applyEnrollmentUpdate(updated);
       if (attempt.passed) {
         toast.success(`Тест пройден · ${attempt.score}%`);
-        // Server already completed the lesson on pass — advance if next lesson unlocked.
-        const nextId =
-          updated.currentLessonId && updated.currentLessonId !== currentLessonId
-            ? updated.currentLessonId
-            : undefined;
-        if (nextId) selectLesson(nextId);
+        // Keep inline feedback visible; navigation happens only after explicit user action.
+        setQuizContinueLessonId(nextAvailableLessonId(updated, currentLessonId) ?? null);
       } else if (attempt.pendingReview) {
         toast.info('Ответы отправлены на проверку');
       } else {
@@ -317,6 +325,11 @@ export function InternalEnrollmentPlayerPage() {
               lastResult={quizResult}
               onSubmit={(answers) => quizMutation.mutate(answers)}
               onRetry={() => setQuizResult(null)}
+              onContinue={
+                quizResult?.passed && quizContinueLessonId
+                  ? () => selectLesson(quizContinueLessonId)
+                  : undefined
+              }
             />
           ) : null}
           {quizBlocksComplete && !readOnly ? (
