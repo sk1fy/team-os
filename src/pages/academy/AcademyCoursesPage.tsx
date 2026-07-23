@@ -19,6 +19,7 @@ import {
 import { StatusBadgeFromPresentation } from './components/StatusBadge';
 import { CreateCourseModal } from './CreateCourseModal';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import type { AcademyListFilters } from '@/types/academy';
 
 export function AcademyCoursesPage() {
   useTitle('Курсы — Академия — TeamOS');
@@ -51,7 +52,7 @@ export function AcademyCoursesPage() {
   });
   const isPartner = userQuery.data?.role === 'partner';
 
-  const filters = useMemo(
+  const filters = useMemo<AcademyListFilters>(
     () => ({
       q: debouncedQ || undefined,
       ownerType: isPartner ? ('partner' as const) : ('company' as const),

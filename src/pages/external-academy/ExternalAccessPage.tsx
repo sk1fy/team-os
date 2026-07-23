@@ -215,7 +215,7 @@ export function ExternalAccessPage() {
     );
   }
 
-  if (landing.status !== 'valid' && landing.status !== 'already_activated') {
+  if (landing.status !== 'valid') {
     const messages: Record<string, string> = {
       expired: 'Срок ссылки истёк.',
       revoked: 'Доступ отозван автором.',
