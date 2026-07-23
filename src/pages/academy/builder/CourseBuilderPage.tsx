@@ -55,19 +55,13 @@ import { ErrorState } from '@/components/layout/ErrorState';
 import { academyRoutes, resolveCourseCapabilities } from '@/lib/academy';
 import { cn } from '@/lib/cn';
 import { plural } from '@/lib/format';
+import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import type { RichTextContent } from '@/types';
-import type {
-  CourseVersionAuthorDetail,
-  LessonAuthor,
-  QuizAuthor,
-} from '@/types/academy';
+import type { CourseVersionAuthorDetail, LessonAuthor, QuizAuthor } from '@/types/academy';
 import { authApi } from '@/api';
 import { CourseSettingsDrawer } from './CourseSettingsDrawer';
-import {
-  PublishDialog,
-  type PublishValidationIssue,
-} from './PublishDialog';
+import { PublishDialog, type PublishValidationIssue } from './PublishDialog';
 import { QuizEditor, createEmptyQuiz, validateQuiz } from './QuizEditor';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
@@ -212,10 +206,7 @@ function parsePublishValidationDetails(details: unknown): PublishValidationIssue
       ? object.issues.flatMap((entry) => {
           if (!entry || typeof entry !== 'object') return [];
           const issue = entry as Record<string, unknown>;
-          return parseGroup(
-            [issue],
-            issue.severity === 'warning' ? 'warning' : 'error',
-          );
+          return parseGroup([issue], issue.severity === 'warning' ? 'warning' : 'error');
         })
       : []),
   ];
@@ -566,7 +557,7 @@ export function CourseBuilderPage() {
       toast.error(
         err?.code === 'PUBLISH_VALIDATION_FAILED'
           ? err.message
-          : err?.message ?? 'Не удалось опубликовать',
+          : (err?.message ?? 'Не удалось опубликовать'),
       );
     },
   });
@@ -584,7 +575,7 @@ export function CourseBuilderPage() {
   }, [course, dirty, draft, serverPublishIssues]);
 
   const openPublishDialog = () => {
-    publishIdempotencyKey.current = crypto.randomUUID();
+    publishIdempotencyKey.current = createId();
     setServerPublishIssues([]);
     setPublishOpen(true);
   };
@@ -691,6 +682,11 @@ export function CourseBuilderPage() {
         <div className="min-w-0">
           <Link
             to={academyRoutes.course(courseId)}
+            onClick={(event) => {
+              if (!dirty) return;
+              event.preventDefault();
+              navigationBlocker.request(() => navigate(academyRoutes.course(courseId)));
+            }}
             className="mb-0.5 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-primary-600"
           >
             <ChevronLeft className="size-4" />К курсу
@@ -729,7 +725,9 @@ export function CourseBuilderPage() {
             variant="secondary"
             size="sm"
             disabled={!draft}
-            onClick={() => navigate(academyRoutes.previewDraft(draft.id))}
+            onClick={() =>
+              navigationBlocker.request(() => navigate(academyRoutes.previewDraft(draft.id)))
+            }
           >
             <Eye className="size-4" />
             Предпросмотр
@@ -756,9 +754,7 @@ export function CourseBuilderPage() {
             onSelectLesson={requestSelectLesson}
             onCreateSection={() => createSection.mutate()}
             onCreateLesson={(sectionId) => createLesson.mutate(sectionId)}
-            onRenameSection={(id, nextTitle) =>
-              renameSection.mutate({ id, title: nextTitle })
-            }
+            onRenameSection={(id, nextTitle) => renameSection.mutate({ id, title: nextTitle })}
             onDeleteSection={(sectionId, sectionTitle, lessonCountInSection) =>
               setConfirm({
                 title: 'Удалить раздел?',
@@ -776,9 +772,7 @@ export function CourseBuilderPage() {
                 run: () => deleteLesson.mutate(lesson.id),
               })
             }
-            onMoveLesson={(id, sectionId, order) =>
-              moveLesson.mutate({ id, sectionId, order })
-            }
+            onMoveLesson={(id, sectionId, order) => moveLesson.mutate({ id, sectionId, order })}
           />
         </aside>
 
@@ -865,12 +859,7 @@ export function CourseBuilderPage() {
         </main>
       </div>
 
-      <Drawer
-        open={outlineOpen}
-        onOpenChange={setOutlineOpen}
-        title="Структура курса"
-        size="md"
-      >
+      <Drawer open={outlineOpen} onOpenChange={setOutlineOpen} title="Структура курса" size="md">
         <BuilderOutline
           sections={sections}
           selectedLessonId={selectedLessonId}
@@ -881,9 +870,7 @@ export function CourseBuilderPage() {
           onSelectLesson={requestSelectLesson}
           onCreateSection={() => createSection.mutate()}
           onCreateLesson={(sectionId) => createLesson.mutate(sectionId)}
-          onRenameSection={(id, nextTitle) =>
-            renameSection.mutate({ id, title: nextTitle })
-          }
+          onRenameSection={(id, nextTitle) => renameSection.mutate({ id, title: nextTitle })}
           onDeleteSection={(sectionId, sectionTitle, lessonCountInSection) =>
             setConfirm({
               title: 'Удалить раздел?',
@@ -901,9 +888,7 @@ export function CourseBuilderPage() {
               run: () => deleteLesson.mutate(lesson.id),
             })
           }
-          onMoveLesson={(id, sectionId, order) =>
-            moveLesson.mutate({ id, sectionId, order })
-          }
+          onMoveLesson={(id, sectionId, order) => moveLesson.mutate({ id, sectionId, order })}
         />
       </Drawer>
 
@@ -916,7 +901,7 @@ export function CourseBuilderPage() {
         open={publishOpen}
         onClose={closePublishDialog}
         onConfirm={() => {
-          const key = publishIdempotencyKey.current ?? crypto.randomUUID();
+          const key = publishIdempotencyKey.current ?? createId();
           publishIdempotencyKey.current = key;
           publish.mutate(key);
         }}
@@ -1173,7 +1158,11 @@ function BuilderSectionOutline({
         <Button
           size="sm"
           variant="ghost"
-          aria-label={collapsed ? `Развернуть раздел «${section.title}»` : `Свернуть раздел «${section.title}»`}
+          aria-label={
+            collapsed
+              ? `Развернуть раздел «${section.title}»`
+              : `Свернуть раздел «${section.title}»`
+          }
           aria-expanded={!collapsed}
           onClick={() => setCollapsed((value) => !value)}
         >
@@ -1201,38 +1190,41 @@ function BuilderSectionOutline({
         </Button>
       </div>
       {!collapsed ? (
-      <SortableContext items={lessons.map((lesson) => lesson.id)} strategy={verticalListSortingStrategy}>
-        <ul className="mt-2 space-y-1">
-          {lessons.map((lesson, index) => (
-            <SortableLessonRow
-              key={lesson.id}
-              lesson={lesson}
-              section={section}
-              sections={sections}
-              index={index}
-              selected={lesson.id === selectedLessonId}
-              dirty={dirty}
-              moving={moving}
-              onSelectLesson={onSelectLesson}
-              onRenameLesson={onRenameLesson}
-              onDeleteLesson={onDeleteLesson}
-              onMoveLesson={onMoveLesson}
-            />
-          ))}
-          <li>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="w-full justify-start"
-              loading={creatingLesson}
-              onClick={() => onCreateLesson(section.id)}
-            >
-              <ListPlus className="size-4" />
-              Добавить урок
-            </Button>
-          </li>
-        </ul>
-      </SortableContext>
+        <SortableContext
+          items={lessons.map((lesson) => lesson.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="mt-2 space-y-1">
+            {lessons.map((lesson, index) => (
+              <SortableLessonRow
+                key={lesson.id}
+                lesson={lesson}
+                section={section}
+                sections={sections}
+                index={index}
+                selected={lesson.id === selectedLessonId}
+                dirty={dirty}
+                moving={moving}
+                onSelectLesson={onSelectLesson}
+                onRenameLesson={onRenameLesson}
+                onDeleteLesson={onDeleteLesson}
+                onMoveLesson={onMoveLesson}
+              />
+            ))}
+            <li>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full justify-start"
+                loading={creatingLesson}
+                onClick={() => onCreateLesson(section.id)}
+              >
+                <ListPlus className="size-4" />
+                Добавить урок
+              </Button>
+            </li>
+          </ul>
+        </SortableContext>
       ) : (
         <p className="px-2 pt-1 text-xs text-slate-500">
           {lessons.length} {plural(lessons.length, ['урок', 'урока', 'уроков'])}
@@ -1370,13 +1362,19 @@ function SortableLessonRow({
             </span>
           ) : null}
           {lesson.sourceArticleId ? (
-            <span title="Источник — база знаний" className={selected ? 'text-white/90' : 'text-sky-600'}>
+            <span
+              title="Источник — база знаний"
+              className={selected ? 'text-white/90' : 'text-sky-600'}
+            >
               <Link2 className="size-3.5" aria-hidden="true" />
               <span className="sr-only">Источник — база знаний</span>
             </span>
           ) : null}
           {hasValidationError ? (
-            <span title="Есть ошибка валидации" className={selected ? 'text-white' : 'text-danger-600'}>
+            <span
+              title="Есть ошибка валидации"
+              className={selected ? 'text-white' : 'text-danger-600'}
+            >
               <CircleAlert className="size-3.5" aria-hidden="true" />
               <span className="sr-only">Есть ошибка валидации</span>
             </span>

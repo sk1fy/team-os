@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
 import { Building2 } from 'lucide-react';
+import { authApi } from '@/api';
 import { academyCoursesApi } from '@/api/academy';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
@@ -14,8 +15,10 @@ import {
   academyRoutes,
   distributionStatusLabel,
   lifecycleStatusLabel,
+  resolveCourseCapabilities,
 } from '@/lib/academy';
 import { toast } from '@/stores/toast';
+import { createId } from '@/lib/id';
 import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 
 /**
@@ -36,13 +39,17 @@ export function AcademyPartnerCoursesPage() {
     queryFn: ({ signal }) =>
       academyCoursesApi.list({ ownerType: 'partner', pageSize: 100 }, { signal }),
   });
+  const userQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
 
   const copy = useMutation({
     mutationFn: (input: { courseId: string; versionId: string }) =>
       academyCoursesApi.copyToCompany(
         input.courseId,
         { versionId: input.versionId },
-        { idempotencyKey: crypto.randomUUID() },
+        { idempotencyKey: createId() },
       ),
     onSuccess: (course) => {
       toast.success('Копия создана как draft компании');
@@ -121,88 +128,99 @@ export function AcademyPartnerCoursesPage() {
                 {courses[0]?.ownerDisplayName ?? `Партнёр ${partnerKey}`}
               </h2>
               <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-surface">
-                {courses.map((course) => (
-                  <li
-                    key={course.id}
-                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        to={academyRoutes.course(course.id)}
-                        className="font-medium text-slate-900 hover:text-primary-700"
-                      >
-                        {course.title}
-                      </Link>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        <StatusBadgeFromPresentation
-                          status={lifecycleStatusLabel(course.lifecycleStatus)}
-                        />
-                        <StatusBadgeFromPresentation
-                          status={distributionStatusLabel(course.distributionStatus)}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {course.latestPublishedVersion ? (
-                        <Link to={academyRoutes.previewVersion(course.latestPublishedVersion.id)}>
-                          <Button size="sm" variant="secondary">
-                            Preview
-                          </Button>
+                {courses.map((course) => {
+                  const capabilities = userQuery.data
+                    ? resolveCourseCapabilities({
+                        role: userQuery.data.role,
+                        userId: userQuery.data.id,
+                        course,
+                      })
+                    : null;
+
+                  return (
+                    <li
+                      key={course.id}
+                      className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <Link
+                          to={academyRoutes.course(course.id)}
+                          className="font-medium text-slate-900 hover:text-primary-700"
+                        >
+                          {course.title}
                         </Link>
-                      ) : null}
-                      {course.capabilities.canCopyToCompany && course.latestPublishedVersion ? (
-                        <Button
-                          size="sm"
-                          loading={copy.isPending}
-                          onClick={() =>
-                            copy.mutate({
-                              courseId: course.id,
-                              versionId: course.latestPublishedVersion!.id,
-                            })
-                          }
-                        >
-                          Копировать в компанию
-                        </Button>
-                      ) : null}
-                      {course.capabilities.canPauseDistribution ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          loading={pause.isPending}
-                          onClick={() => {
-                            setRestriction({ courseId: course.id, action: 'pause' });
-                            setRestrictionReason('');
-                          }}
-                        >
-                          Пауза
-                        </Button>
-                      ) : null}
-                      {course.capabilities.canBlock ? (
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          loading={block.isPending}
-                          onClick={() => {
-                            setRestriction({ courseId: course.id, action: 'block' });
-                            setRestrictionReason('');
-                          }}
-                        >
-                          Блок
-                        </Button>
-                      ) : null}
-                      {course.capabilities.canResolveRestriction && course.distributionStatus !== 'active' ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          loading={resolveRestriction.isPending}
-                          onClick={() => resolveRestriction.mutate(course.id)}
-                        >
-                          Снять ограничение
-                        </Button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <StatusBadgeFromPresentation
+                            status={lifecycleStatusLabel(course.lifecycleStatus)}
+                          />
+                          <StatusBadgeFromPresentation
+                            status={distributionStatusLabel(course.distributionStatus)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {course.latestPublishedVersion ? (
+                          <Link to={academyRoutes.previewVersion(course.latestPublishedVersion.id)}>
+                            <Button size="sm" variant="secondary">
+                              Preview
+                            </Button>
+                          </Link>
+                        ) : null}
+                        {capabilities?.canCopyToCompany && course.latestPublishedVersion ? (
+                          <Button
+                            size="sm"
+                            loading={copy.isPending}
+                            onClick={() =>
+                              copy.mutate({
+                                courseId: course.id,
+                                versionId: course.latestPublishedVersion!.id,
+                              })
+                            }
+                          >
+                            Копировать в компанию
+                          </Button>
+                        ) : null}
+                        {capabilities?.canPauseDistribution ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            loading={pause.isPending}
+                            onClick={() => {
+                              setRestriction({ courseId: course.id, action: 'pause' });
+                              setRestrictionReason('');
+                            }}
+                          >
+                            Пауза
+                          </Button>
+                        ) : null}
+                        {capabilities?.canBlock ? (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            loading={block.isPending}
+                            onClick={() => {
+                              setRestriction({ courseId: course.id, action: 'block' });
+                              setRestrictionReason('');
+                            }}
+                          >
+                            Блок
+                          </Button>
+                        ) : null}
+                        {capabilities?.canResolveRestriction &&
+                        course.distributionStatus !== 'active' ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            loading={resolveRestriction.isPending}
+                            onClick={() => resolveRestriction.mutate(course.id)}
+                          >
+                            Снять ограничение
+                          </Button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ))}
@@ -218,9 +236,7 @@ export function AcademyPartnerCoursesPage() {
           }
         }}
         title={
-          restriction?.action === 'block'
-            ? 'Заблокировать курс'
-            : 'Приостановить распространение'
+          restriction?.action === 'block' ? 'Заблокировать курс' : 'Приостановить распространение'
         }
         description={
           restriction?.action === 'block'

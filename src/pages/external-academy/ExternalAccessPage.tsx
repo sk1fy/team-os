@@ -6,12 +6,10 @@ import { academyExternalPublicApi } from '@/api/academy';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Input } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
+import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import { AcademyStatusCallout } from '@/pages/academy/components/AcademyStatusCallout';
-import {
-  presentExternalError,
-  type ExternalErrorPresentation,
-} from './externalErrorPresentation';
+import { presentExternalError, type ExternalErrorPresentation } from './externalErrorPresentation';
 
 /**
  * Public external landing — no TeamOS User, no internal Bearer.
@@ -32,7 +30,7 @@ export function ExternalAccessPage() {
   const [ready, setReady] = useState(false);
   const [flowError, setFlowError] = useState<ExternalErrorPresentation | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const activationKey = useRef(crypto.randomUUID());
+  const activationKey = useRef(createId());
 
   const landingQuery = useQuery({
     queryKey: queryKeys.externalAcademy.access(token),
@@ -152,9 +150,7 @@ export function ExternalAccessPage() {
 
   const deadlineDays = landing?.deadlineDays ?? landing?.defaultDeadlineDays;
   const resendAt = challengeId ? startVerify.data?.resendAvailableAt : undefined;
-  const resendSeconds = resendAt
-    ? Math.max(0, Math.ceil((Date.parse(resendAt) - now) / 1_000))
-    : 0;
+  const resendSeconds = resendAt ? Math.max(0, Math.ceil((Date.parse(resendAt) - now) / 1_000)) : 0;
 
   if (landingQuery.isLoading) {
     return (
@@ -269,10 +265,7 @@ export function ExternalAccessPage() {
         ) : null}
         {deadlineDays != null ? (
           <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            Срок прохождения после активации:{' '}
-            <strong>
-              {formatDeadlineDays(deadlineDays)}
-            </strong>{' '}
+            Срок прохождения после активации: <strong>{formatDeadlineDays(deadlineDays)}</strong>{' '}
             Таймер нельзя поставить на паузу.
           </p>
         ) : null}
@@ -419,8 +412,8 @@ export function ExternalAccessPage() {
               activate.isPending ||
               Boolean(
                 flowError &&
-                  flowError.recovery !== 'retry' &&
-                  flowError.recovery !== 'reload_landing',
+                flowError.recovery !== 'retry' &&
+                flowError.recovery !== 'reload_landing',
               )
             }
             onClick={() => activate.mutate()}

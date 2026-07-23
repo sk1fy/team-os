@@ -72,7 +72,7 @@ export interface AcademyCourseSummary {
   latestPublishedVersion?: CourseVersionSummary;
   draftVersion?: CourseVersionSummary;
   origin?: CourseOriginSummary;
-  capabilities: CourseUiCapabilities;
+  capabilities?: CourseUiCapabilities;
   updatedAt: ISODate;
   createdAt: ISODate;
 }
@@ -233,14 +233,7 @@ export interface CourseVersionLearnerDetail {
 export type LearnerType = 'user' | 'external';
 
 export type EnrollmentAccessStatus =
-  | 'invited'
-  | 'ready'
-  | 'active'
-  | 'expired'
-  | 'frozen'
-  | 'suspended'
-  | 'revoked'
-  | 'closed';
+  'invited' | 'ready' | 'active' | 'expired' | 'frozen' | 'suspended' | 'revoked' | 'closed';
 
 export type EnrollmentProgressStatus = 'not_started' | 'in_progress' | 'completed';
 
@@ -331,12 +324,7 @@ export interface MyLearningSummary {
 }
 
 export type AcademyListSort =
-  | 'updated_desc'
-  | 'updated_asc'
-  | 'title_asc'
-  | 'title_desc'
-  | 'deadline_asc'
-  | 'status';
+  'updated_desc' | 'updated_asc' | 'title_asc' | 'title_desc' | 'deadline_asc' | 'status';
 
 export interface AcademyListFilters {
   q?: string;
@@ -389,11 +377,7 @@ export interface AcademyTemplateSummary {
 // ---------------------------------------------------------------------------
 
 export type InternalReportRowStatus =
-  | 'not_started'
-  | 'in_progress'
-  | 'completed'
-  | 'overdue'
-  | 'frozen';
+  'not_started' | 'in_progress' | 'completed' | 'overdue' | 'frozen';
 
 export interface InternalReportRow {
   enrollmentId?: ID;

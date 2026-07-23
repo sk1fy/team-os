@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { Button, Input } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
+import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 
@@ -34,11 +35,7 @@ export function AcademyTemplatesPage() {
 
   const instantiate = useMutation({
     mutationFn: (templateVersionId: string) =>
-      academyTemplatesApi.instantiate(
-        templateVersionId,
-        {},
-        { idempotencyKey: crypto.randomUUID() },
-      ),
+      academyTemplatesApi.instantiate(templateVersionId, {}, { idempotencyKey: createId() }),
     onSuccess: (course) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Курс создан из шаблона');
@@ -119,7 +116,9 @@ export function AcademyTemplatesPage() {
                     ) : null}
                     <div className="mt-auto flex flex-wrap gap-2 pt-4">
                       <Link to={academyRoutes.template(tpl.id)}>
-                        <Button size="sm" variant="secondary">Открыть</Button>
+                        <Button size="sm" variant="secondary">
+                          Открыть
+                        </Button>
                       </Link>
                       {tpl.capabilities.canInstantiate && tpl.latestVersionId ? (
                         <Button
@@ -140,10 +139,39 @@ export function AcademyTemplatesPage() {
       )}
       {templatesQuery.data && templatesQuery.data.totalPages > 1 ? (
         <nav className="flex items-center justify-between gap-3" aria-label="Страницы шаблонов">
-          <span className="text-sm text-slate-500">Страница {templatesQuery.data.page} из {templatesQuery.data.totalPages}</span>
+          <span className="text-sm text-slate-500">
+            Страница {templatesQuery.data.page} из {templatesQuery.data.totalPages}
+          </span>
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); if (page <= 2) next.delete('page'); else next.set('page', String(page - 1)); return next; })}>Назад</Button>
-            <Button size="sm" variant="secondary" disabled={page >= templatesQuery.data.totalPages} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('page', String(page + 1)); return next; })}>Далее</Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={page <= 1}
+              onClick={() =>
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  if (page <= 2) next.delete('page');
+                  else next.set('page', String(page - 1));
+                  return next;
+                })
+              }
+            >
+              Назад
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={page >= templatesQuery.data.totalPages}
+              onClick={() =>
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('page', String(page + 1));
+                  return next;
+                })
+              }
+            >
+              Далее
+            </Button>
           </div>
         </nav>
       ) : null}

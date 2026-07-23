@@ -7,6 +7,7 @@ import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Input, Modal, Textarea } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
+import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 
 export function CreateCourseModal({
@@ -34,11 +35,11 @@ export function CreateCourseModal({
   };
 
   const create = useMutation({
-    mutationFn: () => {
-      const idempotencyKey = createIdempotencyKey.current ?? crypto.randomUUID();
+    mutationFn: async () => {
+      const idempotencyKey = createIdempotencyKey.current ?? createId();
       createIdempotencyKey.current = idempotencyKey;
       // Server sets company vs partner owner from role — do not send ownerType.
-      return academyCoursesApi.create(
+      const course = await academyCoursesApi.create(
         {
           title: title.trim(),
           description: description.trim() || undefined,
@@ -47,6 +48,8 @@ export function CreateCourseModal({
         },
         { idempotencyKey },
       );
+      await academyCoursesApi.ensureDraft(course.id, { idempotencyKey: createId() });
+      return course;
     },
     onSuccess: (course) => {
       createIdempotencyKey.current = null;
@@ -100,7 +103,9 @@ export function CreateCourseModal({
             >
               <LayoutTemplate className="mb-2 size-5 text-primary-600" />
               <span className="block text-sm font-semibold text-slate-900">Из шаблона</span>
-              <span className="mt-1 block text-xs text-slate-500">Выбрать опубликованный шаблон</span>
+              <span className="mt-1 block text-xs text-slate-500">
+                Выбрать опубликованный шаблон
+              </span>
             </button>
             <button
               type="button"
@@ -111,7 +116,9 @@ export function CreateCourseModal({
             >
               <BookOpen className="mb-2 size-5 text-slate-500" />
               <span className="block text-sm font-semibold text-slate-700">Из базы знаний</span>
-              <span className="mt-1 block text-xs text-slate-500">Ожидает backend KB import API</span>
+              <span className="mt-1 block text-xs text-slate-500">
+                Ожидает backend KB import API
+              </span>
             </button>
           </div>
         </div>

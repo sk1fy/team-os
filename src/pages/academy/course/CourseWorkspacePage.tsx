@@ -8,6 +8,7 @@ import {
   academyExternalAdminApi,
   academyVersionsApi,
 } from '@/api/academy';
+import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -17,10 +18,12 @@ import {
   academyRoutes,
   distributionStatusLabel,
   lifecycleStatusLabel,
+  resolveCourseCapabilities,
 } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
 import { toast } from '@/stores/toast';
+import { createId } from '@/lib/id';
 
 const personalAccessStatusLabels = {
   issued: 'Ссылка выпущена',
@@ -53,15 +56,19 @@ export function CourseWorkspacePage() {
   const queryClient = useQueryClient();
   const [restriction, setRestriction] = useState<'pause' | 'block' | null>(null);
   const [restrictionReason, setRestrictionReason] = useState('');
-  const [lifecycleConfirmation, setLifecycleConfirmation] = useState<
-    'archive' | 'delete' | null
-  >(null);
+  const [lifecycleConfirmation, setLifecycleConfirmation] = useState<'archive' | 'delete' | null>(
+    null,
+  );
   useTitle('Курс — Академия — TeamOS');
 
   const courseQuery = useQuery({
     queryKey: queryKeys.academyV2.course(courseId),
     queryFn: ({ signal }) => academyCoursesApi.get(courseId, { signal }),
     enabled: Boolean(courseId),
+  });
+  const userQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
   });
 
   const lifecycle = useMutation({
@@ -89,7 +96,9 @@ export function CourseWorkspacePage() {
       );
     },
     onError: (error) =>
-      toast.error(error instanceof ApiError ? error.message : 'Не удалось изменить состояние курса'),
+      toast.error(
+        error instanceof ApiError ? error.message : 'Не удалось изменить состояние курса',
+      ),
   });
 
   const copyPartnerCourse = useMutation({
@@ -119,9 +128,7 @@ export function CourseWorkspacePage() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.course(courseId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success(
-        input.action === 'block'
-          ? 'Курс заблокирован'
-          : 'Распространение приостановлено',
+        input.action === 'block' ? 'Курс заблокирован' : 'Распространение приостановлено',
       );
     },
     onError: (error) =>
@@ -148,12 +155,18 @@ export function CourseWorkspacePage() {
     );
   }
 
-  if (courseQuery.isLoading || !courseQuery.data) {
+  if (courseQuery.isLoading || userQuery.isLoading || !courseQuery.data) {
     return <div className="h-40 animate-pulse rounded-xl bg-slate-100" />;
   }
 
   const course = courseQuery.data;
-  const caps = course.capabilities;
+  const caps = userQuery.data
+    ? resolveCourseCapabilities({
+        role: userQuery.data.role,
+        userId: userQuery.data.id,
+        course,
+      })
+    : null;
 
   return (
     <div className="space-y-6">
@@ -162,7 +175,7 @@ export function CourseWorkspacePage() {
         description={course.description}
         actions={
           <div className="flex flex-wrap gap-2">
-            {caps.canEditDraft ? (
+            {caps?.canEditDraft ? (
               <Link to={academyRoutes.builder(course.id)}>
                 <Button>Конструктор</Button>
               </Link>
@@ -172,20 +185,20 @@ export function CourseWorkspacePage() {
                 <Button variant="secondary">Предпросмотр</Button>
               </Link>
             ) : null}
-            {caps.canCopyToCompany && course.latestPublishedVersion ? (
+            {caps?.canCopyToCompany && course.latestPublishedVersion ? (
               <Button
                 loading={copyPartnerCourse.isPending}
                 onClick={() =>
                   copyPartnerCourse.mutate({
                     versionId: course.latestPublishedVersion!.id,
-                    idempotencyKey: crypto.randomUUID(),
+                    idempotencyKey: createId(),
                   })
                 }
               >
                 Копировать в компанию
               </Button>
             ) : null}
-            {caps.canPauseDistribution && course.distributionStatus === 'active' ? (
+            {caps?.canPauseDistribution && course.distributionStatus === 'active' ? (
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -196,7 +209,7 @@ export function CourseWorkspacePage() {
                 Приостановить
               </Button>
             ) : null}
-            {caps.canBlock && course.distributionStatus !== 'blocked' ? (
+            {caps?.canBlock && course.distributionStatus !== 'blocked' ? (
               <Button
                 variant="danger"
                 onClick={() => {
@@ -207,7 +220,7 @@ export function CourseWorkspacePage() {
                 Заблокировать
               </Button>
             ) : null}
-            {caps.canArchive && course.lifecycleStatus === 'active' ? (
+            {caps?.canArchive && course.lifecycleStatus === 'active' ? (
               <Button
                 variant="secondary"
                 loading={lifecycle.isPending}
@@ -216,17 +229,25 @@ export function CourseWorkspacePage() {
                 Архивировать
               </Button>
             ) : null}
-            {caps.canRestore && course.lifecycleStatus === 'archived' ? (
-              <Button variant="secondary" loading={lifecycle.isPending} onClick={() => lifecycle.mutate('restore')}>
+            {caps?.canRestore && course.lifecycleStatus === 'archived' ? (
+              <Button
+                variant="secondary"
+                loading={lifecycle.isPending}
+                onClick={() => lifecycle.mutate('restore')}
+              >
                 Восстановить
               </Button>
             ) : null}
-            {caps.canResolveRestriction && course.distributionStatus !== 'active' ? (
-              <Button variant="secondary" loading={lifecycle.isPending} onClick={() => lifecycle.mutate('resolve')}>
+            {caps?.canResolveRestriction && course.distributionStatus !== 'active' ? (
+              <Button
+                variant="secondary"
+                loading={lifecycle.isPending}
+                onClick={() => lifecycle.mutate('resolve')}
+              >
                 Снять ограничение
               </Button>
             ) : null}
-            {caps.canDelete ? (
+            {caps?.canDelete ? (
               <Button
                 variant="secondary"
                 loading={lifecycle.isPending}
@@ -241,9 +262,7 @@ export function CourseWorkspacePage() {
 
       <div className="flex flex-wrap gap-2">
         <StatusBadgeFromPresentation status={lifecycleStatusLabel(course.lifecycleStatus)} />
-        <StatusBadgeFromPresentation
-          status={distributionStatusLabel(course.distributionStatus)}
-        />
+        <StatusBadgeFromPresentation status={distributionStatusLabel(course.distributionStatus)} />
         <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
           {course.ownerType === 'partner' ? 'Курс партнёра' : 'Курс компании'}
         </span>
@@ -259,7 +278,7 @@ export function CourseWorkspacePage() {
 
       <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-sm">
         <WorkspaceTab to={academyRoutes.course(course.id)} label="Обзор" />
-        {caps.canEditDraft ? (
+        {caps?.canEditDraft ? (
           <WorkspaceTab to={academyRoutes.builder(course.id)} label="Контент" />
         ) : null}
         <WorkspaceTab to={academyRoutes.distribution(course.id)} label="Распространение" />
@@ -309,11 +328,7 @@ export function CourseWorkspacePage() {
         onOpenChange={(open) => {
           if (!open && !lifecycle.isPending) setLifecycleConfirmation(null);
         }}
-        title={
-          lifecycleConfirmation === 'delete'
-            ? 'Удалить курс?'
-            : 'Архивировать курс?'
-        }
+        title={lifecycleConfirmation === 'delete' ? 'Удалить курс?' : 'Архивировать курс?'}
         description={
           lifecycleConfirmation === 'delete'
             ? 'Контент станет недоступен, а исторические результаты сохранятся.'
@@ -357,9 +372,7 @@ export function CourseWorkspacePage() {
           }
         }}
         title={
-          restriction === 'block'
-            ? 'Заблокировать курс партнёра'
-            : 'Приостановить распространение'
+          restriction === 'block' ? 'Заблокировать курс партнёра' : 'Приостановить распространение'
         }
         description={
           restriction === 'block'
@@ -513,13 +526,24 @@ export function CourseDistributionPage() {
     queryFn: ({ signal }) => academyCoursesApi.get(courseId, { signal }),
     enabled: Boolean(courseId),
   });
+  const userQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
+  const caps =
+    courseQuery.data && userQuery.data
+      ? resolveCourseCapabilities({
+          role: userQuery.data.role,
+          userId: userQuery.data.id,
+          course: courseQuery.data,
+        })
+      : null;
   const assignmentsQuery = useQuery({
     queryKey: queryKeys.academyV2.assignments(courseId),
     queryFn: ({ signal }) => academyDistributionApi.listAssignments(courseId, { signal }),
-    enabled: Boolean(courseId && courseQuery.data?.capabilities.canAssignInternally),
+    enabled: Boolean(courseId && caps?.canAssignInternally),
   });
 
-  const caps = courseQuery.data?.capabilities;
   const publishedVersionId = courseQuery.data?.latestPublishedVersion?.id;
   const accessDeadlineDays = parseDeadlineDays(accessDeadline);
   const campaignDeadlineDays = parseDeadlineDays(campaignDeadline);
@@ -536,7 +560,7 @@ export function CourseDistributionPage() {
           dueDate: dueDate || undefined,
           courseVersionId: publishedVersionId,
         },
-        { idempotencyKey: crypto.randomUUID() },
+        { idempotencyKey: createId() },
       ),
     onSuccess: () => {
       setTargetId('');
@@ -544,7 +568,8 @@ export function CourseDistributionPage() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.assignments(courseId) });
       toast.success('Назначение создано');
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Не удалось назначить курс'),
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось назначить курс'),
   });
   const revokeAssignment = useMutation({
     mutationFn: (assignmentId: string) => academyDistributionApi.revokeAssignment(assignmentId),
@@ -552,11 +577,13 @@ export function CourseDistributionPage() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.assignments(courseId) });
       toast.success('Назначение отозвано');
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Не удалось отозвать назначение'),
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось отозвать назначение'),
   });
   const personalAccessesQuery = useQuery({
     queryKey: queryKeys.academyV2.personalAccesses(courseId, { page: 1, pageSize: 50 }),
-    queryFn: ({ signal }) => academyExternalAdminApi.listPersonalAccesses(courseId, { page: 1, pageSize: 50 }, { signal }),
+    queryFn: ({ signal }) =>
+      academyExternalAdminApi.listPersonalAccesses(courseId, { page: 1, pageSize: 50 }, { signal }),
     enabled: Boolean(courseId && caps?.canCreatePersonalAccess),
   });
   const createAccess = useMutation({
@@ -572,13 +599,15 @@ export function CourseDistributionPage() {
           firstName: accessFirstName.trim() || undefined,
           deadlineDays,
         },
-        { idempotencyKey: crypto.randomUUID() },
+        { idempotencyKey: createId() },
       );
     },
     onSuccess: async (access) => {
       setAccessEmail('');
       setAccessFirstName('');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.personalAccesses(courseId, { page: 1, pageSize: 50 }) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.academyV2.personalAccesses(courseId, { page: 1, pageSize: 50 }),
+      });
       if (!access.publicUrl) {
         toast.success('Персональный доступ создан');
         createAccessResetRef.current();
@@ -593,7 +622,8 @@ export function CourseDistributionPage() {
       }
       createAccessResetRef.current();
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Не удалось создать доступ'),
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось создать доступ'),
   });
   const mutateAccess = useMutation({
     mutationFn: async (input: {
@@ -603,7 +633,7 @@ export function CourseDistributionPage() {
     }) => {
       if (input.action === 'rotate') {
         return academyExternalAdminApi.rotatePersonalAccess(input.accessId, {
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: createId(),
         });
       }
       if (input.action === 'revoke') {
@@ -612,7 +642,7 @@ export function CourseDistributionPage() {
       }
       if (input.action === 'repeat') {
         await academyExternalAdminApi.repeatPersonalAccess(input.accessId, {
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: createId(),
         });
         return null;
       }
@@ -625,7 +655,9 @@ export function CourseDistributionPage() {
       return null;
     },
     onSuccess: async (result, input) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.personalAccesses(courseId, { page: 1, pageSize: 50 }) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.academyV2.personalAccesses(courseId, { page: 1, pageSize: 50 }),
+      });
       if (result?.publicUrl) {
         setOneTimeSecretUrl(result.publicUrl);
         try {
@@ -655,7 +687,9 @@ export function CourseDistributionPage() {
   const campaignsQuery = useQuery({
     queryKey: queryKeys.academyV2.campaigns(courseId),
     queryFn: ({ signal }) => academyExternalAdminApi.listCampaigns(courseId, { signal }),
-    enabled: Boolean(courseId && (caps?.canCreatePromoCampaign || caps?.canCreateCandidateCampaign)),
+    enabled: Boolean(
+      courseId && (caps?.canCreatePromoCampaign || caps?.canCreateCandidateCampaign),
+    ),
   });
   const createCampaign = useMutation({
     mutationFn: () => {
@@ -670,7 +704,7 @@ export function CourseDistributionPage() {
           name: campaignName.trim(),
           deadlineDays,
         },
-        { idempotencyKey: crypto.randomUUID() },
+        { idempotencyKey: createId() },
       );
     },
     onSuccess: (campaign) => {
@@ -680,15 +714,21 @@ export function CourseDistributionPage() {
       toast.success('Кампания создана');
       createCampaignResetRef.current();
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Не удалось создать кампанию'),
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось создать кампанию'),
   });
   const mutateCampaign = useMutation({
-    mutationFn: async (input: { campaignId: string; action: 'pause' | 'resume' | 'rotate' | 'revoke' }) => {
+    mutationFn: async (input: {
+      campaignId: string;
+      action: 'pause' | 'resume' | 'rotate' | 'revoke';
+    }) => {
       if (input.action === 'pause') return academyExternalAdminApi.pauseCampaign(input.campaignId);
-      if (input.action === 'resume') return academyExternalAdminApi.resumeCampaign(input.campaignId);
-      if (input.action === 'revoke') return academyExternalAdminApi.revokeCampaign(input.campaignId);
+      if (input.action === 'resume')
+        return academyExternalAdminApi.resumeCampaign(input.campaignId);
+      if (input.action === 'revoke')
+        return academyExternalAdminApi.revokeCampaign(input.campaignId);
       return academyExternalAdminApi.rotateCampaign(input.campaignId, {
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: createId(),
       });
     },
     onSuccess: async (result, input) => {
@@ -712,7 +752,8 @@ export function CourseDistributionPage() {
             : 'Кампания отозвана',
       );
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Не удалось изменить кампанию'),
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось изменить кампанию'),
   });
   useEffect(() => {
     createAccessResetRef.current = createAccess.reset;
@@ -746,9 +787,24 @@ export function CourseDistributionPage() {
                 { value: 'department', label: 'Отдел' },
               ]}
             />
-            <Input value={targetId} onChange={(event) => setTargetId(event.target.value)} placeholder="ID получателя" />
-            <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} aria-label="Срок назначения" />
-            <Button disabled={!targetId.trim() || !publishedVersionId} loading={createAssignment.isPending} onClick={() => createAssignment.mutate()}>Назначить</Button>
+            <Input
+              value={targetId}
+              onChange={(event) => setTargetId(event.target.value)}
+              placeholder="ID получателя"
+            />
+            <Input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              aria-label="Срок назначения"
+            />
+            <Button
+              disabled={!targetId.trim() || !publishedVersionId}
+              loading={createAssignment.isPending}
+              onClick={() => createAssignment.mutate()}
+            >
+              Назначить
+            </Button>
           </div>
           {assignmentsQuery.isLoading ? (
             <div className="h-16 animate-pulse rounded bg-slate-100" />
@@ -768,7 +824,14 @@ export function CourseDistributionPage() {
                     {row.completedEnrollments}/{row.activeEnrollments + row.completedEnrollments}{' '}
                     завершили
                   </span>
-                  <Button size="sm" variant="ghost" loading={revokeAssignment.isPending} onClick={() => revokeAssignment.mutate(row.id)}>Отозвать</Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    loading={revokeAssignment.isPending}
+                    onClick={() => revokeAssignment.mutate(row.id)}
+                  >
+                    Отозвать
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -780,8 +843,17 @@ export function CourseDistributionPage() {
         <section className="space-y-4 rounded-xl border border-slate-200 bg-surface p-4">
           <h2 className="text-sm font-semibold text-slate-900">Персональные внешние доступы</h2>
           <div className="grid gap-2 sm:grid-cols-[1fr_1fr_7rem_auto]">
-            <Input type="email" value={accessEmail} onChange={(event) => setAccessEmail(event.target.value)} placeholder="email@example.com" />
-            <Input value={accessFirstName} onChange={(event) => setAccessFirstName(event.target.value)} placeholder="Имя" />
+            <Input
+              type="email"
+              value={accessEmail}
+              onChange={(event) => setAccessEmail(event.target.value)}
+              placeholder="email@example.com"
+            />
+            <Input
+              value={accessFirstName}
+              onChange={(event) => setAccessFirstName(event.target.value)}
+              placeholder="Имя"
+            />
             <Input
               type="number"
               min={1}
@@ -799,18 +871,33 @@ export function CourseDistributionPage() {
               Создать
             </Button>
           </div>
-          {personalAccessesQuery.isError ? <ErrorState title="Не удалось загрузить доступы" onRetry={() => void personalAccessesQuery.refetch()} /> : personalAccessesQuery.isLoading ? (
+          {personalAccessesQuery.isError ? (
+            <ErrorState
+              title="Не удалось загрузить доступы"
+              onRetry={() => void personalAccessesQuery.refetch()}
+            />
+          ) : personalAccessesQuery.isLoading ? (
             <div className="h-16 animate-pulse rounded bg-slate-100" />
           ) : (
             <ul className="divide-y divide-slate-100 text-sm">
               {(personalAccessesQuery.data?.items ?? []).map((access) => (
-                <li key={access.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <li
+                  key={access.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2"
+                >
                   <span>{access.email}</span>
                   <span className="text-slate-500">
                     {personalAccessStatusLabels[access.status]} · {access.deadlineDays} дн.
                   </span>
                   <div className="flex flex-wrap gap-1">
-                    <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'rotate' })}>Новая ссылка</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      loading={mutateAccess.isPending}
+                      onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'rotate' })}
+                    >
+                      Новая ссылка
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -821,8 +908,30 @@ export function CourseDistributionPage() {
                     >
                       Продлить
                     </Button>
-                    {access.status === 'activated' ? <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'repeat' })}>Повтор</Button> : null}
-                    {access.status !== 'revoked' && access.status !== 'closed' ? <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'revoke' })}>Отозвать</Button> : null}
+                    {access.status === 'activated' ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        loading={mutateAccess.isPending}
+                        onClick={() =>
+                          mutateAccess.mutate({ accessId: access.id, action: 'repeat' })
+                        }
+                      >
+                        Повтор
+                      </Button>
+                    ) : null}
+                    {access.status !== 'revoked' && access.status !== 'closed' ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        loading={mutateAccess.isPending}
+                        onClick={() =>
+                          mutateAccess.mutate({ accessId: access.id, action: 'revoke' })
+                        }
+                      >
+                        Отозвать
+                      </Button>
+                    ) : null}
                   </div>
                 </li>
               ))}
@@ -833,9 +942,15 @@ export function CourseDistributionPage() {
 
       {caps?.canCreatePromoCampaign || caps?.canCreateCandidateCampaign ? (
         <section className="space-y-4 rounded-xl border border-slate-200 bg-surface p-4">
-          <h2 className="text-sm font-semibold text-slate-900">{caps?.canCreateCandidateCampaign ? 'Candidate-кампании' : 'Промокампании'}</h2>
+          <h2 className="text-sm font-semibold text-slate-900">
+            {caps?.canCreateCandidateCampaign ? 'Candidate-кампании' : 'Промокампании'}
+          </h2>
           <div className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
-            <Input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} placeholder="Название кампании" />
+            <Input
+              value={campaignName}
+              onChange={(event) => setCampaignName(event.target.value)}
+              placeholder="Название кампании"
+            />
             <Input
               type="number"
               min={1}
@@ -854,22 +969,77 @@ export function CourseDistributionPage() {
             </Button>
           </div>
           {campaignsQuery.isError ? (
-            <ErrorState title="Не удалось загрузить кампании" onRetry={() => void campaignsQuery.refetch()} />
+            <ErrorState
+              title="Не удалось загрузить кампании"
+              onRetry={() => void campaignsQuery.refetch()}
+            />
           ) : campaignsQuery.isLoading ? (
             <div className="h-16 animate-pulse rounded bg-slate-100" />
           ) : (
             <ul className="divide-y divide-slate-100 text-sm">
               {(campaignsQuery.data ?? []).map((campaign) => (
-                <li key={campaign.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <li
+                  key={campaign.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2"
+                >
                   <span>{campaign.name}</span>
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="mr-1 text-slate-500">
                       {campaignStatusLabels[campaign.status]}
                     </span>
-                    {campaign.status === 'active' ? <Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'pause' })}>Пауза</Button> : null}
-                    {campaign.status === 'paused' ? <Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'resume' })}>Возобновить</Button> : null}
-                    {campaign.status !== 'revoked' && campaign.status !== 'closed' ? <><Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'rotate' })}>Новая ссылка</Button><Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'revoke' })}>Отозвать</Button></> : null}
-                    <Link to={academyRoutes.campaign(campaign.id)}><Button size="sm" variant="secondary">Отчёт</Button></Link>
+                    {campaign.status === 'active' ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        loading={mutateCampaign.isPending}
+                        onClick={() =>
+                          mutateCampaign.mutate({ campaignId: campaign.id, action: 'pause' })
+                        }
+                      >
+                        Пауза
+                      </Button>
+                    ) : null}
+                    {campaign.status === 'paused' ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        loading={mutateCampaign.isPending}
+                        onClick={() =>
+                          mutateCampaign.mutate({ campaignId: campaign.id, action: 'resume' })
+                        }
+                      >
+                        Возобновить
+                      </Button>
+                    ) : null}
+                    {campaign.status !== 'revoked' && campaign.status !== 'closed' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          loading={mutateCampaign.isPending}
+                          onClick={() =>
+                            mutateCampaign.mutate({ campaignId: campaign.id, action: 'rotate' })
+                          }
+                        >
+                          Новая ссылка
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          loading={mutateCampaign.isPending}
+                          onClick={() =>
+                            mutateCampaign.mutate({ campaignId: campaign.id, action: 'revoke' })
+                          }
+                        >
+                          Отозвать
+                        </Button>
+                      </>
+                    ) : null}
+                    <Link to={academyRoutes.campaign(campaign.id)}>
+                      <Button size="sm" variant="secondary">
+                        Отчёт
+                      </Button>
+                    </Link>
                   </div>
                 </li>
               ))}
@@ -890,7 +1060,9 @@ export function CourseDistributionPage() {
         description="Срок текущего прохождения будет увеличен на указанное количество дней."
         footer={
           <>
-            <Button variant="secondary" onClick={() => setExtendAccessId(null)}>Отмена</Button>
+            <Button variant="secondary" onClick={() => setExtendAccessId(null)}>
+              Отмена
+            </Button>
             <Button
               disabled={!extendDaysValid}
               loading={mutateAccess.isPending}
@@ -925,9 +1097,7 @@ export function CourseDistributionPage() {
         }}
         title="Ссылка создана"
         description="Это одноразовый показ секрета. Сохраните ссылку до закрытия окна."
-        footer={
-          <Button onClick={() => setOneTimeSecretUrl(null)}>Готово</Button>
-        }
+        footer={<Button onClick={() => setOneTimeSecretUrl(null)}>Готово</Button>}
       >
         <div className="space-y-3">
           <Input readOnly value={oneTimeSecretUrl ?? ''} aria-label="Одноразовая внешняя ссылка" />
@@ -952,7 +1122,9 @@ export function CourseDistributionPage() {
       !caps?.canCreatePersonalAccess &&
       !caps?.canCreatePromoCampaign &&
       !caps?.canCreateCandidateCampaign ? (
-        <p className="text-sm text-slate-500">Нет доступных действий распространения для этой роли.</p>
+        <p className="text-sm text-slate-500">
+          Нет доступных действий распространения для этой роли.
+        </p>
       ) : null}
     </div>
   );

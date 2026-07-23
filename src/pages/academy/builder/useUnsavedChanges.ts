@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
-import { useBlocker } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 
 /** Warn on tab close / in-app navigation when the draft editor is dirty. */
 export function useUnsavedChanges(dirty: boolean, message = 'Есть несохранённые изменения. Уйти?') {
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
   useEffect(() => {
     if (!dirty) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -13,14 +14,20 @@ export function useUnsavedChanges(dirty: boolean, message = 'Есть несох
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [dirty, message]);
 
-  const blocker = useBlocker(dirty);
   return {
-    blocked: blocker.state === 'blocked',
+    blocked: pendingAction !== null,
+    request: (action: () => void) => {
+      if (!dirty) {
+        action();
+        return;
+      }
+      setPendingAction(() => action);
+    },
     proceed: () => {
-      if (blocker.state === 'blocked') blocker.proceed();
+      const action = pendingAction;
+      setPendingAction(null);
+      action?.();
     },
-    stay: () => {
-      if (blocker.state === 'blocked') blocker.reset();
-    },
+    stay: () => setPendingAction(null),
   };
 }

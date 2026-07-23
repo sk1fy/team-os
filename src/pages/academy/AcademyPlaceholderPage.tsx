@@ -3,11 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { BookOpen, GraduationCap, Users } from 'lucide-react';
-import {
-  academyExternalAdminApi,
-  academyReportsApi,
-  academyTemplatesApi,
-} from '@/api/academy';
+import { academyExternalAdminApi, academyReportsApi, academyTemplatesApi } from '@/api/academy';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -22,6 +18,7 @@ import {
 } from '@/lib/academy';
 import { toast } from '@/stores/toast';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { createId } from '@/lib/id';
 
 export { AcademyPartnerCoursesPage } from './partners/AcademyPartnerCoursesPage';
 export { AcademyTemplatesPage } from './templates/AcademyTemplatesPage';
@@ -44,10 +41,7 @@ export function AcademyPartnerPage() {
       academyReportsApi.partnerCourses(partnerId, { page: 1, pageSize: 100 }, { signal }),
     enabled: Boolean(partnerId),
   });
-  const courses = useMemo(
-    () => query.data?.items ?? [],
-    [query.data?.items],
-  );
+  const courses = useMemo(() => query.data?.items ?? [], [query.data?.items]);
 
   return (
     <div className="space-y-6">
@@ -65,7 +59,11 @@ export function AcademyPartnerPage() {
       ) : query.isLoading ? (
         <div className="h-32 animate-pulse rounded-xl bg-slate-100" />
       ) : courses.length === 0 ? (
-        <EmptyState icon={BookOpen} title="Курсов нет" description="У партнёра пока нет доступных курсов." />
+        <EmptyState
+          icon={BookOpen}
+          title="Курсов нет"
+          description="У партнёра пока нет доступных курсов."
+        />
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {courses.map((course) => (
@@ -76,7 +74,9 @@ export function AcademyPartnerPage() {
               </div>
               <p className="mt-2 text-sm text-slate-500">{course.description || 'Без описания'}</p>
               <Link className="mt-4 inline-flex" to={academyRoutes.course(course.id)}>
-                <Button size="sm" variant="secondary">Открыть read-only</Button>
+                <Button size="sm" variant="secondary">
+                  Открыть read-only
+                </Button>
               </Link>
             </li>
           ))}
@@ -103,7 +103,7 @@ export function AcademyTemplatePage() {
   });
   const instantiate = useMutation({
     mutationFn: (versionId: string) =>
-      academyTemplatesApi.instantiate(versionId, {}, { idempotencyKey: crypto.randomUUID() }),
+      academyTemplatesApi.instantiate(versionId, {}, { idempotencyKey: createId() }),
     onSuccess: (course) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Курс создан из шаблона');
@@ -136,7 +136,10 @@ export function AcademyTemplatePage() {
         actions={
           <div className="flex flex-wrap gap-2">
             {template.capabilities.canInstantiate && template.latestVersionId ? (
-              <Button loading={instantiate.isPending} onClick={() => instantiate.mutate(template.latestVersionId!)}>
+              <Button
+                loading={instantiate.isPending}
+                onClick={() => instantiate.mutate(template.latestVersionId!)}
+              >
                 Создать курс
               </Button>
             ) : null}
@@ -146,7 +149,11 @@ export function AcademyTemplatePage() {
               </Link>
             ) : null}
             {template.capabilities.canArchive && !template.archived ? (
-              <Button variant="secondary" loading={archive.isPending} onClick={() => archive.mutate()}>
+              <Button
+                variant="secondary"
+                loading={archive.isPending}
+                onClick={() => archive.mutate()}
+              >
                 Архивировать
               </Button>
             ) : null}
@@ -169,7 +176,9 @@ export function AcademyTemplatePage() {
               <li key={section.id}>
                 <p className="text-sm font-semibold text-slate-700">{section.title}</p>
                 <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-slate-500">
-                  {section.lessons.map((lesson) => <li key={lesson.id}>{lesson.title}</li>)}
+                  {section.lessons.map((lesson) => (
+                    <li key={lesson.id}>{lesson.title}</li>
+                  ))}
                 </ol>
               </li>
             ))}
@@ -194,47 +203,82 @@ export function AcademyLearnersPage() {
     queryKey: queryKeys.academyV2.externalLearners(filters),
     queryFn: ({ signal }) => academyExternalAdminApi.listLearners(filters, { signal }),
   });
-  const setPage = (next: number) => setParams((prev) => {
-    const result = new URLSearchParams(prev);
-    result.set('page', String(next));
-    return result;
-  });
+  const learners = query.data?.items ?? [];
+  const setPage = (next: number) =>
+    setParams((prev) => {
+      const result = new URLSearchParams(prev);
+      result.set('page', String(next));
+      return result;
+    });
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Внешние ученики" description="Люди без TeamOS User и история их прохождений." />
+      <PageHeader
+        title="Внешние ученики"
+        description="Люди без TeamOS User и история их прохождений."
+      />
       <Input
         className="max-w-md"
         value={q}
         placeholder="Поиск по имени или email…"
-        onChange={(event) => setParams((prev) => {
-          const next = new URLSearchParams(prev);
-          if (event.target.value) next.set('q', event.target.value); else next.delete('q');
-          next.delete('page');
-          return next;
-        })}
+        onChange={(event) =>
+          setParams((prev) => {
+            const next = new URLSearchParams(prev);
+            if (event.target.value) next.set('q', event.target.value);
+            else next.delete('q');
+            next.delete('page');
+            return next;
+          })
+        }
       />
-      {query.isError ? <QueryError retry={() => void query.refetch()} /> : query.isLoading ? (
+      {query.isError ? (
+        <QueryError retry={() => void query.refetch()} />
+      ) : query.isLoading ? (
         <div className="h-40 animate-pulse rounded-xl bg-slate-100" />
-      ) : (query.data?.items.length ?? 0) === 0 ? (
-        <EmptyState icon={Users} title="Учеников нет" description="Здесь появятся активировавшие внешний доступ." />
+      ) : learners.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="Учеников нет"
+          description="Здесь появятся активировавшие внешний доступ."
+        />
       ) : (
         <>
           <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-surface">
-            {query.data!.items.map((learner) => (
-              <li key={learner.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            {learners.map((learner) => (
+              <li
+                key={learner.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
                 <div>
-                  <p className="font-medium text-slate-900">{learner.displayName || learner.email}</p>
-                  <p className="text-xs text-slate-500">{learner.email} · прохождений: {learner.enrollmentCount}</p>
+                  <p className="font-medium text-slate-900">
+                    {learner.displayName || learner.email}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {learner.email} · прохождений: {learner.enrollmentCount}
+                  </p>
                 </div>
-                <Link to={academyRoutes.learner(learner.id)}><Button size="sm" variant="secondary">История</Button></Link>
+                <Link to={academyRoutes.learner(learner.id)}>
+                  <Button size="sm" variant="secondary">
+                    История
+                  </Button>
+                </Link>
               </li>
             ))}
           </ul>
           <div className="flex justify-between">
-            <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Назад</Button>
-            <span className="text-sm text-slate-500">Страница {page} из {query.data!.totalPages || 1}</span>
-            <Button variant="secondary" disabled={page >= query.data!.totalPages} onClick={() => setPage(page + 1)}>Далее</Button>
+            <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Назад
+            </Button>
+            <span className="text-sm text-slate-500">
+              Страница {page} из {query.data!.totalPages || 1}
+            </span>
+            <Button
+              variant="secondary"
+              disabled={page >= query.data!.totalPages}
+              onClick={() => setPage(page + 1)}
+            >
+              Далее
+            </Button>
           </div>
         </>
       )}
@@ -253,22 +297,40 @@ export function AcademyLearnerPage() {
   if (query.isError) return <QueryError retry={() => void query.refetch()} />;
   if (!query.data) return <div className="h-40 animate-pulse rounded-xl bg-slate-100" />;
   const learner = query.data;
+  const timeline = learner.timeline ?? [];
   return (
     <div className="space-y-6">
       <PageHeader title={learner.displayName || learner.email} description={learner.email} />
-      {learner.timeline.length === 0 ? <EmptyState icon={GraduationCap} title="Прохождений нет" /> : (
+      {timeline.length === 0 ? (
+        <EmptyState icon={GraduationCap} title="Прохождений нет" />
+      ) : (
         <ol className="space-y-3">
-          {learner.timeline.map((node) => (
-            <li key={node.enrollmentId} className="rounded-xl border border-slate-200 bg-surface p-4">
+          {timeline.map((node) => (
+            <li
+              key={node.enrollmentId}
+              className="rounded-xl border border-slate-200 bg-surface p-4"
+            >
               <div className="flex flex-wrap justify-between gap-2">
-                <div><p className="font-semibold text-slate-900">{node.courseTitle}</p><p className="text-xs text-slate-500">Активировано: {formatDate(node.activatedAt)}</p></div>
+                <div>
+                  <p className="font-semibold text-slate-900">{node.courseTitle}</p>
+                  <p className="text-xs text-slate-500">
+                    Активировано: {formatDate(node.activatedAt)}
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <Badge>{enrollmentProgressLabel(node.progressStatus).label}</Badge>
                   <Badge>{enrollmentAccessLabel(node.accessStatus).label}</Badge>
                   <Badge>{node.percent}%</Badge>
                 </div>
               </div>
-              <Link className="mt-3 inline-flex" to={academyRoutes.enrollmentReport(node.enrollmentId)}><Button size="sm" variant="secondary">Отчёт</Button></Link>
+              <Link
+                className="mt-3 inline-flex"
+                to={academyRoutes.enrollmentReport(node.enrollmentId)}
+              >
+                <Button size="sm" variant="secondary">
+                  Отчёт
+                </Button>
+              </Link>
             </li>
           ))}
         </ol>
@@ -310,16 +372,57 @@ export function AcademyCampaignPage() {
             completed: 'Завершили',
             expired: 'Срок истёк',
           };
-          return <div key={key} className="rounded-xl border border-slate-200 bg-surface p-4"><dt className="text-xs text-slate-500">{labels[key] ?? key}</dt><dd className="mt-1 text-xl font-semibold">{value}</dd></div>;
+          return (
+            <div key={key} className="rounded-xl border border-slate-200 bg-surface p-4">
+              <dt className="text-xs text-slate-500">{labels[key] ?? key}</dt>
+              <dd className="mt-1 text-xl font-semibold">{value}</dd>
+            </div>
+          );
         })}
       </dl>
       <section className="overflow-x-auto rounded-xl border border-slate-200 bg-surface">
-        <table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Ученик</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3">Прогресс</th><th className="px-4 py-3">Активирован</th></tr></thead><tbody className="divide-y divide-slate-100">{report.participants.items.map((row) => <tr key={row.enrollmentId}><td className="px-4 py-3">{row.displayName || row.email}</td><td className="px-4 py-3">{enrollmentProgressLabel(row.progressStatus).label} · {enrollmentAccessLabel(row.accessStatus).label}</td><td className="px-4 py-3">{row.percent}%</td><td className="px-4 py-3">{formatDate(row.activatedAt)}</td></tr>)}</tbody></table>
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Ученик</th>
+              <th className="px-4 py-3">Статус</th>
+              <th className="px-4 py-3">Прогресс</th>
+              <th className="px-4 py-3">Активирован</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {report.participants.items.map((row) => (
+              <tr key={row.enrollmentId}>
+                <td className="px-4 py-3">{row.displayName || row.email}</td>
+                <td className="px-4 py-3">
+                  {enrollmentProgressLabel(row.progressStatus).label} ·{' '}
+                  {enrollmentAccessLabel(row.accessStatus).label}
+                </td>
+                <td className="px-4 py-3">{row.percent}%</td>
+                <td className="px-4 py-3">{formatDate(row.activatedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
       <div className="flex items-center justify-between gap-3">
-        <Button variant="secondary" disabled={report.participants.page <= 1} onClick={() => setParams({ page: String(page - 1) })}>Назад</Button>
-        <span className="text-sm text-slate-500">Страница {report.participants.page} из {report.participants.totalPages || 1}</span>
-        <Button variant="secondary" disabled={report.participants.page >= report.participants.totalPages} onClick={() => setParams({ page: String(page + 1) })}>Далее</Button>
+        <Button
+          variant="secondary"
+          disabled={report.participants.page <= 1}
+          onClick={() => setParams({ page: String(page - 1) })}
+        >
+          Назад
+        </Button>
+        <span className="text-sm text-slate-500">
+          Страница {report.participants.page} из {report.participants.totalPages || 1}
+        </span>
+        <Button
+          variant="secondary"
+          disabled={report.participants.page >= report.participants.totalPages}
+          onClick={() => setParams({ page: String(page + 1) })}
+        >
+          Далее
+        </Button>
       </div>
     </div>
   );
@@ -336,14 +439,33 @@ export function AcademyEnrollmentReportPage() {
   if (query.isError) return <QueryError retry={() => void query.refetch()} />;
   if (!query.data) return <div className="h-40 animate-pulse rounded-xl bg-slate-100" />;
   const report = query.data;
+  const lessonResults = report.lessonResults ?? [];
+  const quizAttempts = report.quizAttempts ?? [];
   return (
     <div className="space-y-6">
-      <PageHeader title={report.enrollment.courseTitle} description={`Прогресс ${report.enrollment.percent}% · ${enrollmentProgressLabel(report.enrollment.progressStatus).label} · ${enrollmentAccessLabel(report.enrollment.accessStatus).label}`} />
+      <PageHeader
+        title={report.enrollment.courseTitle}
+        description={`Прогресс ${report.enrollment.percent}% · ${enrollmentProgressLabel(report.enrollment.progressStatus).label} · ${enrollmentAccessLabel(report.enrollment.accessStatus).label}`}
+      />
       <section className="rounded-xl border border-slate-200 bg-surface p-5">
         <h2 className="font-semibold text-slate-900">Результаты уроков</h2>
-        <ul className="mt-3 divide-y divide-slate-100">{report.lessonResults.map((lesson) => <li key={lesson.lessonId} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{lesson.title}</span><span className="text-slate-500">{lesson.completed ? `Завершён${lesson.quizScore == null ? '' : ` · тест ${lesson.quizScore}%`}` : 'Не завершён'}</span></li>)}</ul>
+        <ul className="mt-3 divide-y divide-slate-100">
+          {lessonResults.map((lesson) => (
+            <li key={lesson.lessonId} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
+              <span>{lesson.title}</span>
+              <span className="text-slate-500">
+                {lesson.completed
+                  ? `Завершён${lesson.quizScore == null ? '' : ` · тест ${lesson.quizScore}%`}`
+                  : 'Не завершён'}
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
-      <section className="rounded-xl border border-slate-200 bg-surface p-5"><h2 className="font-semibold text-slate-900">Попытки тестов</h2><p className="mt-2 text-sm text-slate-500">Всего попыток: {report.quizAttempts.length}</p></section>
+      <section className="rounded-xl border border-slate-200 bg-surface p-5">
+        <h2 className="font-semibold text-slate-900">Попытки тестов</h2>
+        <p className="mt-2 text-sm text-slate-500">Всего попыток: {quizAttempts.length}</p>
+      </section>
     </div>
   );
 }

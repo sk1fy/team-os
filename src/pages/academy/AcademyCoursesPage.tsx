@@ -15,6 +15,7 @@ import {
   canManageAcademyCourses,
   distributionStatusLabel,
   lifecycleStatusLabel,
+  resolveCourseCapabilities,
 } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from './components/StatusBadge';
 import { CreateCourseModal } from './CreateCourseModal';
@@ -104,10 +105,7 @@ export function AcademyCoursesPage() {
 
   if (coursesQuery.isError) {
     return (
-      <ErrorState
-        title="Не удалось загрузить курсы"
-        onRetry={() => void coursesQuery.refetch()}
-      />
+      <ErrorState title="Не удалось загрузить курсы" onRetry={() => void coursesQuery.refetch()} />
     );
   }
 
@@ -203,74 +201,121 @@ export function AcademyCoursesPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((course) => (
-                <tr key={course.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-3">
-                    <Link
-                      to={academyRoutes.course(course.id)}
-                      className="font-medium text-slate-900 hover:text-primary-700"
-                    >
-                      {course.title}
-                    </Link>
-                    {course.origin?.sourceCourseTitle ? (
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        Источник: {course.origin.sourceCourseTitle}
-                      </p>
-                    ) : null}
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      <Badge>
-                        {course.ownerType === 'partner' ? 'Партнёр' : 'Компания'}
-                      </Badge>
-                      {course.draftVersion ? <Badge variant="warning">Есть черновик</Badge> : null}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadgeFromPresentation
-                      status={lifecycleStatusLabel(course.lifecycleStatus)}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadgeFromPresentation
-                      status={distributionStatusLabel(course.distributionStatus)}
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {course.latestPublishedVersion
-                      ? `v${course.latestPublishedVersion.versionNumber}`
-                      : course.draftVersion
-                        ? 'Черновик'
-                        : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      {course.capabilities.canEditDraft ? (
-                        <Link to={academyRoutes.builder(course.id)}>
-                          <Button size="sm" variant="ghost">Изменить</Button>
-                        </Link>
-                      ) : null}
-                      {course.latestPublishedVersion ? (
-                        <Link to={academyRoutes.previewVersion(course.latestPublishedVersion.id)}>
-                          <Button size="sm" variant="ghost">Предпросмотр</Button>
-                        </Link>
-                      ) : null}
-                      <Link to={academyRoutes.course(course.id)}>
-                        <Button size="sm" variant="secondary">Открыть</Button>
+              {items.map((course) => {
+                const canEditDraft = userQuery.data
+                  ? resolveCourseCapabilities({
+                      role: userQuery.data.role,
+                      userId: userQuery.data.id,
+                      course,
+                    }).canEditDraft
+                  : false;
+                return (
+                  <tr key={course.id} className="border-b border-slate-100 last:border-0">
+                    <td className="px-4 py-3">
+                      <Link
+                        to={academyRoutes.course(course.id)}
+                        className="font-medium text-slate-900 hover:text-primary-700"
+                      >
+                        {course.title}
                       </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      {course.origin?.sourceCourseTitle ? (
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Источник: {course.origin.sourceCourseTitle}
+                        </p>
+                      ) : null}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <Badge>{course.ownerType === 'partner' ? 'Партнёр' : 'Компания'}</Badge>
+                        {course.draftVersion ? (
+                          <Badge variant="warning">Есть черновик</Badge>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadgeFromPresentation
+                        status={lifecycleStatusLabel(course.lifecycleStatus)}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadgeFromPresentation
+                        status={distributionStatusLabel(course.distributionStatus)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {course.latestPublishedVersion
+                        ? `v${course.latestPublishedVersion.versionNumber}`
+                        : course.draftVersion
+                          ? 'Черновик'
+                          : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        {canEditDraft ? (
+                          <Link to={academyRoutes.builder(course.id)}>
+                            <Button size="sm" variant="ghost">
+                              Изменить
+                            </Button>
+                          </Link>
+                        ) : null}
+                        {course.latestPublishedVersion ? (
+                          <Link to={academyRoutes.previewVersion(course.latestPublishedVersion.id)}>
+                            <Button size="sm" variant="ghost">
+                              Предпросмотр
+                            </Button>
+                          </Link>
+                        ) : null}
+                        <Link to={academyRoutes.course(course.id)}>
+                          <Button size="sm" variant="secondary">
+                            Открыть
+                          </Button>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       {coursesQuery.data && coursesQuery.data.totalPages > 1 ? (
-        <nav className="flex items-center justify-between gap-3" aria-label="Страницы списка курсов">
-          <span className="text-sm text-slate-500">Страница {coursesQuery.data.page} из {coursesQuery.data.totalPages}</span>
+        <nav
+          className="flex items-center justify-between gap-3"
+          aria-label="Страницы списка курсов"
+        >
+          <span className="text-sm text-slate-500">
+            Страница {coursesQuery.data.page} из {coursesQuery.data.totalPages}
+          </span>
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); if (page <= 2) next.delete('page'); else next.set('page', String(page - 1)); return next; })}>Назад</Button>
-            <Button size="sm" variant="secondary" disabled={page >= coursesQuery.data.totalPages} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('page', String(page + 1)); return next; })}>Далее</Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={page <= 1}
+              onClick={() =>
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  if (page <= 2) next.delete('page');
+                  else next.set('page', String(page - 1));
+                  return next;
+                })
+              }
+            >
+              Назад
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={page >= coursesQuery.data.totalPages}
+              onClick={() =>
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('page', String(page + 1));
+                  return next;
+                })
+              }
+            >
+              Далее
+            </Button>
           </div>
         </nav>
       ) : null}

@@ -8,7 +8,13 @@ import type {
 } from '@/types/academyExternal';
 import type { PaginatedResult } from '@/types/academy';
 import type { ID } from '@/types';
-import { academyGet, academyMutate, buildQuery, encodeId, type RequestOptions } from './httpHelpers';
+import {
+  academyGet,
+  academyMutate,
+  buildQuery,
+  encodeId,
+  type RequestOptions,
+} from './httpHelpers';
 
 /** Backend-plan §11.6–11.7, §11.9 */
 export const academyExternalAdminApi = {
@@ -108,34 +114,15 @@ export const academyExternalAdminApi = {
     );
   },
 
-  pauseCampaign(
-    campaignId: ID,
-    options?: RequestOptions,
-  ): Promise<ExternalCampaignSummary> {
-    return academyMutate(
-      `/academy/campaigns/${encodeId(campaignId)}/pause`,
-      'POST',
-      {},
-      options,
-    );
+  pauseCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return academyMutate(`/academy/campaigns/${encodeId(campaignId)}/pause`, 'POST', {}, options);
   },
 
-  resumeCampaign(
-    campaignId: ID,
-    options?: RequestOptions,
-  ): Promise<ExternalCampaignSummary> {
-    return academyMutate(
-      `/academy/campaigns/${encodeId(campaignId)}/resume`,
-      'POST',
-      {},
-      options,
-    );
+  resumeCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return academyMutate(`/academy/campaigns/${encodeId(campaignId)}/resume`, 'POST', {}, options);
   },
 
-  rotateCampaign(
-    campaignId: ID,
-    options?: RequestOptions,
-  ): Promise<ExternalCampaignSummary> {
+  rotateCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
     return academyMutate(
       `/academy/campaigns/${encodeId(campaignId)}/rotate-token`,
       'POST',
@@ -144,16 +131,8 @@ export const academyExternalAdminApi = {
     );
   },
 
-  revokeCampaign(
-    campaignId: ID,
-    options?: RequestOptions,
-  ): Promise<ExternalCampaignSummary> {
-    return academyMutate(
-      `/academy/campaigns/${encodeId(campaignId)}/revoke`,
-      'POST',
-      {},
-      options,
-    );
+  revokeCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return academyMutate(`/academy/campaigns/${encodeId(campaignId)}/revoke`, 'POST', {}, options);
   },
 
   campaignReport(
@@ -177,14 +156,43 @@ export const academyExternalAdminApi = {
     );
   },
 
-  listLearners(
+  async listLearners(
     filters: { q?: string; page?: number; pageSize?: number } = {},
     options?: RequestOptions,
   ): Promise<PaginatedResult<ExternalLearnerSummary>> {
-    return academyGet(`/academy/external-learners${buildQuery(filters)}`, options);
+    const payload = await academyGet<
+      PaginatedResult<ExternalLearnerSummary> | ExternalLearnerSummary[]
+    >(`/academy/external-learners${buildQuery(filters)}`, options);
+    if (!Array.isArray(payload)) {
+      return {
+        ...payload,
+        items: Array.isArray(payload.items) ? payload.items : [],
+        page: payload.page || filters.page || 1,
+        pageSize: payload.pageSize || filters.pageSize || 25,
+        total: payload.total ?? payload.items?.length ?? 0,
+        totalPages: payload.totalPages || 1,
+      };
+    }
+
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 25;
+    return {
+      items: payload,
+      page,
+      pageSize,
+      total: payload.length,
+      totalPages: Math.max(1, Math.ceil(payload.length / pageSize)),
+    };
   },
 
-  getLearner(learnerId: ID, options?: RequestOptions): Promise<ExternalLearnerDetail> {
-    return academyGet(`/academy/external-learners/${encodeId(learnerId)}`, options);
+  async getLearner(learnerId: ID, options?: RequestOptions): Promise<ExternalLearnerDetail> {
+    const learner = await academyGet<ExternalLearnerDetail>(
+      `/academy/external-learners/${encodeId(learnerId)}`,
+      options,
+    );
+    return {
+      ...learner,
+      timeline: Array.isArray(learner.timeline) ? learner.timeline : [],
+    };
   },
 };
