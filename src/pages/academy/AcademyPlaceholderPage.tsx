@@ -14,7 +14,12 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Badge, Button, Input } from '@/components/ui';
-import { academyRoutes } from '@/lib/academy';
+import {
+  academyRoutes,
+  enrollmentAccessLabel,
+  enrollmentProgressLabel,
+  lifecycleStatusLabel,
+} from '@/lib/academy';
 import { toast } from '@/stores/toast';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 
@@ -67,7 +72,7 @@ export function AcademyPartnerPage() {
             <li key={course.id} className="rounded-xl border border-slate-200 bg-surface p-4">
               <div className="flex items-start justify-between gap-2">
                 <h2 className="font-semibold text-slate-900">{course.title}</h2>
-                <Badge>{course.lifecycleStatus}</Badge>
+                <Badge>{lifecycleStatusLabel(course.lifecycleStatus).label}</Badge>
               </div>
               <p className="mt-2 text-sm text-slate-500">{course.description || 'Без описания'}</p>
               <Link className="mt-4 inline-flex" to={academyRoutes.course(course.id)}>
@@ -257,7 +262,11 @@ export function AcademyLearnerPage() {
             <li key={node.enrollmentId} className="rounded-xl border border-slate-200 bg-surface p-4">
               <div className="flex flex-wrap justify-between gap-2">
                 <div><p className="font-semibold text-slate-900">{node.courseTitle}</p><p className="text-xs text-slate-500">Активировано: {formatDate(node.activatedAt)}</p></div>
-                <div className="flex gap-2"><Badge>{node.progressStatus}</Badge><Badge>{node.percent}%</Badge></div>
+                <div className="flex gap-2">
+                  <Badge>{enrollmentProgressLabel(node.progressStatus).label}</Badge>
+                  <Badge>{enrollmentAccessLabel(node.accessStatus).label}</Badge>
+                  <Badge>{node.percent}%</Badge>
+                </div>
               </div>
               <Link className="mt-3 inline-flex" to={academyRoutes.enrollmentReport(node.enrollmentId)}><Button size="sm" variant="secondary">Отчёт</Button></Link>
             </li>
@@ -285,12 +294,27 @@ export function AcademyCampaignPage() {
   const report = query.data;
   return (
     <div className="space-y-6">
-      <PageHeader title={report.campaignName} description={`${report.courseTitle} · ${report.purpose}`} />
+      <PageHeader
+        title={report.campaignName}
+        description={`${report.courseTitle} · ${
+          report.purpose === 'company_candidate' ? 'Кандидаты компании' : 'Промокампания партнёра'
+        }`}
+      />
       <dl className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {Object.entries(report.funnel).map(([key, value]) => <div key={key} className="rounded-xl border border-slate-200 bg-surface p-4"><dt className="text-xs text-slate-500">{key}</dt><dd className="mt-1 text-xl font-semibold">{value}</dd></div>)}
+        {Object.entries(report.funnel).map(([key, value]) => {
+          const labels: Record<string, string> = {
+            landings: 'Открыли',
+            verified: 'Подтвердили email',
+            activated: 'Активировали',
+            inProgress: 'В процессе',
+            completed: 'Завершили',
+            expired: 'Срок истёк',
+          };
+          return <div key={key} className="rounded-xl border border-slate-200 bg-surface p-4"><dt className="text-xs text-slate-500">{labels[key] ?? key}</dt><dd className="mt-1 text-xl font-semibold">{value}</dd></div>;
+        })}
       </dl>
       <section className="overflow-x-auto rounded-xl border border-slate-200 bg-surface">
-        <table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Ученик</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3">Прогресс</th><th className="px-4 py-3">Активирован</th></tr></thead><tbody className="divide-y divide-slate-100">{report.participants.items.map((row) => <tr key={row.enrollmentId}><td className="px-4 py-3">{row.displayName || row.email}</td><td className="px-4 py-3">{row.progressStatus}</td><td className="px-4 py-3">{row.percent}%</td><td className="px-4 py-3">{formatDate(row.activatedAt)}</td></tr>)}</tbody></table>
+        <table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-4 py-3">Ученик</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3">Прогресс</th><th className="px-4 py-3">Активирован</th></tr></thead><tbody className="divide-y divide-slate-100">{report.participants.items.map((row) => <tr key={row.enrollmentId}><td className="px-4 py-3">{row.displayName || row.email}</td><td className="px-4 py-3">{enrollmentProgressLabel(row.progressStatus).label} · {enrollmentAccessLabel(row.accessStatus).label}</td><td className="px-4 py-3">{row.percent}%</td><td className="px-4 py-3">{formatDate(row.activatedAt)}</td></tr>)}</tbody></table>
       </section>
       <div className="flex items-center justify-between gap-3">
         <Button variant="secondary" disabled={report.participants.page <= 1} onClick={() => setParams({ page: String(page - 1) })}>Назад</Button>
@@ -314,7 +338,7 @@ export function AcademyEnrollmentReportPage() {
   const report = query.data;
   return (
     <div className="space-y-6">
-      <PageHeader title={report.enrollment.courseTitle} description={`Прогресс ${report.enrollment.percent}% · ${report.enrollment.progressStatus}`} />
+      <PageHeader title={report.enrollment.courseTitle} description={`Прогресс ${report.enrollment.percent}% · ${enrollmentProgressLabel(report.enrollment.progressStatus).label} · ${enrollmentAccessLabel(report.enrollment.accessStatus).label}`} />
       <section className="rounded-xl border border-slate-200 bg-surface p-5">
         <h2 className="font-semibold text-slate-900">Результаты уроков</h2>
         <ul className="mt-3 divide-y divide-slate-100">{report.lessonResults.map((lesson) => <li key={lesson.lessonId} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{lesson.title}</span><span className="text-slate-500">{lesson.completed ? `Завершён${lesson.quizScore == null ? '' : ` · тест ${lesson.quizScore}%`}` : 'Не завершён'}</span></li>)}</ul>

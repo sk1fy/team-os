@@ -14,19 +14,6 @@ import { academyRoutes } from '@/lib/academy';
 import { toast } from '@/stores/toast';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 
-const SYSTEM_TEMPLATE_TITLES = [
-  'Онбординг нового сотрудника',
-  'Онбординг менеджера по продажам',
-  'Адаптация руководителя',
-  'Знакомство с компанией и продуктом',
-  'Информационная безопасность',
-  'Стандарты обслуживания',
-  'Основы CRM',
-  'Проверка знаний по регламентам',
-  'Подготовка стажёра',
-  'Курс для внешнего партнёра',
-];
-
 export function AcademyTemplatesPage() {
   useTitle('Шаблоны — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,6 +49,18 @@ export function AcademyTemplatesPage() {
   });
 
   const items = templatesQuery.data?.items ?? [];
+  const groups = [
+    {
+      key: 'system',
+      title: 'Системные шаблоны',
+      items: items.filter((template) => template.ownerType === 'system'),
+    },
+    {
+      key: 'company',
+      title: 'Шаблоны компании',
+      items: items.filter((template) => template.ownerType === 'company'),
+    },
+  ].filter((group) => group.items.length > 0);
 
   return (
     <div className="space-y-6">
@@ -86,24 +85,11 @@ export function AcademyTemplatesPage() {
       />
 
       {templatesQuery.isError ? (
-        <div className="space-y-4">
-          <ErrorState
-            title="Каталог шаблонов недоступен"
-            description="Пока backend не отдаёт /academy/templates, показан список системных шаблонов (локальный fallback)."
-            onRetry={() => void templatesQuery.refetch()}
-          />
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {SYSTEM_TEMPLATE_TITLES.map((title) => (
-              <li
-                key={title}
-                className="rounded-xl border border-dashed border-slate-200 bg-surface p-4 text-sm"
-              >
-                <p className="font-medium text-slate-900">{title}</p>
-                <p className="mt-1 text-xs text-slate-500">Системный шаблон · ожидает backend seed</p>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ErrorState
+          title="Каталог шаблонов недоступен"
+          description="Не удалось получить server-driven список шаблонов."
+          onRetry={() => void templatesQuery.refetch()}
+        />
       ) : templatesQuery.isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -117,40 +103,40 @@ export function AcademyTemplatesPage() {
           description="Системные шаблоны появятся после seed на backend."
         />
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {items.map((tpl) => (
-            <li
-              key={tpl.id}
-              className="flex flex-col rounded-xl border border-slate-200 bg-surface p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-slate-900">{tpl.title}</h3>
-                <span className="text-xs text-slate-500">
-                  {tpl.ownerType === 'system' ? 'Системный' : 'Компания'}
-                </span>
-              </div>
-              {tpl.description ? (
-                <p className="mt-2 line-clamp-2 text-sm text-slate-500">{tpl.description}</p>
-              ) : null}
-              <div className="mt-auto flex flex-wrap gap-2 pt-4">
-                <Link to={academyRoutes.template(tpl.id)}>
-                  <Button size="sm" variant="secondary">
-                    Открыть
-                  </Button>
-                </Link>
-                {tpl.capabilities.canInstantiate && tpl.latestVersionId ? (
-                  <Button
-                    size="sm"
-                    loading={instantiate.isPending}
-                    onClick={() => instantiate.mutate(tpl.latestVersionId!)}
+        <div className="space-y-8">
+          {groups.map((group) => (
+            <section key={group.key} className="space-y-3">
+              <h2 className="text-lg font-semibold text-slate-900">{group.title}</h2>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {group.items.map((tpl) => (
+                  <li
+                    key={tpl.id}
+                    className="flex flex-col rounded-xl border border-slate-200 bg-surface p-4 shadow-sm"
                   >
-                    Создать курс
-                  </Button>
-                ) : null}
-              </div>
-            </li>
+                    <h3 className="font-semibold text-slate-900">{tpl.title}</h3>
+                    {tpl.description ? (
+                      <p className="mt-2 line-clamp-2 text-sm text-slate-500">{tpl.description}</p>
+                    ) : null}
+                    <div className="mt-auto flex flex-wrap gap-2 pt-4">
+                      <Link to={academyRoutes.template(tpl.id)}>
+                        <Button size="sm" variant="secondary">Открыть</Button>
+                      </Link>
+                      {tpl.capabilities.canInstantiate && tpl.latestVersionId ? (
+                        <Button
+                          size="sm"
+                          loading={instantiate.isPending}
+                          onClick={() => instantiate.mutate(tpl.latestVersionId!)}
+                        >
+                          Создать курс
+                        </Button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
       {templatesQuery.data && templatesQuery.data.totalPages > 1 ? (
         <nav className="flex items-center justify-between gap-3" aria-label="Страницы шаблонов">

@@ -99,6 +99,8 @@ export const queryKeys = {
       ['academy-v2', 'partner-courses', partnerId, filters] as const,
     partners: (filters?: unknown) => ['academy-v2', 'partners', filters] as const,
     internalReport: (filters?: unknown) => ['academy-v2', 'internal-report', filters] as const,
+    partnerExternalReport: (filters?: unknown) =>
+      ['academy-v2', 'partner-external-report', filters] as const,
     externalLearners: (filters?: unknown) =>
       ['academy-v2', 'external-learners', filters] as const,
     externalLearner: (learnerId: ID | null | undefined) =>

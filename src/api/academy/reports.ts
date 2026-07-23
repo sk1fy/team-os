@@ -2,7 +2,13 @@ import type { EnrollmentReport } from '@/types/academyExternal';
 import type { AcademyCourseSummary, InternalReportResult, PaginatedResult } from '@/types/academy';
 import type { ID } from '@/types';
 import type { InternalReportFilters } from '@/lib/academy/reportFilters';
-import { academyGet, buildQuery, encodeId, type RequestOptions } from './httpHelpers';
+import {
+  academyDownload,
+  academyGet,
+  buildQuery,
+  encodeId,
+  type RequestOptions,
+} from './httpHelpers';
 
 /** Partner-scoped external report row (server-filtered). */
 export type PartnerExternalReportRow = {
@@ -74,14 +80,20 @@ export const academyReportsApi = {
     );
   },
 
-  internalCsvPath(filters: InternalReportFilters = {}): string {
-    return `/academy/reports/internal/export${buildQuery({
-      q: filters.q,
-      courseId: filters.courseId,
-      departmentId: filters.departmentId,
-      positionId: filters.positionId,
-      status: filters.status,
-      sort: filters.sort,
-    })}`;
+  internalCsv(
+    filters: InternalReportFilters = {},
+    options?: RequestOptions,
+  ): Promise<Blob> {
+    return academyDownload(
+      `/academy/reports/internal/export${buildQuery({
+        q: filters.q,
+        courseId: filters.courseId,
+        departmentId: filters.departmentId,
+        positionId: filters.positionId,
+        status: filters.status,
+        sort: filters.sort,
+      })}`,
+      options,
+    );
   },
 };

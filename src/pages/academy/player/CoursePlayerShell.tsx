@@ -23,6 +23,8 @@ export interface CoursePlayerShellProps {
   outline: CourseVersionLearnerDetail;
   currentLessonId?: string;
   onSelectLesson: (lessonId: string) => void;
+  /** Makes the full outline non-interactive for globally unavailable access states. */
+  outlineReadOnly?: boolean;
   outlineToggleIcon?: ReactNode;
   callout?: ReactNode;
   content: ReactNode;
@@ -42,6 +44,7 @@ export function CoursePlayerShell({
   outline,
   currentLessonId,
   onSelectLesson,
+  outlineReadOnly = false,
   outlineToggleIcon,
   callout,
   content,
@@ -49,11 +52,25 @@ export function CoursePlayerShell({
 }: CoursePlayerShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const orderedLessons = useMemo(
+    () =>
+      outline.sections
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .flatMap((section) => section.lessons.slice().sort((a, b) => a.order - b.order)),
+    [outline],
+  );
+  const currentLessonIndex = orderedLessons.findIndex(
+    (lesson) => lesson.id === currentLessonId,
+  );
+  const currentLesson =
+    currentLessonIndex >= 0 ? orderedLessons[currentLessonIndex] : undefined;
 
   const outlinePanel = (
     <CourseOutlinePanel
       outline={outline}
       currentLessonId={currentLessonId}
+      readOnly={outlineReadOnly}
       onSelectLesson={(id) => {
         onSelectLesson(id);
         setMobileOpen(false);
@@ -63,7 +80,7 @@ export function CoursePlayerShell({
 
   return (
     <div className="flex min-h-screen flex-col bg-page" data-player-mode={mode}>
-      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-surface/95 px-3 backdrop-blur sm:px-4">
+      <header className="sticky top-0 z-20 flex min-h-16 items-center gap-3 border-b border-slate-200 bg-surface/95 px-3 py-2 backdrop-blur sm:px-4">
         {headerLeft}
         <button
           type="button"
@@ -82,7 +99,33 @@ export function CoursePlayerShell({
           {outlineToggleIcon ?? '☰'}
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm font-semibold text-slate-900 sm:text-base">{title}</h1>
+          <h1
+            className="truncate text-sm font-semibold text-slate-900 sm:text-base"
+            title={title}
+          >
+            {title}
+          </h1>
+          {currentLesson ? (
+            <p
+              className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-600"
+              title={
+                currentLesson.locked
+                  ? `${currentLesson.title}. ${currentLesson.lockReason ?? 'Урок пока недоступен'}`
+                  : currentLesson.title
+              }
+            >
+              <span className="shrink-0 font-medium">
+                Урок {currentLessonIndex + 1} из {orderedLessons.length}
+              </span>
+              <span aria-hidden>·</span>
+              <span className="truncate">{currentLesson.title}</span>
+              {currentLesson.locked ? (
+                <span className="sr-only">
+                  . {currentLesson.lockReason ?? 'Урок пока недоступен'}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
           <div className="mt-0.5 flex items-center gap-2">
             <div
               className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100 sm:w-32"
@@ -149,10 +192,12 @@ function CourseOutlinePanel({
   outline,
   currentLessonId,
   onSelectLesson,
+  readOnly,
 }: {
   outline: CourseVersionLearnerDetail;
   currentLessonId?: string;
   onSelectLesson: (lessonId: string) => void;
+  readOnly: boolean;
 }) {
   return (
     <nav className="p-3" aria-label="Программа курса">
@@ -166,18 +211,38 @@ function CourseOutlinePanel({
             <ul className="mt-1 space-y-0.5">
               {section.lessons.map((lesson) => {
                 const active = lesson.id === currentLessonId;
+                const interactionLocked = readOnly || (lesson.locked && !lesson.completed);
                 return (
                   <li key={lesson.id}>
                     <button
                       type="button"
-                      disabled={lesson.locked}
-                      onClick={() => onSelectLesson(lesson.id)}
-                      title={lesson.locked ? lesson.lockReason ?? 'Урок пока недоступен' : lesson.title}
+                      aria-disabled={interactionLocked}
+                      aria-label={
+                        interactionLocked
+                          ? `${lesson.title}. ${
+                              readOnly
+                                ? 'Материалы недоступны в текущем состоянии прохождения'
+                                : lesson.lockReason ?? 'Урок пока недоступен'
+                            }`
+                          : lesson.title
+                      }
+                      onClick={() => {
+                        if (!interactionLocked) onSelectLesson(lesson.id);
+                      }}
+                      title={
+                        interactionLocked
+                          ? `${lesson.title}. ${
+                              readOnly
+                                ? 'Материалы недоступны в текущем состоянии прохождения'
+                                : lesson.lockReason ?? 'Урок пока недоступен'
+                            }`
+                          : lesson.title
+                      }
                       className={cn(
                         'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition',
                         active && 'bg-primary-50 font-medium text-primary-800',
-                        !active && !lesson.locked && 'text-slate-700 hover:bg-slate-100',
-                        lesson.locked && 'cursor-not-allowed text-slate-400',
+                        !active && !interactionLocked && 'text-slate-700 hover:bg-slate-100',
+                        interactionLocked && 'cursor-not-allowed text-slate-400',
                       )}
                     >
                       <span

@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { academyExternalPublicApi } from '@/api/academy';
-import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button } from '@/components/ui';
 import { academyRoutes, deadlineRemaining, enrollmentAccessLabel } from '@/lib/academy';
@@ -15,6 +14,7 @@ import { LessonFooter } from '@/pages/academy/player/LessonFooter';
 import { QuizRunner } from '@/pages/academy/player/QuizRunner';
 import { AcademyStatusCallout } from '@/pages/academy/components/AcademyStatusCallout';
 import { StatusBadgeFromPresentation } from '@/pages/academy/components/StatusBadge';
+import { presentExternalError } from './externalErrorPresentation';
 
 /** External player — same shell as internal, no Bearer from TeamOS auth store. */
 export function ExternalEnrollmentPlayerPage() {
@@ -59,6 +59,12 @@ export function ExternalEnrollmentPlayerPage() {
   const deadlineExpired = Boolean(
     enrollment?.accessUntil && Date.parse(enrollment.accessUntil) <= clockNow,
   );
+  const blocksAllLessonContent =
+    enrollment?.accessStatus === 'suspended' ||
+    enrollment?.accessStatus === 'revoked' ||
+    enrollment?.accessStatus === 'closed';
+  const onlyCompletedLessonContent =
+    deadlineExpired || enrollment?.accessStatus === 'expired';
 
   useEffect(() => {
     if (!deadlineExpired || !enrollment?.accessUntil) return;
@@ -73,23 +79,45 @@ export function ExternalEnrollmentPlayerPage() {
     const requested = flatLessons.find((lesson) => lesson.id === lessonFromUrl);
     const requestedAllowed = Boolean(
       requested &&
-        (!requested.locked || requested.completed || requested.id === enrollment.currentLessonId),
+        !blocksAllLessonContent &&
+        (!onlyCompletedLessonContent || requested.completed) &&
+        (!requested.locked || requested.completed),
     );
     if (requestedAllowed) return;
 
     const fallback =
-      flatLessons.find((lesson) => lesson.id === enrollment.currentLessonId) ??
-      flatLessons.find((lesson) => !lesson.locked || lesson.completed);
+      flatLessons.find(
+        (lesson) =>
+          lesson.id === enrollment.currentLessonId &&
+          !blocksAllLessonContent &&
+          (!onlyCompletedLessonContent || lesson.completed) &&
+          (!lesson.locked || lesson.completed),
+      ) ??
+      flatLessons.find(
+        (lesson) =>
+          !blocksAllLessonContent &&
+          (!onlyCompletedLessonContent || lesson.completed) &&
+          (!lesson.locked || lesson.completed),
+      );
     setSearchParams(fallback ? { lesson: fallback.id } : {}, { replace: true });
-  }, [enrollment, flatLessons, lessonFromUrl, outline, setSearchParams]);
+  }, [
+    blocksAllLessonContent,
+    enrollment,
+    flatLessons,
+    lessonFromUrl,
+    onlyCompletedLessonContent,
+    outline,
+    setSearchParams,
+  ]);
 
   const currentLessonId = lessonFromUrl;
   const outlineLesson = flatLessons.find((lesson) => lesson.id === currentLessonId);
   const currentLessonAllowed = Boolean(
-    outlineLesson &&
-      (!outlineLesson.locked ||
-        outlineLesson.completed ||
-        outlineLesson.id === enrollment?.currentLessonId),
+    enrollment &&
+      outlineLesson &&
+      !blocksAllLessonContent &&
+      (!onlyCompletedLessonContent || outlineLesson.completed) &&
+      (!outlineLesson.locked || outlineLesson.completed),
   );
   const lessonQuery = useQuery({
     queryKey: queryKeys.externalAcademy.lesson(enrollmentId, currentLessonId),
@@ -127,7 +155,18 @@ export function ExternalEnrollmentPlayerPage() {
         setSearchParams({ lesson: updated.currentLessonId });
       }
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка'),
+    onError: (error) => {
+      const presentation = presentExternalError(error, {
+        title: 'Не удалось завершить урок',
+        description: 'Обновите состояние прохождения и попробуйте ещё раз.',
+        recovery: 'retry',
+      });
+      toast.error(presentation.description);
+      if (presentation.recovery === 'none') {
+        void refetchEnrollment();
+        void refetchOutline();
+      }
+    },
   });
 
   const quizMutation = useMutation({
@@ -150,16 +189,35 @@ export function ExternalEnrollmentPlayerPage() {
         toast.error(`Тест не пройден · ${attempt.score}%`);
       }
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка проверки'),
+    onError: (error) => {
+      const presentation = presentExternalError(error, {
+        title: 'Не удалось проверить ответы',
+        description: 'Ответы не сохранены. Попробуйте отправить их ещё раз.',
+        recovery: 'retry',
+      });
+      toast.error(presentation.description);
+      if (presentation.recovery === 'none') {
+        void refetchEnrollment();
+        void refetchOutline();
+      }
+    },
   });
 
   if (enrollmentQuery.isError || outlineQuery.isError) {
+    const presentation = presentExternalError(
+      enrollmentQuery.error ?? outlineQuery.error,
+      {
+        title: 'Нет доступа',
+        description: 'Сессия внешнего ученика недействительна или истекла.',
+        recovery: 'none',
+      },
+    );
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <AcademyStatusCallout
           tone="danger"
-          title="Нет доступа"
-          description="Сессия внешнего ученика недействительна или истекла."
+          title={presentation.title}
+          description={presentation.description}
         />
       </div>
     );
@@ -187,11 +245,9 @@ export function ExternalEnrollmentPlayerPage() {
   const hasQuiz = Boolean(lesson?.quiz);
   const lessonCompleted = Boolean(lesson?.completed || outlineLesson?.completed);
   const contentUnavailable =
-    enrollment.accessStatus === 'suspended' ||
-    enrollment.accessStatus === 'revoked' ||
-    enrollment.accessStatus === 'closed' ||
+    blocksAllLessonContent ||
     ((deadlineExpired || enrollment.accessStatus === 'expired') && !lessonCompleted);
-  const visibleLesson = contentUnavailable ? null : lesson;
+  const visibleLesson = contentUnavailable || !currentLessonAllowed ? null : lesson;
   const lessonIndex = flatLessons.findIndex((item) => item.id === currentLessonId);
   const prevLesson = lessonIndex > 0 ? flatLessons[lessonIndex - 1] : undefined;
   const nextLesson =
@@ -200,8 +256,18 @@ export function ExternalEnrollmentPlayerPage() {
       : undefined;
   const selectLesson = (lessonId: string) => {
     const target = flatLessons.find((item) => item.id === lessonId);
-    if (!target || (target.locked && !target.completed && target.id !== enrollment.currentLessonId)) {
-      toast.info('Сначала завершите предыдущий урок');
+    const targetAllowed = Boolean(
+      target &&
+        !blocksAllLessonContent &&
+        (!onlyCompletedLessonContent || target.completed) &&
+        (!target.locked || target.completed),
+    );
+    if (!targetAllowed) {
+      toast.info(
+        blocksAllLessonContent || onlyCompletedLessonContent
+          ? 'Материал недоступен в текущем состоянии прохождения'
+          : 'Сначала завершите предыдущий урок',
+      );
       return;
     }
     setSearchParams({ lesson: lessonId });
@@ -264,6 +330,7 @@ export function ExternalEnrollmentPlayerPage() {
         </div>
       }
       outline={outline}
+      outlineReadOnly={blocksAllLessonContent}
       currentLessonId={currentLessonId}
       onSelectLesson={selectLesson}
       callout={
@@ -277,7 +344,24 @@ export function ExternalEnrollmentPlayerPage() {
       }
       content={
         <div>
-          <LessonArticle lesson={visibleLesson} loading={lessonQuery.isLoading} />
+          {contentUnavailable ? (
+            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+              <AcademyStatusCallout
+                tone="warning"
+                title="Материал недоступен"
+                description={
+                  onlyCompletedLessonContent
+                    ? 'После окончания срока можно открыть только завершённые уроки.'
+                    : 'Контент курса скрыт. Сохранённые результаты можно открыть отдельно.'
+                }
+              />
+            </div>
+          ) : (
+            <LessonArticle
+              lesson={visibleLesson}
+              loading={Boolean(currentLessonAllowed && lessonQuery.isLoading)}
+            />
+          )}
           {visibleLesson?.quiz && !visibleLesson.locked ? (
             <QuizRunner
               quiz={visibleLesson.quiz}
@@ -303,8 +387,18 @@ export function ExternalEnrollmentPlayerPage() {
       }
       footer={
         <LessonFooter
-          canGoPrev={Boolean(prevLesson && (!prevLesson.locked || prevLesson.completed))}
-          canGoNext={Boolean(nextLesson && (!nextLesson.locked || nextLesson.completed))}
+          canGoPrev={Boolean(
+            prevLesson &&
+              !blocksAllLessonContent &&
+              (!onlyCompletedLessonContent || prevLesson.completed) &&
+              (!prevLesson.locked || prevLesson.completed),
+          )}
+          canGoNext={Boolean(
+            nextLesson &&
+              !blocksAllLessonContent &&
+              (!onlyCompletedLessonContent || nextLesson.completed) &&
+              (!nextLesson.locked || nextLesson.completed),
+          )}
           onPrev={() => prevLesson && selectLesson(prevLesson.id)}
           onNext={() => nextLesson && selectLesson(nextLesson.id)}
           showComplete={Boolean(showComplete)}
@@ -328,12 +422,17 @@ export function ExternalResultsPage() {
   });
 
   if (resultsQuery.isError) {
+    const presentation = presentExternalError(resultsQuery.error, {
+      title: 'Не удалось открыть результаты',
+      description: 'Сессия недействительна либо результаты этого прохождения недоступны.',
+      recovery: 'none',
+    });
     return (
       <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 p-6">
         <AcademyStatusCallout
           tone="danger"
-          title="Не удалось открыть результаты"
-          description="Сессия недействительна либо результаты этого прохождения недоступны."
+          title={presentation.title}
+          description={presentation.description}
         />
         <Link to={academyRoutes.externalPlayer(enrollmentId)}>
           <Button variant="secondary">Вернуться к курсу</Button>

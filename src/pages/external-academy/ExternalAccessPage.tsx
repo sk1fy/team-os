@@ -3,12 +3,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { academyExternalPublicApi } from '@/api/academy';
-import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Input } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
 import { toast } from '@/stores/toast';
 import { AcademyStatusCallout } from '@/pages/academy/components/AcademyStatusCallout';
+import {
+  presentExternalError,
+  type ExternalErrorPresentation,
+} from './externalErrorPresentation';
 
 /**
  * Public external landing — no TeamOS User, no internal Bearer.
@@ -27,6 +30,7 @@ export function ExternalAccessPage() {
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [flowError, setFlowError] = useState<ExternalErrorPresentation | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const activationKey = useRef(crypto.randomUUID());
 
@@ -39,6 +43,8 @@ export function ExternalAccessPage() {
 
   const landing = landingQuery.data;
   const emailLocked = Boolean(landing?.emailLocked && landing.expectedEmail);
+  // During contract rollout, a missing flag must not silently bypass verification.
+  const requiresEmailVerification = landing?.requiresEmailVerification !== false;
 
   useEffect(() => {
     if (!challengeId) return;
@@ -59,36 +65,89 @@ export function ExternalAccessPage() {
         phone: phone.trim() || undefined,
       }),
     onSuccess: (challenge) => {
+      setFlowError(null);
       setChallengeId(challenge.challengeId);
       setCode('');
       setNow(Date.now());
       toast.success('Код отправлен на email');
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Не удалось отправить код'),
+    onError: (error) => {
+      const presentation = presentExternalError(error, {
+        title: 'Не удалось отправить код',
+        description: 'Проверьте данные и попробуйте ещё раз.',
+        recovery: 'retry',
+      });
+      setFlowError(presentation);
+      toast.error(presentation.description);
+    },
   });
 
   const confirmVerify = useMutation({
     mutationFn: () =>
       academyExternalPublicApi.confirmVerification(challengeId!, { code: code.trim() }),
     onSuccess: (session) => {
-      setReady(true);
+      setFlowError(null);
       const enrollmentId = session.readyEnrollmentId ?? session.enrollmentId;
-      if (enrollmentId) {
+      if (session.accessStatus === 'active' && enrollmentId) {
         clearSensitiveAccessQuery();
         navigate(academyRoutes.externalPlayer(enrollmentId), { replace: true });
+        return;
       }
+      if (session.accessStatus === 'ready' || session.accessStatus === 'invited') {
+        setReady(true);
+        return;
+      }
+      setReady(false);
+      setFlowError({
+        title: 'Доступ нельзя активировать',
+        description:
+          session.accessStatus === 'expired'
+            ? 'Срок доступа истёк.'
+            : session.accessStatus === 'revoked' || session.accessStatus === 'closed'
+              ? 'Доступ закрыт автором курса.'
+              : 'Доступ временно недоступен. Обратитесь к автору курса.',
+        recovery: session.accessStatus === 'frozen' ? 'retry_later' : 'none',
+      });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Неверный код'),
+    onError: (error) => {
+      const presentation = presentExternalError(error, {
+        title: 'Код не подтверждён',
+        description: 'Проверьте код и попробуйте ещё раз.',
+        recovery: 'retry',
+      });
+      if (
+        presentation.recovery === 'restart_verification' ||
+        presentation.recovery === 'edit_identity'
+      ) {
+        setChallengeId(null);
+        setCode('');
+        setReady(false);
+      }
+      setFlowError(presentation);
+      toast.error(presentation.description);
+    },
   });
 
   const activate = useMutation({
     mutationFn: () =>
       academyExternalPublicApi.activate(token, { idempotencyKey: activationKey.current }),
     onSuccess: ({ enrollmentId }) => {
+      setFlowError(null);
       clearSensitiveAccessQuery();
       navigate(academyRoutes.externalPlayer(enrollmentId), { replace: true });
     },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Не удалось активировать'),
+    onError: (error) => {
+      const presentation = presentExternalError(error, {
+        title: 'Не удалось активировать доступ',
+        description: 'Попробуйте ещё раз. Срок не начнётся без успешной активации.',
+        recovery: 'retry',
+      });
+      setFlowError(presentation);
+      toast.error(presentation.description);
+      if (presentation.recovery === 'reload_landing') {
+        void landingQuery.refetch();
+      }
+    },
   });
 
   const deadlineDays = landing?.deadlineDays ?? landing?.defaultDeadlineDays;
@@ -106,12 +165,17 @@ export function ExternalAccessPage() {
   }
 
   if (landingQuery.isError || !landing) {
+    const presentation = presentExternalError(landingQuery.error, {
+      title: 'Ссылка недоступна',
+      description: 'Ссылка недействительна, истекла или отозвана.',
+      recovery: 'retry',
+    });
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
         <AcademyStatusCallout
           tone="danger"
-          title="Ссылка недоступна"
-          description="Ссылка недействительна, истекла или отозвана."
+          title={presentation.title}
+          description={presentation.description}
         />
       </div>
     );
@@ -135,6 +199,18 @@ export function ExternalAccessPage() {
         >
           Продолжить обучение
         </Button>
+      </div>
+    );
+  }
+
+  if (landing.status === 'already_activated') {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
+        <AcademyStatusCallout
+          tone="warning"
+          title="Доступ уже активирован"
+          description="Сервер не вернул идентификатор существующего прохождения. Обновите страницу или обратитесь к автору курса."
+        />
       </div>
     );
   }
@@ -174,6 +250,13 @@ export function ExternalAccessPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-6 p-6">
       <div>
+        {landing.courseCoverUrl ? (
+          <img
+            src={landing.courseCoverUrl}
+            alt=""
+            className="mb-5 aspect-[16/9] w-full rounded-xl object-cover"
+          />
+        ) : null}
         <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
           {landing.companyName ?? 'Внешнее обучение'}
         </p>
@@ -182,24 +265,33 @@ export function ExternalAccessPage() {
           <p className="mt-2 text-sm text-slate-600">{landing.courseDescription}</p>
         ) : null}
         {landing.partnerName ? (
-          <p className="mt-2 text-xs text-slate-500">От: {landing.partnerName}</p>
+          <p className="mt-2 text-xs text-slate-500">Автор: {landing.partnerName}</p>
         ) : null}
         {deadlineDays != null ? (
           <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
             Срок прохождения после активации:{' '}
             <strong>
-              {deadlineDays} {deadlineDays === 1 ? 'день' : deadlineDays < 5 ? 'дня' : 'дней'}
+              {formatDeadlineDays(deadlineDays)}
             </strong>{' '}
-            (по {deadlineDays * 24} ч). Задаёт автор ссылки.
+            Таймер нельзя поставить на паузу.
           </p>
         ) : null}
       </div>
 
-      {!challengeId && !ready ? (
+      {flowError ? (
+        <AcademyStatusCallout
+          tone={flowError.recovery === 'retry_later' ? 'warning' : 'danger'}
+          title={flowError.title}
+          description={flowError.description}
+        />
+      ) : null}
+
+      {requiresEmailVerification && !challengeId && !ready ? (
         <form
           className="space-y-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
+            setFlowError(null);
             startVerify.mutate();
           }}
         >
@@ -253,11 +345,12 @@ export function ExternalAccessPage() {
         </form>
       ) : null}
 
-      {challengeId && !ready ? (
+      {requiresEmailVerification && challengeId && !ready ? (
         <form
           className="space-y-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm"
           onSubmit={(e) => {
             e.preventDefault();
+            setFlowError(null);
             confirmVerify.mutate();
           }}
         >
@@ -292,6 +385,7 @@ export function ExternalAccessPage() {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
+                  setFlowError(null);
                   setChallengeId(null);
                   setCode('');
                   setReady(false);
@@ -307,21 +401,28 @@ export function ExternalAccessPage() {
         </form>
       ) : null}
 
-      {ready ? (
+      {ready || !requiresEmailVerification ? (
         <div className="space-y-4 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm">
           <AcademyStatusCallout
             tone="info"
             title="Готово к старту"
             description={
               deadlineDays != null
-                ? `После активации у вас будет ${deadlineDays} дн. на прохождение. Отсчёт начнётся сразу.`
-                : 'Отсчёт срока начнётся сразу после активации.'
+                ? `После начала курс будет доступен ${formatDeadlineDays(deadlineDays)}. Таймер нельзя поставить на паузу.`
+                : 'Срок прохождения начнётся сразу после активации. Таймер нельзя поставить на паузу.'
             }
           />
           <Button
             className="w-full"
             loading={activate.isPending}
-            disabled={activate.isPending}
+            disabled={
+              activate.isPending ||
+              Boolean(
+                flowError &&
+                  flowError.recovery !== 'retry' &&
+                  flowError.recovery !== 'reload_landing',
+              )
+            }
             onClick={() => activate.mutate()}
           >
             Активировать и начать
@@ -330,4 +431,18 @@ export function ExternalAccessPage() {
       ) : null}
     </div>
   );
+}
+
+function formatDeadlineDays(value: number): string {
+  const mod100 = value % 100;
+  const mod10 = value % 10;
+  const unit =
+    mod100 >= 11 && mod100 <= 14
+      ? 'дней'
+      : mod10 === 1
+        ? 'день'
+        : mod10 >= 2 && mod10 <= 4
+          ? 'дня'
+          : 'дней';
+  return `${value} ${unit}`;
 }

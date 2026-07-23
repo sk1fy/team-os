@@ -22,10 +22,40 @@ import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
 import { toast } from '@/stores/toast';
 
+const personalAccessStatusLabels = {
+  issued: 'Ссылка выпущена',
+  activated: 'Активирован',
+  revoked: 'Отозван',
+  closed: 'Закрыт',
+} as const;
+
+const campaignStatusLabels = {
+  active: 'Активна',
+  paused: 'На паузе',
+  revoked: 'Отозвана',
+  closed: 'Закрыта',
+} as const;
+
+const assignmentTargetLabels = {
+  user: 'Сотрудник',
+  position: 'Должность',
+  department: 'Отдел',
+} as const;
+
+function parseDeadlineDays(value: string): number | null {
+  const days = Number(value);
+  return Number.isInteger(days) && days >= 1 && days <= 7 ? days : null;
+}
+
 export function CourseWorkspacePage() {
   const { courseId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [restriction, setRestriction] = useState<'pause' | 'block' | null>(null);
+  const [restrictionReason, setRestrictionReason] = useState('');
+  const [lifecycleConfirmation, setLifecycleConfirmation] = useState<
+    'archive' | 'delete' | null
+  >(null);
   useTitle('Курс — Академия — TeamOS');
 
   const courseQuery = useQuery({
@@ -60,6 +90,42 @@ export function CourseWorkspacePage() {
     },
     onError: (error) =>
       toast.error(error instanceof ApiError ? error.message : 'Не удалось изменить состояние курса'),
+  });
+
+  const copyPartnerCourse = useMutation({
+    mutationFn: (input: { versionId: string; idempotencyKey: string }) =>
+      academyCoursesApi.copyToCompany(
+        courseId,
+        { versionId: input.versionId },
+        { idempotencyKey: input.idempotencyKey },
+      ),
+    onSuccess: (copy) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
+      toast.success('Копия создана как черновик компании');
+      navigate(academyRoutes.builder(copy.id));
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось скопировать курс'),
+  });
+
+  const restrictPartnerCourse = useMutation({
+    mutationFn: (input: { action: 'pause' | 'block'; reason: string }) =>
+      input.action === 'block'
+        ? academyCoursesApi.block(courseId, { reason: input.reason })
+        : academyCoursesApi.pauseDistribution(courseId, { reason: input.reason }),
+    onSuccess: (_result, input) => {
+      setRestriction(null);
+      setRestrictionReason('');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.course(courseId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
+      toast.success(
+        input.action === 'block'
+          ? 'Курс заблокирован'
+          : 'Распространение приостановлено',
+      );
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось ограничить курс'),
   });
 
   if (courseQuery.isError) {
@@ -106,15 +172,46 @@ export function CourseWorkspacePage() {
                 <Button variant="secondary">Предпросмотр</Button>
               </Link>
             ) : null}
+            {caps.canCopyToCompany && course.latestPublishedVersion ? (
+              <Button
+                loading={copyPartnerCourse.isPending}
+                onClick={() =>
+                  copyPartnerCourse.mutate({
+                    versionId: course.latestPublishedVersion!.id,
+                    idempotencyKey: crypto.randomUUID(),
+                  })
+                }
+              >
+                Копировать в компанию
+              </Button>
+            ) : null}
+            {caps.canPauseDistribution && course.distributionStatus === 'active' ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setRestriction('pause');
+                  setRestrictionReason('');
+                }}
+              >
+                Приостановить
+              </Button>
+            ) : null}
+            {caps.canBlock && course.distributionStatus !== 'blocked' ? (
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setRestriction('block');
+                  setRestrictionReason('');
+                }}
+              >
+                Заблокировать
+              </Button>
+            ) : null}
             {caps.canArchive && course.lifecycleStatus === 'active' ? (
               <Button
                 variant="secondary"
                 loading={lifecycle.isPending}
-                onClick={() => {
-                  if (window.confirm('Архивировать курс? Новые назначения и активации остановятся.')) {
-                    lifecycle.mutate('archive');
-                  }
-                }}
+                onClick={() => setLifecycleConfirmation('archive')}
               >
                 Архивировать
               </Button>
@@ -133,11 +230,7 @@ export function CourseWorkspacePage() {
               <Button
                 variant="secondary"
                 loading={lifecycle.isPending}
-                onClick={() => {
-                  if (window.confirm('Удалить курс? Контент станет недоступен, исторические результаты сохранятся.')) {
-                    lifecycle.mutate('delete');
-                  }
-                }}
+                onClick={() => setLifecycleConfirmation('delete')}
               >
                 Удалить
               </Button>
@@ -210,6 +303,108 @@ export function CourseWorkspacePage() {
           ) : null}
         </dl>
       </section>
+
+      <Modal
+        open={lifecycleConfirmation != null}
+        onOpenChange={(open) => {
+          if (!open && !lifecycle.isPending) setLifecycleConfirmation(null);
+        }}
+        title={
+          lifecycleConfirmation === 'delete'
+            ? 'Удалить курс?'
+            : 'Архивировать курс?'
+        }
+        description={
+          lifecycleConfirmation === 'delete'
+            ? 'Контент станет недоступен, а исторические результаты сохранятся.'
+            : 'Новые назначения и активации будут остановлены до восстановления курса.'
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={lifecycle.isPending}
+              onClick={() => setLifecycleConfirmation(null)}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant={lifecycleConfirmation === 'delete' ? 'danger' : 'primary'}
+              loading={lifecycle.isPending}
+              onClick={() => {
+                if (!lifecycleConfirmation) return;
+                lifecycle.mutate(lifecycleConfirmation, {
+                  onSuccess: () => setLifecycleConfirmation(null),
+                });
+              }}
+            >
+              {lifecycleConfirmation === 'delete' ? 'Удалить' : 'Архивировать'}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          Это действие изменит доступ к курсу для всех новых прохождений.
+        </p>
+      </Modal>
+
+      <Modal
+        open={restriction != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRestriction(null);
+            setRestrictionReason('');
+          }
+        }}
+        title={
+          restriction === 'block'
+            ? 'Заблокировать курс партнёра'
+            : 'Приостановить распространение'
+        }
+        description={
+          restriction === 'block'
+            ? 'Экстренная блокировка остановит активные прохождения. Причина обязательна.'
+            : 'Новые активации будут остановлены до снятия ограничения.'
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRestriction(null);
+                setRestrictionReason('');
+              }}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant={restriction === 'block' ? 'danger' : 'primary'}
+              disabled={restrictionReason.trim().length < 3}
+              loading={restrictPartnerCourse.isPending}
+              onClick={() => {
+                if (!restriction || restrictionReason.trim().length < 3) return;
+                restrictPartnerCourse.mutate({
+                  action: restriction,
+                  reason: restrictionReason.trim(),
+                });
+              }}
+            >
+              {restriction === 'block' ? 'Заблокировать' : 'Приостановить'}
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Причина"
+          value={restrictionReason}
+          onChange={(event) => setRestrictionReason(event.target.value)}
+          error={
+            restrictionReason.length > 0 && restrictionReason.trim().length < 3
+              ? 'Укажите причину не короче 3 символов'
+              : undefined
+          }
+        />
+      </Modal>
     </div>
   );
 }
@@ -268,6 +463,8 @@ export function CourseVersionsPage() {
                   {version.publishedAt
                     ? ` · ${new Date(version.publishedAt).toLocaleString('ru-RU')}`
                     : ''}
+                  {version.sectionCount != null ? ` · разделов: ${version.sectionCount}` : ''}
+                  {version.lessonCount != null ? ` · уроков: ${version.lessonCount}` : ''}
                 </p>
               </div>
               {version.status === 'published' ? (
@@ -302,6 +499,8 @@ export function CourseDistributionPage() {
   const [accessDeadline, setAccessDeadline] = useState('3');
   const [campaignName, setCampaignName] = useState('');
   const [campaignDeadline, setCampaignDeadline] = useState('3');
+  const [extendAccessId, setExtendAccessId] = useState<string | null>(null);
+  const [extendDays, setExtendDays] = useState('1');
   const [oneTimeSecretUrl, setOneTimeSecretUrl] = useState<string | null>(null);
   const createAccessResetRef = useRef<() => void>(() => undefined);
   const mutateAccessResetRef = useRef<() => void>(() => undefined);
@@ -322,6 +521,10 @@ export function CourseDistributionPage() {
 
   const caps = courseQuery.data?.capabilities;
   const publishedVersionId = courseQuery.data?.latestPublishedVersion?.id;
+  const accessDeadlineDays = parseDeadlineDays(accessDeadline);
+  const campaignDeadlineDays = parseDeadlineDays(campaignDeadline);
+  const parsedExtendDays = Number(extendDays);
+  const extendDaysValid = Number.isInteger(parsedExtendDays) && parsedExtendDays >= 1;
 
   const createAssignment = useMutation({
     mutationFn: () =>
@@ -359,13 +562,15 @@ export function CourseDistributionPage() {
   const createAccess = useMutation({
     mutationFn: () => {
       if (!publishedVersionId) throw new Error('no published version');
+      const deadlineDays = parseDeadlineDays(accessDeadline);
+      if (deadlineDays == null) throw new Error('invalid deadline');
       return academyExternalAdminApi.createPersonalAccess(
         courseId,
         publishedVersionId,
         {
           email: accessEmail.trim(),
           firstName: accessFirstName.trim() || undefined,
-          deadlineDays: Number(accessDeadline),
+          deadlineDays,
         },
         { idempotencyKey: crypto.randomUUID() },
       );
@@ -391,7 +596,11 @@ export function CourseDistributionPage() {
     onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Не удалось создать доступ'),
   });
   const mutateAccess = useMutation({
-    mutationFn: async (input: { accessId: string; action: 'rotate' | 'revoke' | 'extend' | 'repeat' }) => {
+    mutationFn: async (input: {
+      accessId: string;
+      action: 'rotate' | 'revoke' | 'extend' | 'repeat';
+      extraDays?: number;
+    }) => {
       if (input.action === 'rotate') {
         return academyExternalAdminApi.rotatePersonalAccess(input.accessId, {
           idempotencyKey: crypto.randomUUID(),
@@ -407,10 +616,12 @@ export function CourseDistributionPage() {
         });
         return null;
       }
-      const raw = window.prompt('На сколько дней продлить доступ?', '1');
-      const extraDays = Number(raw);
-      if (!Number.isInteger(extraDays) || extraDays < 1) throw new Error('cancelled');
-      await academyExternalAdminApi.extendPersonalAccess(input.accessId, { extraDays });
+      if (!Number.isInteger(input.extraDays) || (input.extraDays ?? 0) < 1) {
+        throw new Error('invalid extension');
+      }
+      await academyExternalAdminApi.extendPersonalAccess(input.accessId, {
+        extraDays: input.extraDays!,
+      });
       return null;
     },
     onSuccess: async (result, input) => {
@@ -432,12 +643,14 @@ export function CourseDistributionPage() {
               : 'Доступ продлён',
         );
       }
+      if (input.action === 'extend') {
+        setExtendAccessId(null);
+        setExtendDays('1');
+      }
       mutateAccessResetRef.current();
     },
-    onError: (error) => {
-      if (error instanceof Error && error.message === 'cancelled') return;
-      toast.error(error instanceof ApiError ? error.message : 'Не удалось изменить доступ');
-    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось изменить доступ'),
   });
   const campaignsQuery = useQuery({
     queryKey: queryKeys.academyV2.campaigns(courseId),
@@ -447,13 +660,15 @@ export function CourseDistributionPage() {
   const createCampaign = useMutation({
     mutationFn: () => {
       if (!publishedVersionId) throw new Error('no published version');
+      const deadlineDays = parseDeadlineDays(campaignDeadline);
+      if (deadlineDays == null) throw new Error('invalid deadline');
       return academyExternalAdminApi.createCampaign(
         courseId,
         publishedVersionId,
         {
           purpose: caps?.canCreateCandidateCampaign ? 'company_candidate' : 'partner_promo',
           name: campaignName.trim(),
-          deadlineDays: Number(campaignDeadline),
+          deadlineDays,
         },
         { idempotencyKey: crypto.randomUUID() },
       );
@@ -545,7 +760,9 @@ export function CourseDistributionPage() {
                 <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <span>
                     {row.targetName ?? row.targetId}{' '}
-                    <span className="text-slate-400">({row.targetType})</span>
+                    <span className="text-slate-400">
+                      ({assignmentTargetLabels[row.targetType]})
+                    </span>
                   </span>
                   <span className="text-slate-500">
                     {row.completedEnrollments}/{row.activeEnrollments + row.completedEnrollments}{' '}
@@ -565,13 +782,51 @@ export function CourseDistributionPage() {
           <div className="grid gap-2 sm:grid-cols-[1fr_1fr_7rem_auto]">
             <Input type="email" value={accessEmail} onChange={(event) => setAccessEmail(event.target.value)} placeholder="email@example.com" />
             <Input value={accessFirstName} onChange={(event) => setAccessFirstName(event.target.value)} placeholder="Имя" />
-            <Input type="number" min={1} max={7} value={accessDeadline} onChange={(event) => setAccessDeadline(event.target.value)} aria-label="Дней на прохождение" />
-            <Button disabled={!accessEmail.trim() || !publishedVersionId} loading={createAccess.isPending} onClick={() => createAccess.mutate()}>Создать</Button>
+            <Input
+              type="number"
+              min={1}
+              max={7}
+              label="Дней"
+              value={accessDeadline}
+              onChange={(event) => setAccessDeadline(event.target.value)}
+              error={accessDeadlineDays == null ? 'От 1 до 7 дней' : undefined}
+            />
+            <Button
+              disabled={!accessEmail.trim() || !publishedVersionId || accessDeadlineDays == null}
+              loading={createAccess.isPending}
+              onClick={() => createAccess.mutate()}
+            >
+              Создать
+            </Button>
           </div>
           {personalAccessesQuery.isError ? <ErrorState title="Не удалось загрузить доступы" onRetry={() => void personalAccessesQuery.refetch()} /> : personalAccessesQuery.isLoading ? (
             <div className="h-16 animate-pulse rounded bg-slate-100" />
           ) : (
-            <ul className="divide-y divide-slate-100 text-sm">{(personalAccessesQuery.data?.items ?? []).map((access) => <li key={access.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span>{access.email}</span><span className="text-slate-500">{access.status} · {access.deadlineDays} дн.</span><div className="flex flex-wrap gap-1"><Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'rotate' })}>Новая ссылка</Button><Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'extend' })}>Продлить</Button>{access.status === 'activated' ? <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'repeat' })}>Повтор</Button> : null}{access.status !== 'revoked' && access.status !== 'closed' ? <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'revoke' })}>Отозвать</Button> : null}</div></li>)}</ul>
+            <ul className="divide-y divide-slate-100 text-sm">
+              {(personalAccessesQuery.data?.items ?? []).map((access) => (
+                <li key={access.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>{access.email}</span>
+                  <span className="text-slate-500">
+                    {personalAccessStatusLabels[access.status]} · {access.deadlineDays} дн.
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'rotate' })}>Новая ссылка</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setExtendAccessId(access.id);
+                        setExtendDays('1');
+                      }}
+                    >
+                      Продлить
+                    </Button>
+                    {access.status === 'activated' ? <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'repeat' })}>Повтор</Button> : null}
+                    {access.status !== 'revoked' && access.status !== 'closed' ? <Button size="sm" variant="ghost" loading={mutateAccess.isPending} onClick={() => mutateAccess.mutate({ accessId: access.id, action: 'revoke' })}>Отозвать</Button> : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       ) : null}
@@ -581,18 +836,87 @@ export function CourseDistributionPage() {
           <h2 className="text-sm font-semibold text-slate-900">{caps?.canCreateCandidateCampaign ? 'Candidate-кампании' : 'Промокампании'}</h2>
           <div className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
             <Input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} placeholder="Название кампании" />
-            <Input type="number" min={1} max={7} value={campaignDeadline} onChange={(event) => setCampaignDeadline(event.target.value)} aria-label="Дней на прохождение" />
-            <Button disabled={!campaignName.trim() || !publishedVersionId} loading={createCampaign.isPending} onClick={() => createCampaign.mutate()}>Создать</Button>
+            <Input
+              type="number"
+              min={1}
+              max={7}
+              label="Дней"
+              value={campaignDeadline}
+              onChange={(event) => setCampaignDeadline(event.target.value)}
+              error={campaignDeadlineDays == null ? 'От 1 до 7 дней' : undefined}
+            />
+            <Button
+              disabled={!campaignName.trim() || !publishedVersionId || campaignDeadlineDays == null}
+              loading={createCampaign.isPending}
+              onClick={() => createCampaign.mutate()}
+            >
+              Создать
+            </Button>
           </div>
           {campaignsQuery.isError ? (
             <ErrorState title="Не удалось загрузить кампании" onRetry={() => void campaignsQuery.refetch()} />
           ) : campaignsQuery.isLoading ? (
             <div className="h-16 animate-pulse rounded bg-slate-100" />
           ) : (
-            <ul className="divide-y divide-slate-100 text-sm">{(campaignsQuery.data ?? []).map((campaign) => <li key={campaign.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span>{campaign.name}</span><div className="flex flex-wrap items-center gap-1"><span className="mr-1 text-slate-500">{campaign.status}</span>{campaign.status === 'active' ? <Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'pause' })}>Пауза</Button> : null}{campaign.status === 'paused' ? <Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'resume' })}>Возобновить</Button> : null}{campaign.status !== 'revoked' && campaign.status !== 'closed' ? <><Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'rotate' })}>Новая ссылка</Button><Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'revoke' })}>Отозвать</Button></> : null}<Link to={academyRoutes.campaign(campaign.id)}><Button size="sm" variant="secondary">Отчёт</Button></Link></div></li>)}</ul>
+            <ul className="divide-y divide-slate-100 text-sm">
+              {(campaignsQuery.data ?? []).map((campaign) => (
+                <li key={campaign.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>{campaign.name}</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="mr-1 text-slate-500">
+                      {campaignStatusLabels[campaign.status]}
+                    </span>
+                    {campaign.status === 'active' ? <Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'pause' })}>Пауза</Button> : null}
+                    {campaign.status === 'paused' ? <Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'resume' })}>Возобновить</Button> : null}
+                    {campaign.status !== 'revoked' && campaign.status !== 'closed' ? <><Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'rotate' })}>Новая ссылка</Button><Button size="sm" variant="ghost" loading={mutateCampaign.isPending} onClick={() => mutateCampaign.mutate({ campaignId: campaign.id, action: 'revoke' })}>Отозвать</Button></> : null}
+                    <Link to={academyRoutes.campaign(campaign.id)}><Button size="sm" variant="secondary">Отчёт</Button></Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       ) : null}
+
+      <Modal
+        open={extendAccessId != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setExtendAccessId(null);
+            setExtendDays('1');
+          }
+        }}
+        title="Продлить доступ"
+        description="Срок текущего прохождения будет увеличен на указанное количество дней."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setExtendAccessId(null)}>Отмена</Button>
+            <Button
+              disabled={!extendDaysValid}
+              loading={mutateAccess.isPending}
+              onClick={() => {
+                if (!extendAccessId || !extendDaysValid) return;
+                mutateAccess.mutate({
+                  accessId: extendAccessId,
+                  action: 'extend',
+                  extraDays: parsedExtendDays,
+                });
+              }}
+            >
+              Продлить
+            </Button>
+          </>
+        }
+      >
+        <Input
+          type="number"
+          min={1}
+          label="Дополнительные дни"
+          value={extendDays}
+          onChange={(event) => setExtendDays(event.target.value)}
+          error={!extendDaysValid ? 'Введите целое число не меньше 1' : undefined}
+        />
+      </Modal>
 
       <Modal
         open={Boolean(oneTimeSecretUrl)}

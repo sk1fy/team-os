@@ -9,7 +9,7 @@ import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { Button, Input } from '@/components/ui';
+import { Badge, Button, Input, Select } from '@/components/ui';
 import {
   academyRoutes,
   canManageAcademyCourses,
@@ -24,6 +24,8 @@ export function AcademyCoursesPage() {
   useTitle('Курсы — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') ?? '';
+  const lifecycleStatus = searchParams.get('lifecycle') ?? 'all';
+  const distributionStatus = searchParams.get('distribution') ?? 'all';
   const debouncedQ = useDebouncedValue(q);
   const requestedPage = Number(searchParams.get('page') ?? '1');
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -53,12 +55,34 @@ export function AcademyCoursesPage() {
     () => ({
       q: debouncedQ || undefined,
       ownerType: isPartner ? ('partner' as const) : ('company' as const),
+      lifecycleStatus:
+        lifecycleStatus === 'active' ||
+        lifecycleStatus === 'archived' ||
+        lifecycleStatus === 'deleted'
+          ? lifecycleStatus
+          : ('all' as const),
+      distributionStatus:
+        distributionStatus === 'active' ||
+        distributionStatus === 'paused' ||
+        distributionStatus === 'blocked'
+          ? distributionStatus
+          : ('all' as const),
       page,
       pageSize: 30,
       sort: 'updated_desc' as const,
     }),
-    [debouncedQ, isPartner, page],
+    [debouncedQ, distributionStatus, isPartner, lifecycleStatus, page],
   );
+
+  const setFilter = (key: 'lifecycle' | 'distribution', value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value === 'all') next.delete(key);
+      else next.set(key, value);
+      next.delete('page');
+      return next;
+    });
+  };
 
   const coursesQuery = useQuery({
     queryKey: queryKeys.academyV2.courses(filters),
@@ -105,22 +129,45 @@ export function AcademyCoursesPage() {
         }
       />
 
-      <Input
-        value={q}
-        onChange={(e) => {
-          const next = e.target.value;
-          setSearchParams((prev) => {
-            const params = new URLSearchParams(prev);
-            if (next) params.set('q', next);
-            else params.delete('q');
-            params.delete('page');
-            return params;
-          });
-        }}
-        placeholder="Поиск по названию…"
-        className="max-w-md"
-        aria-label="Поиск курсов"
-      />
+      <div className="grid gap-3 md:grid-cols-[minmax(16rem,1fr)_13rem_13rem]">
+        <Input
+          value={q}
+          onChange={(e) => {
+            const next = e.target.value;
+            setSearchParams((prev) => {
+              const params = new URLSearchParams(prev);
+              if (next) params.set('q', next);
+              else params.delete('q');
+              params.delete('page');
+              return params;
+            });
+          }}
+          placeholder="Поиск по названию…"
+          aria-label="Поиск курсов"
+        />
+        <Select
+          label="Состояние курса"
+          value={lifecycleStatus}
+          onValueChange={(value) => setFilter('lifecycle', value)}
+          options={[
+            { value: 'all', label: 'Все состояния' },
+            { value: 'active', label: 'Активные' },
+            { value: 'archived', label: 'В архиве' },
+            { value: 'deleted', label: 'Удалённые' },
+          ]}
+        />
+        <Select
+          label="Распространение"
+          value={distributionStatus}
+          onValueChange={(value) => setFilter('distribution', value)}
+          options={[
+            { value: 'all', label: 'Любое распространение' },
+            { value: 'active', label: 'Активно' },
+            { value: 'paused', label: 'На паузе' },
+            { value: 'blocked', label: 'Заблокировано' },
+          ]}
+        />
+      </div>
 
       {coursesQuery.isLoading || userQuery.isLoading ? (
         <div className="space-y-3">
@@ -151,6 +198,7 @@ export function AcademyCoursesPage() {
                 <th className="px-4 py-3">Статус</th>
                 <th className="px-4 py-3">Распространение</th>
                 <th className="px-4 py-3">Версия</th>
+                <th className="px-4 py-3 text-right">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -168,6 +216,12 @@ export function AcademyCoursesPage() {
                         Источник: {course.origin.sourceCourseTitle}
                       </p>
                     ) : null}
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <Badge>
+                        {course.ownerType === 'partner' ? 'Партнёр' : 'Компания'}
+                      </Badge>
+                      {course.draftVersion ? <Badge variant="warning">Есть черновик</Badge> : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadgeFromPresentation
@@ -185,6 +239,23 @@ export function AcademyCoursesPage() {
                       : course.draftVersion
                         ? 'Черновик'
                         : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      {course.capabilities.canEditDraft ? (
+                        <Link to={academyRoutes.builder(course.id)}>
+                          <Button size="sm" variant="ghost">Изменить</Button>
+                        </Link>
+                      ) : null}
+                      {course.latestPublishedVersion ? (
+                        <Link to={academyRoutes.previewVersion(course.latestPublishedVersion.id)}>
+                          <Button size="sm" variant="ghost">Предпросмотр</Button>
+                        </Link>
+                      ) : null}
+                      <Link to={academyRoutes.course(course.id)}>
+                        <Button size="sm" variant="secondary">Открыть</Button>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

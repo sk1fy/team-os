@@ -14,10 +14,13 @@ export function useUnsavedChanges(dirty: boolean, message = 'Есть несох
   }, [dirty, message]);
 
   const blocker = useBlocker(dirty);
-  useEffect(() => {
-    if (blocker.state !== 'blocked') return;
-    const ok = window.confirm(message);
-    if (ok) blocker.proceed();
-    else blocker.reset();
-  }, [blocker, message]);
+  return {
+    blocked: blocker.state === 'blocked',
+    proceed: () => {
+      if (blocker.state === 'blocked') blocker.proceed();
+    },
+    stay: () => {
+      if (blocker.state === 'blocked') blocker.reset();
+    },
+  };
 }

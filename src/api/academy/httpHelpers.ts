@@ -1,4 +1,4 @@
-import { httpRequest, jsonBody, type AuthMode } from '@/api/client';
+import { httpBlobRequest, httpRequest, jsonBody, type AuthMode } from '@/api/client';
 
 export function encodeId(value: string): string {
   return encodeURIComponent(value);
@@ -51,6 +51,19 @@ export function academyMutate<T>(
     {
       method,
       body: body === undefined ? undefined : jsonBody(body),
+      signal: options?.signal,
+      headers: mergeHeaders(options),
+    },
+    { authMode: options?.authMode ?? 'internal' },
+  );
+}
+
+/** Internal authenticated file download with the same refresh/error semantics. */
+export function academyDownload(path: string, options?: RequestOptions): Promise<Blob> {
+  return httpBlobRequest(
+    path,
+    {
+      method: 'GET',
       signal: options?.signal,
       headers: mergeHeaders(options),
     },

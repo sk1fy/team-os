@@ -1,6 +1,6 @@
 # Academy V2 — migration checklist
 
-**Honest status (2026-07-22 rework):** frontend V2 now has functional core flows, but is **not cutover-ready** until pending OpenAPI/read-model contracts and backend E2E are closed. The flag intentionally remains off and legacy implementations remain available for rollback.
+**Honest status (2026-07-23 merge preparation):** frontend V2 has functional core flows and the frontend cutover blockers found in three review rounds are addressed. Production cutover still requires server integration/E2E and the response-shape gates below. The flag intentionally remains off and legacy implementations remain available for rollback.
 
 ## Feature flag
 
@@ -89,6 +89,8 @@ authMode: 'internal' | 'external' | 'none'
 - Replace raw assignment target ID with a server-backed employee/department/position picker
 - KB reuse import
 - Rich-text media upload through the files API and the production base64 ban (files contract pending)
+- Full external landing DTO: separate author, safe outline, lesson count, branding and welcome content
+- Global report aggregates and version metadata/actions (author, usage, retired, draft-from-version)
 - Anonymous legacy `/learn/:courseId` without a token needs a backend compatibility contract
 - Confirm `DELETE .../course-version-lessons/{lessonId}/quiz` in OpenAPI
 - Full component/E2E/axe coverage (contract adapter tests and role-matrix tests exist)
@@ -120,23 +122,57 @@ authMode: 'internal' | 'external' | 'none'
 - Progress/radio/lesson-title/mobile navigation accessibility findings were addressed.
 - Rich-text link/image insertion uses validated modals instead of `window.prompt`; images include alt text.
 
+## Third review / merge-preparation fixes
+
+- Internal and external players fail closed for suspended/revoked/closed access; expired access exposes only completed lessons.
+- Lesson content requests are gated by server outline/access state, including URL-selected lessons.
+- Player header exposes “Урок X из Y”, full titles and accessible lock reasons.
+- Quiz author editor supports required/feedback/explanation, reorder and blocking client validation.
+- Publish shows blocking errors vs warnings, links to the affected section/lesson and keeps one idempotency key per operation.
+- Builder outline supports collapse, rename/delete actions, content/quiz/KB/validation/dirty indicators and focus restoration after keyboard moves.
+- Course creation offers blank/template/KB choices without inventing the pending KB API.
+- External landing renders available cover/author metadata, supports verified and anonymous activation, and branches on structured error codes.
+- Learning cards expose deadlines and state-specific CTA; course filters are URL-backed; template fallback data was removed.
+- Reports use the shared authenticated blob transport for CSV and validate UUID filters before sending requests.
+- Distribution, partner restrictions and course lifecycle confirmations use validated modals instead of native prompts/confirms.
+
 ## Rollback
 
 1. `VITE_ACADEMY_V2=false`
 2. Redeploy
 3. Legacy `/academy` + Opus/Grok remain
 
-## Pending backend/OpenAPI contracts
+## Server smoke gate before merge to main
+
+Academy flags are evaluated at **build time**. Build the test deployment with:
+
+```sh
+VITE_ACADEMY_V2=true
+VITE_API_MODE_ACADEMY=http
+VITE_API_URL=https://<test-host>/api/v1
+```
+
+Required server smoke:
+
+1. **employee** — `/academy`, catalog enrollment, `/learn/:enrollmentId`, resume, lesson completion and atomic quiz result;
+2. **owner/admin** — create course/draft, builder validation, publish, assignment, reports and partner restriction actions;
+3. **partner** — own-course scope, personal access, campaign, external report, no access to `/academy/partners`;
+4. **external learner** — `/training/:token`, identification/verification or anonymous activation, token removal, deadline, quiz and results;
+5. lifecycle — archived/deleted course, paused/blocked distribution, expired/revoked/suspended/closed enrollment;
+6. transport — no internal `Authorization` header on public/external requests, no internal refresh on their `401`;
+7. rollback — rebuild with `VITE_ACADEMY_V2=false` and confirm the legacy Academy entry remains available.
+
+Do not enable the flag in production until the server integration/response-shape gates below and this smoke gate pass.
+
+## Server integration / response-shape gates
 
 Do not client-join production reports from raw entities:
 
-- `GET /academy/learning/me`
-- `GET /academy/catalog`
-- `GET /academy/reports/internal`
-- `GET /academy/reports/external` (partner)
-- `GET /academy/courses/{courseId}/my-enrollment` legacy resolver
-- `GET /academy/courses/{courseId}/draft`, learner-version and template-preview reads
+- verify deployed response shapes for learning, catalog, internal/partner reports and the legacy enrollment resolver;
+- verify draft, learner-version and template-preview reads against the deployed OpenAPI;
 - learner-safe version/draft preview content
 - template draft/version content response shapes
+- external landing author/safe-outline/lesson-count/branding fields
 - verification/session/outline/results response schemas
+- report aggregate and version usage/retired response fields
 - quiz deletion command

@@ -38,6 +38,19 @@ function StatCard({
 
 function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
   const progress = enrollmentProgressLabel(item.progressStatus);
+  const deadline = item.dueDate ?? item.accessUntil;
+  const deadlineDate = deadline ? new Date(deadline) : null;
+  const deadlinePassed =
+    deadlineDate != null &&
+    Number.isFinite(deadlineDate.getTime()) &&
+    deadlineDate.getTime() < Date.now() &&
+    item.progressStatus !== 'completed';
+  const cta =
+    item.progressStatus === 'not_started'
+      ? 'Начать'
+      : item.progressStatus === 'in_progress'
+        ? 'Продолжить'
+        : 'Просмотреть';
   return (
     <Link
       to={academyRoutes.learn(item.id)}
@@ -51,6 +64,17 @@ function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
           <p className="mt-1 text-sm text-slate-500">
             {item.completedLessons} из {item.totalLessons} уроков
           </p>
+          {deadlineDate && Number.isFinite(deadlineDate.getTime()) ? (
+            <p
+              className={`mt-1 inline-flex items-center gap-1 text-xs ${
+                deadlinePassed ? 'font-medium text-danger-600' : 'text-slate-500'
+              }`}
+            >
+              <Clock3 className="size-3.5" />
+              {deadlinePassed ? 'Срок истёк' : 'Срок до'}{' '}
+              {deadlineDate.toLocaleDateString('ru-RU')}
+            </p>
+          ) : null}
         </div>
         <StatusBadgeFromPresentation status={progress} />
       </div>
@@ -63,7 +87,7 @@ function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
       <div className="flex items-center justify-between text-sm text-slate-500">
         <span>{item.percent}%</span>
         <span className="inline-flex items-center gap-1 font-medium text-primary-600">
-          Открыть
+          {cta}
           <ArrowRight className="size-4" />
         </span>
       </div>
@@ -93,6 +117,9 @@ export function AcademyHomePage() {
   const continueItem = data?.continueEnrollment;
   const enrollments = data?.enrollments ?? [];
   const stats = data?.stats;
+  const allCompleted =
+    enrollments.length > 0 &&
+    enrollments.every((item) => item.progressStatus === 'completed');
 
   return (
     <div className="space-y-8">
@@ -149,20 +176,37 @@ export function AcademyHomePage() {
             {enrollments.length === 0 ? (
               <EmptyState
                 icon={BookOpenCheck}
-                title="Пока нет назначенных курсов"
-                description="Когда вам назначат обучение, оно появится здесь. Можно посмотреть каталог компании."
+                title={
+                  (stats?.totalAssigned ?? 0) > 0
+                    ? 'Нет доступных курсов'
+                    : 'Пока нет назначенных курсов'
+                }
+                description={
+                  (stats?.totalAssigned ?? 0) > 0
+                    ? 'Назначенные курсы сейчас недоступны. Обратитесь к администратору компании.'
+                    : 'Когда вам назначат обучение, оно появится здесь. Можно посмотреть каталог компании.'
+                }
                 action={
-                  <Link to={academyRoutes.catalog}>
-                    <Button>Открыть каталог</Button>
-                  </Link>
+                  (stats?.totalAssigned ?? 0) === 0 ? (
+                    <Link to={academyRoutes.catalog}>
+                      <Button>Открыть каталог</Button>
+                    </Link>
+                  ) : undefined
                 }
               />
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {enrollments.map((item) => (
-                  <EnrollmentCard key={item.id} item={item} />
-                ))}
-              </div>
+              <>
+                {allCompleted ? (
+                  <p className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-800">
+                    Все доступные курсы завершены. Результаты можно открыть в карточках ниже.
+                  </p>
+                ) : null}
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {enrollments.map((item) => (
+                    <EnrollmentCard key={item.id} item={item} />
+                  ))}
+                </div>
+              </>
             )}
           </section>
         </>

@@ -38,12 +38,28 @@ function flattenLessons(enrollment: EnrollmentDetail) {
     );
 }
 
+function blocksAllLessonContent(enrollment: EnrollmentDetail): boolean {
+  return (
+    enrollment.accessStatus === 'suspended' ||
+    enrollment.accessStatus === 'revoked' ||
+    enrollment.accessStatus === 'closed'
+  );
+}
+
+function canReadOutlineLesson(
+  enrollment: EnrollmentDetail,
+  lesson: ReturnType<typeof flattenLessons>[number],
+): boolean {
+  if (blocksAllLessonContent(enrollment)) return false;
+  if (enrollment.accessStatus === 'expired') return lesson.completed;
+  return !lesson.locked || lesson.completed;
+}
+
 function firstAvailableLessonId(enrollment: EnrollmentDetail): string | undefined {
   const lessons = flattenLessons(enrollment);
   return (
-    lessons.find((l) => !l.locked && !l.completed)?.id ??
-    lessons.find((l) => !l.locked)?.id ??
-    lessons[0]?.id
+    lessons.find((lesson) => canReadOutlineLesson(enrollment, lesson) && !lesson.completed)?.id ??
+    lessons.find((lesson) => canReadOutlineLesson(enrollment, lesson))?.id
   );
 }
 
@@ -96,11 +112,13 @@ export function InternalEnrollmentPlayerPage() {
       : undefined;
 
     let targetId: string | undefined;
-    if (urlLesson && !urlLesson.locked) {
+    if (urlLesson && canReadOutlineLesson(enrollment, urlLesson)) {
       targetId = urlLesson.id;
     } else if (enrollment.currentLessonId) {
       const serverLesson = lessons.find((l) => l.id === enrollment.currentLessonId);
-      if (serverLesson && !serverLesson.locked) targetId = serverLesson.id;
+      if (serverLesson && canReadOutlineLesson(enrollment, serverLesson)) {
+        targetId = serverLesson.id;
+      }
     }
     if (!targetId) targetId = firstAvailableLessonId(enrollment);
 
@@ -113,32 +131,34 @@ export function InternalEnrollmentPlayerPage() {
         },
         { replace: true },
       );
+    } else if (!targetId && lessonFromUrl) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('lesson');
+          return next;
+        },
+        { replace: true },
+      );
     }
   }, [enrollment, lessonFromUrl, setSearchParams]);
 
   const currentLessonId = lessonFromUrl;
   const outlineLesson = flatLessons.find((l) => l.id === currentLessonId);
+  const canReadCurrentLesson = Boolean(
+    enrollment && outlineLesson && canReadOutlineLesson(enrollment, outlineLesson),
+  );
 
   const lessonQuery = useQuery({
     queryKey: queryKeys.academyV2.enrollmentLesson(enrollmentId, currentLessonId),
     queryFn: ({ signal }) =>
       academyLearningApi.getLesson(enrollmentId, currentLessonId!, { signal }),
-    enabled: Boolean(enrollmentId && currentLessonId && outlineLesson && !outlineLesson.locked),
+    enabled: Boolean(enrollmentId && currentLessonId && canReadCurrentLesson),
   });
 
-  const lesson: LessonLearner | null | undefined = outlineLesson?.locked
-    ? ({
-        id: outlineLesson.id,
-        courseId: enrollment?.courseId ?? '',
-        sectionId: outlineLesson.sectionId,
-        versionId: enrollment?.courseVersionId ?? '',
-        title: outlineLesson.title,
-        order: outlineLesson.order,
-        content: { type: 'doc', content: [] },
-        locked: true,
-        completed: outlineLesson.completed,
-      } satisfies LessonLearner)
-    : lessonQuery.data;
+  const lesson: LessonLearner | null | undefined = canReadCurrentLesson
+    ? lessonQuery.data
+    : undefined;
 
   useEffect(() => {
     setQuizResult(null);
@@ -147,7 +167,7 @@ export function InternalEnrollmentPlayerPage() {
 
   const selectLesson = (lessonId: string) => {
     const target = flatLessons.find((l) => l.id === lessonId);
-    if (target?.locked) return;
+    if (!enrollment || !target || !canReadOutlineLesson(enrollment, target)) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -293,6 +313,7 @@ export function InternalEnrollmentPlayerPage() {
         </div>
       }
       outline={enrollment.outline}
+      outlineReadOnly={blocksAllLessonContent(enrollment)}
       currentLessonId={currentLessonId}
       onSelectLesson={selectLesson}
       outlineToggleIcon={<PanelLeft className="size-4" />}
@@ -313,10 +334,28 @@ export function InternalEnrollmentPlayerPage() {
       }
       content={
         <div>
-          <LessonArticle
-            lesson={lesson}
-            loading={Boolean(currentLessonId && !outlineLesson?.locked && lessonQuery.isLoading)}
-          />
+          {blocksAllLessonContent(enrollment) ? (
+            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+              <AcademyStatusCallout
+                tone="warning"
+                title="Материалы недоступны"
+                description="Контент курса скрыт, но сохранённый результат прохождения не удалён."
+              />
+            </div>
+          ) : enrollment.accessStatus === 'expired' && !outlineLesson?.completed ? (
+            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+              <AcademyStatusCallout
+                tone="warning"
+                title="Урок недоступен"
+                description="После окончания срока можно открыть только завершённые уроки."
+              />
+            </div>
+          ) : (
+            <LessonArticle
+              lesson={lesson}
+              loading={Boolean(currentLessonId && canReadCurrentLesson && lessonQuery.isLoading)}
+            />
+          )}
           {lesson?.quiz && !lesson.locked ? (
             <QuizRunner
               quiz={lesson.quiz}
@@ -345,8 +384,8 @@ export function InternalEnrollmentPlayerPage() {
       }
       footer={
         <LessonFooter
-          canGoPrev={Boolean(prevLesson && !prevLesson.locked)}
-          canGoNext={Boolean(nextLesson && !nextLesson.locked)}
+          canGoPrev={Boolean(prevLesson && canReadOutlineLesson(enrollment, prevLesson))}
+          canGoNext={Boolean(nextLesson && canReadOutlineLesson(enrollment, nextLesson))}
           onPrev={() => prevLesson && selectLesson(prevLesson.id)}
           onNext={() => nextLesson && selectLesson(nextLesson.id)}
           showComplete={showComplete}

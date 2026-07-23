@@ -1,7 +1,93 @@
-import { Plus, Trash2 } from 'lucide-react';
-import { Button, Checkbox, Input, Select } from '@/components/ui';
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { Button, Checkbox, Input, Select, Textarea } from '@/components/ui';
 import { createId } from '@/lib/id';
 import type { QuizAuthor, QuizQuestionAuthor } from '@/types/academy';
+
+export interface QuizValidationIssue {
+  severity: 'error' | 'warning';
+  message: string;
+  questionId?: string;
+}
+
+export function validateQuiz(quiz: QuizAuthor): QuizValidationIssue[] {
+  const issues: QuizValidationIssue[] = [];
+
+  if (!Number.isFinite(quiz.passingScore) || quiz.passingScore < 0 || quiz.passingScore > 100) {
+    issues.push({ severity: 'error', message: 'Проходной балл должен быть от 0 до 100.' });
+  }
+  if (quiz.maxAttempts != null && (!Number.isInteger(quiz.maxAttempts) || quiz.maxAttempts < 1)) {
+    issues.push({ severity: 'error', message: 'Максимум попыток должен быть не меньше 1.' });
+  }
+  if (quiz.questions.length === 0) {
+    issues.push({ severity: 'error', message: 'Добавьте хотя бы один вопрос.' });
+  }
+
+  quiz.questions.forEach((question, index) => {
+    const prefix = `Вопрос ${index + 1}`;
+    if (!question.text.trim()) {
+      issues.push({
+        severity: 'error',
+        questionId: question.id,
+        message: `${prefix}: заполните текст вопроса.`,
+      });
+    }
+
+    if (question.type === 'open') {
+      if (question.options.length > 0) {
+        issues.push({
+          severity: 'error',
+          questionId: question.id,
+          message: `${prefix}: у открытого вопроса не должно быть вариантов.`,
+        });
+      }
+      return;
+    }
+
+    if (question.options.length < 2) {
+      issues.push({
+        severity: 'error',
+        questionId: question.id,
+        message: `${prefix}: добавьте минимум два варианта.`,
+      });
+    }
+    if (question.options.some((option) => !option.text.trim())) {
+      issues.push({
+        severity: 'error',
+        questionId: question.id,
+        message: `${prefix}: заполните все варианты ответа.`,
+      });
+    }
+
+    const correctCount = question.options.filter((option) => option.correct).length;
+    if (question.type === 'single' && correctCount !== 1) {
+      issues.push({
+        severity: 'error',
+        questionId: question.id,
+        message: `${prefix}: выберите ровно один правильный вариант.`,
+      });
+    }
+    if (question.type === 'multiple' && correctCount < 1) {
+      issues.push({
+        severity: 'error',
+        questionId: question.id,
+        message: `${prefix}: выберите минимум один правильный вариант.`,
+      });
+    }
+
+    const normalizedOptions = question.options
+      .map((option) => option.text.trim().toLocaleLowerCase())
+      .filter(Boolean);
+    if (new Set(normalizedOptions).size !== normalizedOptions.length) {
+      issues.push({
+        severity: 'warning',
+        questionId: question.id,
+        message: `${prefix}: есть одинаковые варианты ответа.`,
+      });
+    }
+  });
+
+  return issues;
+}
 
 export function QuizEditor({
   quiz,
@@ -14,10 +100,46 @@ export function QuizEditor({
   onRemove?: () => void;
   disabled?: boolean;
 }) {
+  const validationIssues = validateQuiz(quiz);
+
   const updateQuestion = (questionId: string, patch: Partial<QuizQuestionAuthor>) => {
     onChange({
       ...quiz,
       questions: quiz.questions.map((q) => (q.id === questionId ? { ...q, ...patch } : q)),
+    });
+  };
+
+  const moveQuestion = (questionId: string, direction: -1 | 1) => {
+    const currentIndex = quiz.questions.findIndex((question) => question.id === questionId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= quiz.questions.length) return;
+    const questions = quiz.questions.slice();
+    const [moved] = questions.splice(currentIndex, 1);
+    if (!moved) return;
+    questions.splice(targetIndex, 0, moved);
+    onChange({ ...quiz, questions });
+    window.requestAnimationFrame(() => {
+      Array.from(document.querySelectorAll<HTMLElement>('[data-quiz-question]'))
+        .find((element) => element.dataset.quizQuestion === questionId)
+        ?.querySelector<HTMLElement>('input')
+        ?.focus();
+    });
+  };
+
+  const moveOption = (question: QuizQuestionAuthor, optionId: string, direction: -1 | 1) => {
+    const currentIndex = question.options.findIndex((option) => option.id === optionId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= question.options.length) return;
+    const options = question.options.slice();
+    const [moved] = options.splice(currentIndex, 1);
+    if (!moved) return;
+    options.splice(targetIndex, 0, moved);
+    updateQuestion(question.id, { options });
+    window.requestAnimationFrame(() => {
+      Array.from(document.querySelectorAll<HTMLElement>('[data-quiz-option]'))
+        .find((element) => element.dataset.quizOption === optionId)
+        ?.querySelector<HTMLElement>('input')
+        ?.focus();
     });
   };
 
@@ -26,6 +148,7 @@ export function QuizEditor({
       id: createId(),
       type: 'single',
       text: 'Новый вопрос',
+      required: true,
       options: [
         { id: createId(), text: 'Вариант 1', correct: true },
         { id: createId(), text: 'Вариант 2', correct: false },
@@ -88,7 +211,11 @@ export function QuizEditor({
 
       <ol className="space-y-4">
         {quiz.questions.map((question, index) => (
-          <li key={question.id} className="rounded-lg border border-slate-200 bg-surface p-3">
+          <li
+            key={question.id}
+            data-quiz-question={question.id}
+            className="rounded-lg border border-slate-200 bg-surface p-3"
+          >
             <div className="flex items-start gap-2">
               <span className="mt-2 text-xs font-semibold text-slate-400">{index + 1}.</span>
               <div className="min-w-0 flex-1 space-y-2">
@@ -121,10 +248,20 @@ export function QuizEditor({
                     { value: 'open', label: 'Открытый' },
                   ]}
                 />
+                <Checkbox
+                  checked={question.required ?? true}
+                  disabled={disabled}
+                  onCheckedChange={(required) => updateQuestion(question.id, { required })}
+                  label="Обязательный вопрос"
+                />
                 {question.type !== 'open' ? (
                   <ul className="space-y-2">
                     {question.options.map((option, optionIndex) => (
-                      <li key={option.id} className="flex items-center gap-2">
+                      <li
+                        key={option.id}
+                        data-quiz-option={option.id}
+                        className="flex items-center gap-2"
+                      >
                         {question.type === 'single' ? (
                           <label className="shrink-0">
                             <span className="sr-only">
@@ -178,6 +315,24 @@ export function QuizEditor({
                         <Button
                           size="sm"
                           variant="ghost"
+                          disabled={disabled || optionIndex === 0}
+                          aria-label={`Переместить вариант ${optionIndex + 1} выше`}
+                          onClick={() => moveOption(question, option.id, -1)}
+                        >
+                          <ArrowUp className="size-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={disabled || optionIndex === question.options.length - 1}
+                          aria-label={`Переместить вариант ${optionIndex + 1} ниже`}
+                          onClick={() => moveOption(question, option.id, 1)}
+                        >
+                          <ArrowDown className="size-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           disabled={disabled || question.options.length <= 2}
                           aria-label="Удалить вариант"
                           onClick={() =>
@@ -210,25 +365,97 @@ export function QuizEditor({
                     </li>
                   </ul>
                 ) : null}
+                <Input
+                  label="Feedback после ответа (необязательно)"
+                  value={question.feedback ?? ''}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    updateQuestion(question.id, { feedback: event.target.value || undefined })
+                  }
+                  placeholder="Короткий комментарий к результату"
+                />
+                <Textarea
+                  label="Объяснение (необязательно)"
+                  rows={2}
+                  value={question.explanation ?? ''}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    updateQuestion(question.id, { explanation: event.target.value || undefined })
+                  }
+                  placeholder="Почему ответ верный и что стоит повторить"
+                />
+                {validationIssues
+                  .filter((issue) => issue.questionId === question.id)
+                  .map((issue) => (
+                    <p
+                      key={`${issue.severity}-${issue.message}`}
+                      className={
+                        issue.severity === 'error'
+                          ? 'text-xs text-danger-600'
+                          : 'text-xs text-amber-700'
+                      }
+                    >
+                      {issue.message}
+                    </p>
+                  ))}
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={disabled}
-                aria-label="Удалить вопрос"
-                onClick={() =>
-                  onChange({
-                    ...quiz,
-                    questions: quiz.questions.filter((q) => q.id !== question.id),
-                  })
-                }
-              >
-                <Trash2 className="size-4" />
-              </Button>
+              <div className="flex shrink-0 flex-col">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={disabled || index === 0}
+                  aria-label={`Переместить вопрос ${index + 1} выше`}
+                  onClick={() => moveQuestion(question.id, -1)}
+                >
+                  <ArrowUp className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={disabled || index === quiz.questions.length - 1}
+                  aria-label={`Переместить вопрос ${index + 1} ниже`}
+                  onClick={() => moveQuestion(question.id, 1)}
+                >
+                  <ArrowDown className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={disabled}
+                  aria-label="Удалить вопрос"
+                  onClick={() =>
+                    onChange({
+                      ...quiz,
+                      questions: quiz.questions.filter((q) => q.id !== question.id),
+                    })
+                  }
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
             </div>
           </li>
         ))}
       </ol>
+
+      {validationIssues.some((issue) => !issue.questionId) ? (
+        <div className="space-y-1" aria-live="polite">
+          {validationIssues
+            .filter((issue) => !issue.questionId)
+            .map((issue) => (
+              <p
+                key={`${issue.severity}-${issue.message}`}
+                className={
+                  issue.severity === 'error'
+                    ? 'text-xs text-danger-600'
+                    : 'text-xs text-amber-700'
+                }
+              >
+                {issue.message}
+              </p>
+            ))}
+        </div>
+      ) : null}
 
       <Button size="sm" variant="secondary" disabled={disabled} onClick={addQuestion}>
         <Plus className="size-4" />
@@ -248,6 +475,7 @@ export function createEmptyQuiz(lessonId: string): QuizAuthor {
         id: createId(),
         type: 'single',
         text: 'Вопрос 1',
+        required: true,
         options: [
           { id: createId(), text: 'Правильный ответ', correct: true },
           { id: createId(), text: 'Неправильный ответ', correct: false },

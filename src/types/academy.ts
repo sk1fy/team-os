@@ -102,6 +102,12 @@ export interface QuizQuestionAuthor {
   type: 'single' | 'multiple' | 'open';
   text: string;
   options: QuizOptionAuthor[];
+  /** Shown by the learner only after the server has accepted an attempt. */
+  feedback?: string;
+  /** Author explanation for the answer, returned through the feedback DTO. */
+  explanation?: string;
+  /** Whether the learner must answer this question before submitting. */
+  required?: boolean;
 }
 
 export interface QuizAuthor {

@@ -1,11 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
 import { BarChart3, Download } from 'lucide-react';
 import { academyReportsApi } from '@/api/academy';
 import { authApi } from '@/api';
-import { API_URL } from '@/api/config';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -18,8 +17,35 @@ import {
   reportRowStatusLabel,
 } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from '../components/StatusBadge';
-import { useAuthStore } from '@/stores/auth';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { toast } from '@/stores/toast';
+import { ApiError } from '@/api/client';
+
+function externalProgressLabel(status: string): string {
+  if (status === 'not_started') return 'Не начат';
+  if (status === 'in_progress') return 'В процессе';
+  if (status === 'completed') return 'Завершён';
+  return status;
+}
+
+function externalAccessLabel(status: string): string {
+  if (status === 'invited') return 'Приглашён';
+  if (status === 'ready') return 'Готов к старту';
+  if (status === 'active') return 'Активен';
+  if (status === 'expired') return 'Срок истёк';
+  if (status === 'frozen') return 'Заморожен';
+  if (status === 'suspended') return 'Приостановлен';
+  if (status === 'revoked') return 'Отозван';
+  if (status === 'closed') return 'Закрыт';
+  return status;
+}
+
+function isUuid(value: string | undefined): boolean {
+  if (!value) return true;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
 
 /**
  * Role-aware reports:
@@ -29,12 +55,20 @@ import { useDebouncedValue } from '@/lib/useDebouncedValue';
 export function AcademyReportsPage() {
   useTitle('Отчёты — Академия — TeamOS');
   const [searchParams, setSearchParams] = useSearchParams();
+  const [isDownloading, setIsDownloading] = useState(false);
+  const downloadControllerRef = useRef<AbortController | null>(null);
   const filters = useMemo(() => parseReportFilters(searchParams), [searchParams]);
   const debouncedQuery = useDebouncedValue(filters.q ?? '');
   const serverFilters = useMemo(
     () => ({ ...filters, q: debouncedQuery || undefined }),
     [debouncedQuery, filters],
   );
+  const invalidIds = {
+    courseId: !isUuid(filters.courseId),
+    departmentId: !isUuid(filters.departmentId),
+    positionId: !isUuid(filters.positionId),
+  };
+  const hasInvalidId = Object.values(invalidIds).some(Boolean);
 
   const userQuery = useQuery({
     queryKey: queryKeys.currentUser,
@@ -48,11 +82,11 @@ export function AcademyReportsPage() {
   const internalQuery = useQuery({
     queryKey: queryKeys.academyV2.internalReport(serverFilters),
     queryFn: ({ signal }) => academyReportsApi.internal(serverFilters, { signal }),
-    enabled: isManager,
+    enabled: isManager && !hasInvalidId,
   });
 
   const partnerQuery = useQuery({
-    queryKey: ['academy-v2', 'partner-external-report', serverFilters],
+    queryKey: queryKeys.academyV2.partnerExternalReport(serverFilters),
     queryFn: ({ signal }) =>
       academyReportsApi.partnerExternal(
         {
@@ -63,8 +97,15 @@ export function AcademyReportsPage() {
         },
         { signal },
       ),
-    enabled: isPartner,
+    enabled: isPartner && !invalidIds.courseId,
   });
+
+  useEffect(
+    () => () => {
+      downloadControllerRef.current?.abort();
+    },
+    [],
+  );
 
   const setFilter = (key: string, value: string) => {
     setSearchParams((prev) => {
@@ -78,21 +119,41 @@ export function AcademyReportsPage() {
 
   const downloadCsv = async () => {
     if (!isManager) return;
-    const path = academyReportsApi.internalCsvPath(filters);
-    const token = useAuthStore.getState().accessToken;
-    const response = await fetch(`${API_URL}${path}`, {
-      credentials: 'include',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-    if (!response.ok) throw new Error('export failed');
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'academy-internal-report.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadControllerRef.current?.abort();
+    const controller = new AbortController();
+    downloadControllerRef.current = controller;
+    setIsDownloading(true);
+    try {
+      const blob = await academyReportsApi.internalCsv(filters, { signal: controller.signal });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'academy-internal-report.csv';
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        toast.error(error instanceof ApiError ? error.message : 'Не удалось выгрузить CSV');
+      }
+    } finally {
+      if (downloadControllerRef.current === controller) {
+        downloadControllerRef.current = null;
+        setIsDownloading(false);
+      }
+    }
   };
+
+  const pageSummary = useMemo(() => {
+    const counts = {
+      not_started: 0,
+      in_progress: 0,
+      completed: 0,
+      overdue: 0,
+      frozen: 0,
+    };
+    for (const row of internalQuery.data?.items ?? []) counts[row.status] += 1;
+    return counts;
+  }, [internalQuery.data?.items]);
 
   if (userQuery.isLoading) {
     return <div className="h-40 animate-pulse rounded-xl bg-slate-100" />;
@@ -158,7 +219,8 @@ export function AcademyReportsPage() {
                     </td>
                     <td className="px-3 py-2">{row.courseTitle}</td>
                     <td className="px-3 py-2 text-slate-600">
-                      {row.progressStatus} · {row.accessStatus}
+                      {externalProgressLabel(row.progressStatus)} ·{' '}
+                      {externalAccessLabel(row.accessStatus)}
                     </td>
                     <td className="px-3 py-2">{row.percent}%</td>
                     <td className="px-3 py-2 text-right">
@@ -189,7 +251,8 @@ export function AcademyReportsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => void downloadCsv().catch(() => undefined)}
+            loading={isDownloading}
+            onClick={() => void downloadCsv()}
           >
             <Download className="size-4" />
             CSV
@@ -197,7 +260,7 @@ export function AcademyReportsPage() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Input
           label="Поиск"
           value={filters.q ?? ''}
@@ -209,6 +272,21 @@ export function AcademyReportsPage() {
           value={filters.courseId ?? ''}
           onChange={(e) => setFilter('courseId', e.target.value)}
           placeholder="опционально"
+          error={invalidIds.courseId ? 'Введите полный UUID' : undefined}
+        />
+        <Input
+          label="Отдел ID"
+          value={filters.departmentId ?? ''}
+          onChange={(e) => setFilter('departmentId', e.target.value)}
+          placeholder="опционально"
+          error={invalidIds.departmentId ? 'Введите полный UUID' : undefined}
+        />
+        <Input
+          label="Должность ID"
+          value={filters.positionId ?? ''}
+          onChange={(e) => setFilter('positionId', e.target.value)}
+          placeholder="опционально"
+          error={invalidIds.positionId ? 'Введите полный UUID' : undefined}
         />
         <Select
           label="Статус"
@@ -230,10 +308,32 @@ export function AcademyReportsPage() {
           options={[
             { value: 'status', label: 'По статусу' },
             { value: 'deadline_asc', label: 'По дедлайну' },
-            { value: 'name_asc', label: 'По имени' },
+            { value: 'title_asc', label: 'По курсу' },
           ]}
         />
       </div>
+
+      {internalQuery.data ? (
+        <section aria-label="Сводка текущей страницы" className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            На текущей странице
+          </p>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ['Не начали', pageSummary.not_started],
+              ['В процессе', pageSummary.in_progress],
+              ['Завершили', pageSummary.completed],
+              ['Просрочили', pageSummary.overdue],
+              ['Заморожены', pageSummary.frozen],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-slate-200 bg-surface p-3">
+                <dt className="text-xs text-slate-500">{label}</dt>
+                <dd className="mt-1 text-xl font-semibold text-slate-900">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
 
       {internalQuery.isError ? (
         <ErrorState

@@ -190,6 +190,35 @@ export async function httpRequest<T>(
   return (await response.json()) as T;
 }
 
+/**
+ * Binary variant of the authenticated gateway client.
+ * Keeps the same auth/refresh/error semantics as httpRequest, but does not
+ * attempt to decode successful responses as JSON.
+ */
+export async function httpBlobRequest(
+  path: string,
+  init: RequestInit = {},
+  options: HttpRequestOptions = {},
+): Promise<Blob> {
+  const authMode = resolveAuthMode(options);
+  const retryInternalRefresh =
+    options.retryInternalRefresh ?? (authMode === 'internal' && !options.skipAuthRefresh);
+
+  const execute = () =>
+    fetch(`${API_URL}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: requestHeaders(init, authMode),
+    });
+
+  let response = await execute();
+  if (response.status === 401 && retryInternalRefresh && (await refreshAccessToken())) {
+    response = await execute();
+  }
+  if (!response.ok) throw await responseError(response);
+  return response.blob();
+}
+
 export function jsonBody(value: unknown): string {
   return JSON.stringify(value);
 }

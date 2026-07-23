@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
@@ -8,7 +9,7 @@ import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { Button } from '@/components/ui';
+import { Button, Input, Modal } from '@/components/ui';
 import {
   academyRoutes,
   distributionStatusLabel,
@@ -24,6 +25,11 @@ import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 export function AcademyPartnerCoursesPage() {
   useTitle('Курсы партнёров — Академия — TeamOS');
   const queryClient = useQueryClient();
+  const [restriction, setRestriction] = useState<{
+    courseId: string;
+    action: 'pause' | 'block';
+  } | null>(null);
+  const [restrictionReason, setRestrictionReason] = useState('');
 
   const coursesQuery = useQuery({
     queryKey: queryKeys.academyV2.courses({ ownerType: 'partner', pageSize: 100 }),
@@ -51,6 +57,8 @@ export function AcademyPartnerCoursesPage() {
       academyCoursesApi.pauseDistribution(input.courseId, { reason: input.reason }),
     onSuccess: () => {
       toast.success('Распространение приостановлено');
+      setRestriction(null);
+      setRestrictionReason('');
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка'),
@@ -61,6 +69,8 @@ export function AcademyPartnerCoursesPage() {
       academyCoursesApi.block(input.courseId, { reason: input.reason }),
     onSuccess: () => {
       toast.success('Курс заблокирован');
+      setRestriction(null);
+      setRestrictionReason('');
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка'),
@@ -160,8 +170,8 @@ export function AcademyPartnerCoursesPage() {
                           variant="secondary"
                           loading={pause.isPending}
                           onClick={() => {
-                            const reason = window.prompt('Причина приостановки распространения:')?.trim();
-                            if (reason) pause.mutate({ courseId: course.id, reason });
+                            setRestriction({ courseId: course.id, action: 'pause' });
+                            setRestrictionReason('');
                           }}
                         >
                           Пауза
@@ -173,9 +183,8 @@ export function AcademyPartnerCoursesPage() {
                           variant="danger"
                           loading={block.isPending}
                           onClick={() => {
-                            if (!window.confirm('Экстренная блокировка остановит активные прохождения. Продолжить?')) return;
-                            const reason = window.prompt('Обязательная причина блокировки:')?.trim();
-                            if (reason) block.mutate({ courseId: course.id, reason });
+                            setRestriction({ courseId: course.id, action: 'block' });
+                            setRestrictionReason('');
                           }}
                         >
                           Блок
@@ -199,6 +208,67 @@ export function AcademyPartnerCoursesPage() {
           ))}
         </div>
       )}
+
+      <Modal
+        open={restriction != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRestriction(null);
+            setRestrictionReason('');
+          }
+        }}
+        title={
+          restriction?.action === 'block'
+            ? 'Заблокировать курс'
+            : 'Приостановить распространение'
+        }
+        description={
+          restriction?.action === 'block'
+            ? 'Экстренная блокировка остановит активные прохождения. Причина обязательна.'
+            : 'Новые активации будут остановлены до снятия ограничения.'
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRestriction(null);
+                setRestrictionReason('');
+              }}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant={restriction?.action === 'block' ? 'danger' : 'primary'}
+              disabled={restrictionReason.trim().length < 3}
+              loading={pause.isPending || block.isPending}
+              onClick={() => {
+                if (!restriction || restrictionReason.trim().length < 3) return;
+                const input = {
+                  courseId: restriction.courseId,
+                  reason: restrictionReason.trim(),
+                };
+                if (restriction.action === 'block') block.mutate(input);
+                else pause.mutate(input);
+              }}
+            >
+              {restriction?.action === 'block' ? 'Заблокировать' : 'Приостановить'}
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Причина"
+          value={restrictionReason}
+          onChange={(event) => setRestrictionReason(event.target.value)}
+          error={
+            restrictionReason.length > 0 && restrictionReason.trim().length < 3
+              ? 'Укажите причину не короче 3 символов'
+              : undefined
+          }
+          placeholder="Что произошло"
+        />
+      </Modal>
     </div>
   );
 }
