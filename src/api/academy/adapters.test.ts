@@ -3,6 +3,7 @@ import { academyCoursesApi } from './courses';
 import { academyExternalAdminApi } from './externalAdmin';
 import { academyLearningApi } from './learning';
 import { academyReportsApi } from './reports';
+import { academyTemplatesApi } from './templates';
 
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -90,6 +91,77 @@ afterEach(() => {
 });
 
 describe('Academy deployed-contract adapters', () => {
+  it('преобразует фактический массив системных шаблонов в UI-контракт', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse([
+          {
+            id: 'template-1',
+            type: 'system',
+            systemTemplateKey: 'employee-onboarding',
+            latestPublishedVersionId: 'version-1',
+            lifecycleStatus: 'active',
+          },
+        ]),
+      ),
+    );
+
+    await expect(academyTemplatesApi.list({ page: 1, pageSize: 50 })).resolves.toMatchObject({
+      page: 1,
+      pageSize: 50,
+      total: 1,
+      items: [
+        {
+          id: 'template-1',
+          ownerType: 'system',
+          title: 'Онбординг нового сотрудника',
+          latestVersionId: 'version-1',
+          archived: false,
+          capabilities: {
+            canInstantiate: true,
+            canEdit: false,
+            canArchive: false,
+            canPreview: true,
+          },
+        },
+      ],
+    });
+  });
+
+  it('берёт метаданные detail-шаблона из опубликованной версии', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          id: 'template-1',
+          type: 'system',
+          systemTemplateKey: 'employee-onboarding',
+          latestPublishedVersionId: 'version-1',
+          lifecycleStatus: 'active',
+          versions: [
+            {
+              id: 'version-1',
+              number: 2,
+              status: 'published',
+              title: 'Адаптация сотрудника',
+              description: 'Программа первых рабочих дней.',
+            },
+          ],
+        }),
+      ),
+    );
+
+    await expect(academyTemplatesApi.get('template-1')).resolves.toMatchObject({
+      id: 'template-1',
+      ownerType: 'system',
+      title: 'Адаптация сотрудника',
+      description: 'Программа первых рабочих дней.',
+      latestVersionId: 'version-1',
+      latestVersionNumber: 2,
+    });
+  });
+
   it('преобразует массив курсов и фактические идентификаторы версий', async () => {
     vi.stubGlobal(
       'fetch',
