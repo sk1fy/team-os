@@ -1,12 +1,13 @@
 import { queryKeys } from '@/api/queryKeys';
 import { lazy, Suspense, type ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireAuth } from '@/components/auth/AuthBootstrap';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { authApi } from '@/api';
-import { canAccessRoute, canManageIntegrations, employeeHomePath } from '@/lib/permissions';
+import { canAccessRoute, canManageIntegrations, safeHomePath } from '@/lib/permissions';
+import { isAcademyV2Enabled } from '@/lib/academy';
 
 const DashboardPage = lazy(() =>
   import('@/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
@@ -31,7 +32,7 @@ const AcademyOpusPage = lazy(() =>
     default: module.AcademyOpusPage,
   })),
 );
-const CourseBuilderPage = lazy(() =>
+const CourseBuilderPageOpus = lazy(() =>
   import('@/pages/academy-opus/CourseBuilderPage').then((module) => ({
     default: module.CourseBuilderPage,
   })),
@@ -71,6 +72,130 @@ const AcademyGrokBuilderPage = lazy(() =>
     default: module.AcademyGrokBuilderPage,
   })),
 );
+
+// Academy V2
+const AcademyLayout = lazy(() =>
+  import('@/pages/academy/AcademyLayout').then((module) => ({ default: module.AcademyLayout })),
+);
+const AcademyHomePage = lazy(() =>
+  import('@/pages/academy/AcademyHomePage').then((module) => ({ default: module.AcademyHomePage })),
+);
+const AcademyCatalogPage = lazy(() =>
+  import('@/pages/academy/AcademyCatalogPage').then((module) => ({
+    default: module.AcademyCatalogPage,
+  })),
+);
+const AcademyCoursesPage = lazy(() =>
+  import('@/pages/academy/AcademyCoursesPage').then((module) => ({
+    default: module.AcademyCoursesPage,
+  })),
+);
+const CourseWorkspacePage = lazy(() =>
+  import('@/pages/academy/course/CourseWorkspacePage').then((module) => ({
+    default: module.CourseWorkspacePage,
+  })),
+);
+const CourseVersionsPage = lazy(() =>
+  import('@/pages/academy/course/CourseWorkspacePage').then((module) => ({
+    default: module.CourseVersionsPage,
+  })),
+);
+const CourseDistributionPage = lazy(() =>
+  import('@/pages/academy/course/CourseWorkspacePage').then((module) => ({
+    default: module.CourseDistributionPage,
+  })),
+);
+const CourseReportsPage = lazy(() =>
+  import('@/pages/academy/course/CourseWorkspacePage').then((module) => ({
+    default: module.CourseReportsPage,
+  })),
+);
+const AcademyV2BuilderPage = lazy(() =>
+  import('@/pages/academy/builder/CourseBuilderPage').then((module) => ({
+    default: module.CourseBuilderPage,
+  })),
+);
+const LearnRouteEntry = lazy(() =>
+  import('@/pages/academy/player/InternalEnrollmentPlayerPage').then((module) => ({
+    default: module.LearnRouteEntry,
+  })),
+);
+const LegacyCourseEnrollmentResolver = lazy(() =>
+  import('@/pages/academy/player/InternalEnrollmentPlayerPage').then((module) => ({
+    default: module.LegacyCourseEnrollmentResolver,
+  })),
+);
+const TemplateBuilderPage = lazy(() =>
+  import('@/pages/academy/templates/TemplateBuilderPage').then((module) => ({
+    default: module.TemplateBuilderPage,
+  })),
+);
+const CoursePreviewPage = lazy(() =>
+  import('@/pages/academy/player/CoursePlayerShell').then((module) => ({
+    default: module.CoursePreviewPage,
+  })),
+);
+const AcademyPartnerCoursesPage = lazy(() =>
+  import('@/pages/academy/partners/AcademyPartnerCoursesPage').then((module) => ({
+    default: module.AcademyPartnerCoursesPage,
+  })),
+);
+const AcademyPartnerPage = lazy(() =>
+  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+    default: module.AcademyPartnerPage,
+  })),
+);
+const AcademyTemplatesPage = lazy(() =>
+  import('@/pages/academy/templates/AcademyTemplatesPage').then((module) => ({
+    default: module.AcademyTemplatesPage,
+  })),
+);
+const AcademyTemplatePage = lazy(() =>
+  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+    default: module.AcademyTemplatePage,
+  })),
+);
+const AcademyReportsPage = lazy(() =>
+  import('@/pages/academy/reports/AcademyReportsPage').then((module) => ({
+    default: module.AcademyReportsPage,
+  })),
+);
+const AcademyLearnersPage = lazy(() =>
+  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+    default: module.AcademyLearnersPage,
+  })),
+);
+const AcademyLearnerPage = lazy(() =>
+  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+    default: module.AcademyLearnerPage,
+  })),
+);
+const AcademyCampaignPage = lazy(() =>
+  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+    default: module.AcademyCampaignPage,
+  })),
+);
+const AcademyEnrollmentReportPage = lazy(() =>
+  import('@/pages/academy/AcademyPlaceholderPage').then((module) => ({
+    default: module.AcademyEnrollmentReportPage,
+  })),
+);
+const ExternalAccessPage = lazy(() =>
+  import('@/pages/external-academy/ExternalAccessPage').then((module) => ({
+    default: module.ExternalAccessPage,
+  })),
+);
+const ExternalEnrollmentPlayerPage = lazy(() =>
+  import('@/pages/external-academy/ExternalEnrollmentPlayerPage').then((module) => ({
+    default: module.ExternalEnrollmentPlayerPage,
+  })),
+);
+const ExternalResultsPage = lazy(() =>
+  import('@/pages/external-academy/ExternalEnrollmentPlayerPage').then((module) => ({
+    default: module.ExternalResultsPage,
+  })),
+);
+
 const KnowledgePage = lazy(() =>
   import('@/pages/knowledge/KnowledgePage').then((module) => ({ default: module.KnowledgePage })),
 );
@@ -126,6 +251,67 @@ const DuplicateSearchPage = lazy(() =>
   })),
 );
 
+const academyV2 = isAcademyV2Enabled();
+
+function RedirectAcademyBuilder() {
+  const { courseId = '' } = useParams();
+  return <Navigate to={`/academy/courses/${courseId}/builder`} replace />;
+}
+
+function RedirectAcademyCourse() {
+  const { courseId = '' } = useParams();
+  return <Navigate to={`/academy/courses/${courseId}`} replace />;
+}
+
+function AccessDenied({ homePath }: { homePath: string }) {
+  return (
+    <main className="flex min-h-dvh items-center justify-center bg-page p-6">
+      <div className="max-w-md space-y-4 text-center">
+        <h1 className="text-xl font-semibold text-slate-950">Недостаточно прав</h1>
+        <p className="text-sm text-slate-500">У вас нет доступа к этой странице.</p>
+        <a
+          href={homePath}
+          className="inline-flex rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+        >
+          Вернуться в доступный раздел
+        </a>
+      </div>
+    </main>
+  );
+}
+
+/**
+ * Old external assignments used /learn/:courseId?token=... . The new external
+ * contract needs a /training token and cannot safely translate this URL in the
+ * browser. Fail closed without sending the legacy token to authenticated APIs.
+ */
+function AcademyLearnEntry() {
+  const { search } = useLocation();
+  const hasLegacyExternalToken = new URLSearchParams(search).has('token');
+
+  if (hasLegacyExternalToken) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-page p-6">
+        <div className="max-w-md space-y-4 text-center">
+          <h1 className="text-xl font-semibold text-slate-950">Ссылка устарела</h1>
+          <p className="text-sm text-slate-500">
+            Эта внешняя ссылка создана в старой версии Академии. Попросите автора курса прислать
+            новую защищённую ссылку вида /training/…
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <RequireAuth>
+      <RequireModule>
+        <LearnRouteEntry />
+      </RequireModule>
+    </RequireAuth>
+  );
+}
+
 function RequireModule({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { data: currentUser } = useQuery({
@@ -133,7 +319,7 @@ function RequireModule({ children }: { children: ReactNode }) {
     queryFn: authApi.getCurrentUser,
   });
   if (currentUser && !canAccessRoute(currentUser.role, pathname)) {
-    return <Navigate to={employeeHomePath} replace />;
+    return <AccessDenied homePath={safeHomePath(currentUser.role)} />;
   }
   return children;
 }
@@ -144,7 +330,7 @@ function RequireIntegrationAccess({ children }: { children: ReactNode }) {
     queryFn: authApi.getCurrentUser,
   });
   if (currentUser && !canManageIntegrations(currentUser.role)) {
-    return <Navigate to={employeeHomePath} replace />;
+    return <AccessDenied homePath={safeHomePath(currentUser.role)} />;
   }
   return children;
 }
@@ -178,18 +364,67 @@ export function App() {
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/distribution" element={<DistributionPage />} />
           <Route path="/distribution/:groupId" element={<DistributionGroupPage />} />
-          <Route path="/academy" element={<AcademyPage />} />
-          <Route path="/academy/:courseId" element={<AcademyPage />} />
-          <Route path="/academy-opus" element={<AcademyOpusPage />} />
-          <Route path="/academy-opus/:courseId/builder" element={<CourseBuilderPage />} />
-          <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
-          <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
-          <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />
-          <Route
-            path="/academy-grok/courses/:courseId/builder"
-            element={<AcademyGrokBuilderPage />}
-          />
-          <Route path="/academy-grok/reports" element={<AcademyGrokReportsPage />} />
+
+          {academyV2 ? (
+            <>
+              <Route path="/academy" element={<AcademyLayout />}>
+                <Route index element={<AcademyHomePage />} />
+                <Route path="catalog" element={<AcademyCatalogPage />} />
+                <Route path="courses" element={<AcademyCoursesPage />} />
+                <Route path="courses/:courseId" element={<CourseWorkspacePage />} />
+                <Route path="courses/:courseId/versions" element={<CourseVersionsPage />} />
+                <Route path="courses/:courseId/distribution" element={<CourseDistributionPage />} />
+                <Route path="courses/:courseId/reports" element={<CourseReportsPage />} />
+                <Route path="partners" element={<AcademyPartnerCoursesPage />} />
+                <Route path="partners/:partnerId" element={<AcademyPartnerPage />} />
+                <Route path="templates" element={<AcademyTemplatesPage />} />
+                <Route path="templates/:templateId" element={<AcademyTemplatePage />} />
+                <Route path="reports" element={<AcademyReportsPage />} />
+                <Route path="learners" element={<AcademyLearnersPage />} />
+                <Route path="learners/:learnerId" element={<AcademyLearnerPage />} />
+                <Route path="campaigns/:campaignId" element={<AcademyCampaignPage />} />
+                <Route
+                  path="enrollments/:enrollmentId/report"
+                  element={<AcademyEnrollmentReportPage />}
+                />
+              </Route>
+              <Route path="/academy/:courseId" element={<RedirectAcademyCourse />} />
+            </>
+          ) : (
+            <>
+              <Route path="/academy" element={<AcademyPage />} />
+              <Route path="/academy/:courseId" element={<AcademyPage />} />
+            </>
+          )}
+
+          {/* Experimental academies: live until cutover; redirect when V2 enabled */}
+          {academyV2 ? (
+            <>
+              <Route path="/academy-opus" element={<Navigate to="/academy" replace />} />
+              <Route path="/academy-opus/:courseId/builder" element={<RedirectAcademyBuilder />} />
+              <Route path="/academy-grok" element={<Navigate to="/academy" replace />} />
+              <Route path="/academy-grok/catalog" element={<Navigate to="/academy/catalog" replace />} />
+              <Route path="/academy-grok/reports" element={<Navigate to="/academy/reports" replace />} />
+              <Route path="/academy-grok/courses/:courseId" element={<RedirectAcademyCourse />} />
+              <Route
+                path="/academy-grok/courses/:courseId/builder"
+                element={<RedirectAcademyBuilder />}
+              />
+            </>
+          ) : (
+            <>
+              <Route path="/academy-opus" element={<AcademyOpusPage />} />
+              <Route path="/academy-opus/:courseId/builder" element={<CourseBuilderPageOpus />} />
+              <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
+              <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
+              <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />
+              <Route
+                path="/academy-grok/courses/:courseId/builder"
+                element={<AcademyGrokBuilderPage />}
+              />
+              <Route path="/academy-grok/reports" element={<AcademyGrokReportsPage />} />
+            </>
+          )}
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
@@ -210,6 +445,69 @@ export function App() {
           />
         </Route>
 
+        {/* Fullscreen authenticated Academy V2 routes */}
+        {academyV2 ? (
+          <>
+            <Route
+              path="/academy/courses/:courseId/builder"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <AcademyV2BuilderPage />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/academy/templates/:templateId/builder"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <TemplateBuilderPage />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/academy/preview/course-versions/:versionId"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <CoursePreviewPage />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/academy/preview/drafts/:draftVersionId"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <CoursePreviewPage />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn/:enrollmentId"
+              element={<AcademyLearnEntry />}
+            />
+            {/* Explicit legacy alias */}
+            <Route
+              path="/learn-legacy/:courseId"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <LegacyCourseEnrollmentResolver />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+          </>
+        ) : (
+          <Route path="/learn/:courseId" element={<LearnPage />} />
+        )}
+
         {/* Аутентификация */}
         <Route path="/auth" element={<AuthLayout />}>
           <Route index element={<Navigate to="/auth/login" replace />} />
@@ -219,11 +517,53 @@ export function App() {
           <Route path="invite/:token" element={<InvitePage />} />
         </Route>
 
-        <Route path="/learn/:courseId" element={<LearnPage />} />
-        <Route path="/learn-opus/:courseId" element={<LearnOpusPage />} />
-        <Route path="/learn-grok/:courseId" element={<AcademyGrokLearnPage />} />
+        {academyV2 ? (
+          <>
+            {/* Old experiment players → V2 learn entry (courseId resolve) */}
+            <Route
+              path="/learn-opus/:courseId"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <LegacyCourseEnrollmentResolver />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/learn-grok/:courseId"
+              element={
+                <RequireAuth>
+                  <RequireModule>
+                    <LegacyCourseEnrollmentResolver />
+                  </RequireModule>
+                </RequireAuth>
+              }
+            />
+          </>
+        ) : (
+          <>
+            <Route path="/learn-opus/:courseId" element={<LearnOpusPage />} />
+            <Route path="/learn-grok/:courseId" element={<AcademyGrokLearnPage />} />
+          </>
+        )}
         <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
         <Route path="/access/:token" element={<AccessLinkPage />} />
+
+        {/* Public external Academy — no RequireAuth / no AppLayout */}
+        {academyV2 ? (
+          <>
+            <Route path="/training/:token" element={<ExternalAccessPage />} />
+            <Route
+              path="/training/enrollments/:enrollmentId"
+              element={<ExternalEnrollmentPlayerPage />}
+            />
+            <Route
+              path="/training/enrollments/:enrollmentId/results"
+              element={<ExternalResultsPage />}
+            />
+          </>
+        ) : null}
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

@@ -33,9 +33,23 @@ VITE_API_MODE_AUTH=http        # auth | org | kb | tasks | academy | notificatio
 
 Сигнатуры функций в `src/api/index.ts` — контракт с бэкендом: HTTP-реализации в `src/api/http.ts` повторяют их один в один.
 
-Экспериментальные варианты «Академия Opus» и «Академия Grok» всегда работают через
-`VITE_API_URL` и не откатываются на локальные фикстуры. Это позволяет сравнивать их с основной
-Академией на одном серверном наборе курсов, назначений и прогресса.
+### Academy V2
+
+Единая Академия (план `teamos-academy-frontend-plan.md`) включается флагом:
+
+```sh
+VITE_ACADEMY_V2=true
+```
+
+По умолчанию (`false`) `/academy` остаётся legacy-страницей. При `true`:
+
+- канонические маршруты `/academy/*`, player `/learn/:enrollmentId`;
+- публичный external flow `/training/:token`;
+- API adapters в `src/api/academy/` (`/academy/*` относительно `/api/v1`);
+- query keys: `queryKeys.academyV2`, `queryKeys.externalAcademy`.
+
+Экспериментальные Opus/Grok остаются до cutover (Phase 9). Чеклист миграции:
+`docs/academy-v2-migration-checklist.md`.
 
 ### Текущие интеграции Rakurs
 

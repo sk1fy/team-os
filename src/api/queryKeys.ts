@@ -47,6 +47,10 @@ export const queryKeys = {
     all: ['notifications'] as const,
     unreadCount: ['notifications', 'unreadCount'] as const,
   },
+  /**
+   * Legacy Academy keys (pre-V2). Kept until cutover/cleanup so existing pages
+   * keep working. Prefer queryKeys.academyV2 for new code.
+   */
   academy: {
     all: ['academy'] as const,
     courses: ['academy', 'courses'] as const,
@@ -65,9 +69,77 @@ export const queryKeys = {
       ['academy', 'learn', 'lessons', courseId] as const,
   },
   /**
+   * Academy V2 — single internal query tree. Prefer granular invalidation
+   * over `academyV2.all` after mutations.
+   */
+  academyV2: {
+    all: ['academy-v2'] as const,
+    myLearning: ['academy-v2', 'my-learning'] as const,
+    myEnrollments: (filters?: unknown) => ['academy-v2', 'my-enrollments', filters] as const,
+    catalog: (filters?: unknown) => ['academy-v2', 'catalog', filters] as const,
+    /**
+     * Prefix-friendly list key: invalidate with queryKeys.academyV2.coursesRoot
+     * so all filtered list queries refresh after mutations.
+     */
+    coursesRoot: ['academy-v2', 'courses'] as const,
+    courses: (filters?: unknown) => ['academy-v2', 'courses', 'list', filters] as const,
+    course: (courseId: ID | null | undefined) => ['academy-v2', 'course', courseId] as const,
+    versions: (courseId: ID | null | undefined) => ['academy-v2', 'versions', courseId] as const,
+    version: (courseId: ID | null | undefined, versionId: ID | null | undefined) =>
+      ['academy-v2', 'version', courseId, versionId] as const,
+    draft: (courseId: ID | null | undefined) => ['academy-v2', 'draft', courseId] as const,
+    draftOutline: (draftVersionId: ID | null | undefined) =>
+      ['academy-v2', 'draft-outline', draftVersionId] as const,
+    templatesRoot: ['academy-v2', 'templates'] as const,
+    templates: (filters?: unknown) =>
+      ['academy-v2', 'templates', 'list', filters] as const,
+    template: (templateId: ID | null | undefined) =>
+      ['academy-v2', 'template', templateId] as const,
+    partnerCourses: (partnerId: ID | null | undefined, filters?: unknown) =>
+      ['academy-v2', 'partner-courses', partnerId, filters] as const,
+    partners: (filters?: unknown) => ['academy-v2', 'partners', filters] as const,
+    internalReport: (filters?: unknown) => ['academy-v2', 'internal-report', filters] as const,
+    partnerExternalReport: (filters?: unknown) =>
+      ['academy-v2', 'partner-external-report', filters] as const,
+    externalLearners: (filters?: unknown) =>
+      ['academy-v2', 'external-learners', filters] as const,
+    externalLearner: (learnerId: ID | null | undefined) =>
+      ['academy-v2', 'external-learner', learnerId] as const,
+    personalAccesses: (courseId: ID | null | undefined, filters?: unknown) =>
+      ['academy-v2', 'personal-accesses', courseId, filters] as const,
+    campaigns: (courseId: ID | null | undefined, filters?: unknown) =>
+      ['academy-v2', 'campaigns', courseId, filters] as const,
+    campaignReport: (campaignId: ID | null | undefined) =>
+      ['academy-v2', 'campaign-report', campaignId] as const,
+    enrollment: (enrollmentId: ID | null | undefined) =>
+      ['academy-v2', 'enrollment', enrollmentId] as const,
+    enrollmentLesson: (
+      enrollmentId: ID | null | undefined,
+      lessonId: ID | null | undefined,
+    ) => ['academy-v2', 'enrollment-lesson', enrollmentId, lessonId] as const,
+    enrollmentReport: (enrollmentId: ID | null | undefined) =>
+      ['academy-v2', 'enrollment-report', enrollmentId] as const,
+    assignments: (courseId: ID | null | undefined) =>
+      ['academy-v2', 'assignments', courseId] as const,
+  },
+  /** Public external player — short staleTime, never persist tokens. */
+  externalAcademy: {
+    all: ['external-academy'] as const,
+    access: (token: string | null | undefined) => ['external-academy', 'access', token] as const,
+    enrollment: (enrollmentId: ID | null | undefined) =>
+      ['external-academy', 'enrollment', enrollmentId] as const,
+    outline: (enrollmentId: ID | null | undefined) =>
+      ['external-academy', 'outline', enrollmentId] as const,
+    lesson: (enrollmentId: ID | null | undefined, lessonVersionId: ID | null | undefined) =>
+      ['external-academy', 'lesson', enrollmentId, lessonVersionId] as const,
+    results: (enrollmentId: ID | null | undefined) =>
+      ['external-academy', 'results', enrollmentId] as const,
+  },
+  /**
    * Академия Opus — параллельная реализация раздела. Отдельное поддерево
    * ключей: данные те же, но набор запросов другой, и инвалидация одной
    * Академии не должна дёргать вторую.
+   * @deprecated Remove after Academy V2 cutover (Phase 10).
    */
   academyOpus: {
     all: ['academy-opus'] as const,
@@ -90,6 +162,9 @@ export const queryKeys = {
     learnerRows: ['academy-opus', 'learner-rows'] as const,
     dropOff: (courseId: ID | null | undefined) => ['academy-opus', 'drop-off', courseId] as const,
   },
+  /**
+   * @deprecated Remove after Academy V2 cutover (Phase 10).
+   */
   academyGrok: {
     all: ['academy-grok'] as const,
     currentUser: ['academy-grok', 'current-user'] as const,

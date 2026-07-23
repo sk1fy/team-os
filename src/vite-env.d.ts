@@ -13,6 +13,8 @@ interface ImportMetaEnv {
   readonly VITE_RAKURS_ACTIVITY_API_URL?: string;
   readonly VITE_RAKURS_DUPLICATES_API_URL?: string;
   readonly VITE_RAKURS_ACCOUNT_API_URL?: string;
+  /** Enable Academy V2 routes under /academy (legacy Opus/Grok remain until cutover). */
+  readonly VITE_ACADEMY_V2?: string;
 }
 
 interface ImportMeta {

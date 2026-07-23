@@ -282,9 +282,14 @@ export interface TaskComment {
 // Академия
 // ============================================================================
 
+/**
+ * @deprecated Legacy academy types. Prefer `@/types/academy` for V2.
+ * Kept for migration compatibility until Phase 10 cleanup.
+ */
 export type CourseStatus = 'draft' | 'published';
 export type CourseVisibility = 'public' | 'company' | 'restricted';
 
+/** @deprecated Prefer AcademyCourseSummary from `@/types/academy`. */
 export interface Course {
   id: ID;
   title: string;
@@ -380,6 +385,7 @@ export interface QuizAttempt {
   createdAt: ISODate;
 }
 
+/** @deprecated Prefer EnrollmentSummary from `@/types/academy`. */
 export interface CourseProgress {
   userId: ID;
   courseId: ID;
@@ -389,6 +395,15 @@ export interface CourseProgress {
   startedAt?: ISODate;
   completedAt?: ISODate;
 }
+
+// Re-export Academy V2 types for gradual migration (prefer direct imports).
+export type {
+  AcademyCourseSummary,
+  CourseUiCapabilities,
+  EnrollmentSummary,
+  EnrollmentDetail,
+  MyLearningSummary,
+} from './academy';
 
 // ============================================================================
 // Уведомления
