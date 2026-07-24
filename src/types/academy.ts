@@ -286,12 +286,14 @@ export interface QuizAttemptResult {
   attemptId: ID;
   quizId: ID;
   enrollmentId: ID;
+  answers?: QuizAttemptAnswer[];
   score: number;
   passed: boolean;
   pendingReview: boolean;
   attemptsUsed: number;
   maxAttempts?: number;
   feedback: QuizQuestionFeedback[];
+  reviewComment?: string;
   createdAt: ISODate;
 }
 

@@ -31,7 +31,7 @@ import { normalizeVideoUrl, VideoEmbed } from './videoEmbed';
 
 const extensions = [
   StarterKit.configure({ link: { openOnClick: false } }),
-  Image.configure({ allowBase64: true }),
+  Image.configure({ allowBase64: false }),
   Youtube.configure({ controls: true, nocookie: true }),
   VideoEmbed,
   Placeholder.configure({ placeholder: 'Начните писать...' }),

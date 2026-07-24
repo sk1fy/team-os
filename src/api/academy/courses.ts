@@ -304,26 +304,39 @@ export const academyCoursesApi = {
     );
   },
 
-  resolveRestriction(courseId: ID, options?: RequestOptions): Promise<AcademyCourseDetail> {
+  /**
+   * OpenAPI CourseRestrictionInput requires non-empty `reason`.
+   * Response is CourseRestriction — callers should invalidate course queries.
+   */
+  resolveRestriction(
+    courseId: ID,
+    input: { reason: string },
+    options?: RequestOptions,
+  ): Promise<unknown> {
     return academyMutate(
       `/academy/courses/${encodeId(courseId)}/restrictions/resolve`,
       'POST',
-      {},
+      { reason: input.reason },
       options,
     );
   },
 
-  copyToCompany(
+  /**
+   * Backend returns PartnerCourseCopyResult: { course, draft, origin }.
+   * Unpack to the company course detail so callers can navigate by id.
+   */
+  async copyToCompany(
     courseId: ID,
     input: { versionId: ID },
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
-    return academyMutate(
+    const payload = await academyMutate<CourseCreationWire>(
       `/academy/partner-courses/${encodeId(courseId)}/versions/${encodeId(input.versionId)}/copy-to-company`,
       'POST',
       {},
       options,
     );
+    return normalizeCourseCreation(payload).course;
   },
 
   async getDraft(courseId: ID, options?: RequestOptions): Promise<CourseVersionAuthorDetail> {

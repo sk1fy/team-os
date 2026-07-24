@@ -142,6 +142,7 @@ export interface CampaignReport {
   campaignId: ID;
   campaignName: string;
   purpose: CampaignPurpose;
+  courseId: ID;
   courseTitle: string;
   funnel: {
     landings: number;
@@ -151,6 +152,17 @@ export interface CampaignReport {
     completed: number;
     expired: number;
   };
+  analytics?: {
+    firstLessonStarts: number;
+    lessonCompletions: number;
+    quizSubmissions: number;
+    expiredEnrollments: number;
+    returnVisits: number;
+    averageProgressPercent: number;
+    medianProgressPercent: number;
+    averageCompletionSeconds?: number;
+    medianCompletionSeconds?: number;
+  };
   participants: PaginatedExternalParticipants;
   utmBreakdown?: Array<{ source?: string; medium?: string; campaign?: string; count: number }>;
 }
@@ -158,7 +170,7 @@ export interface CampaignReport {
 export interface ExternalParticipantRow {
   enrollmentId: ID;
   learnerId: ID;
-  email: string;
+  email?: string;
   displayName?: string;
   progressStatus: EnrollmentSummary['progressStatus'];
   accessStatus: EnrollmentSummary['accessStatus'];
@@ -198,9 +210,4 @@ export interface EnrollmentReport {
 export type ExternalEnrollmentResults = EnrollmentReport;
 
 /** Re-export for external player adapters. */
-export type {
-  CourseVersionLearnerDetail,
-  EnrollmentDetail,
-  EnrollmentSummary,
-  QuizAttemptResult,
-};
+export type { CourseVersionLearnerDetail, EnrollmentDetail, EnrollmentSummary, QuizAttemptResult };

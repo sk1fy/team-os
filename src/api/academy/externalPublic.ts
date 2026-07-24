@@ -1,6 +1,6 @@
 /**
  * Public external Academy — authMode none/external, never internal Bearer.
- * Paths: backend-plan §11.8
+ * Paths and schemas: contracts/openapi/teamos.yaml § public/academy.
  */
 
 import type {
@@ -17,118 +17,203 @@ import type {
   QuizAttemptAnswer,
 } from '@/types/academy';
 import type { ID } from '@/types';
+import { createId } from '@/lib/id';
 import { encodeId, externalGet, externalMutate, type RequestOptions } from './httpHelpers';
+import {
+  asString,
+  isEnrollmentLike,
+  normalizeExternalEnrollment,
+  normalizeExternalLanding,
+  normalizeExternalLesson,
+  normalizeExternalOutline,
+  normalizeExternalResults,
+  normalizeQuizAttempt,
+  normalizeVerificationChallenge,
+  normalizeVerificationConfirmed,
+  toWireQuizAnswers,
+} from './wireAdapters';
 
 type PublicOptions = RequestOptions & { authMode?: 'external' | 'none' };
 
 export const academyExternalPublicApi = {
-  getLanding(token: string, options?: PublicOptions): Promise<ExternalAccessLanding> {
-    return externalGet(`/public/academy/access/${encodeId(token)}`, {
+  async getLanding(token: string, options?: PublicOptions): Promise<ExternalAccessLanding> {
+    const wire = await externalGet<unknown>(`/public/academy/access/${encodeId(token)}`, {
       ...options,
       authMode: options?.authMode ?? 'none',
     });
+    return normalizeExternalLanding(wire);
   },
 
-  startVerification(
+  async startVerification(
     token: string,
     input: {
       email: string;
-      firstName: string;
+      firstName?: string;
       lastName?: string;
       phone?: string;
     },
     options?: PublicOptions,
   ): Promise<ExternalVerificationChallenge> {
-    return externalMutate(
+    // OpenAPI RequestExternalVerificationInput: email/firstName/lastName only.
+    const body = {
+      email: input.email,
+      ...(input.firstName?.trim() ? { firstName: input.firstName.trim() } : {}),
+      ...(input.lastName?.trim() ? { lastName: input.lastName.trim() } : {}),
+    };
+    const wire = await externalMutate<unknown>(
       `/public/academy/access/${encodeId(token)}/request-verification`,
       'POST',
-      input,
+      body,
       { ...options, authMode: options?.authMode ?? 'none' },
     );
+    const challenge = normalizeVerificationChallenge(wire);
+    return { ...challenge, email: challenge.email || input.email };
   },
 
-  confirmVerification(
+  async confirmVerification(
     challengeId: ID,
     input: { code: string },
     options?: PublicOptions,
-  ): Promise<ExternalSessionState & { readyEnrollmentId?: ID }> {
-    return externalMutate(
+  ): Promise<ExternalSessionState & { readyEnrollmentId?: ID; learnerId?: ID }> {
+    const wire = await externalMutate<unknown>(
       `/public/academy/verifications/${encodeId(challengeId)}/confirm`,
       'POST',
       input,
       { ...options, authMode: options?.authMode ?? 'none' },
     );
+    return normalizeVerificationConfirmed(wire);
   },
 
   /**
    * Activation uses author-configured deadlineDays on the access/campaign.
-   * Body must not let the learner pick a different duration.
+   * Backend returns AcademyEnrollment / ExternalEnrollment; UI needs enrollmentId.
    */
-  activate(token: string, options?: PublicOptions): Promise<{ enrollmentId: ID }> {
-    return externalMutate(
+  async activate(token: string, options?: PublicOptions): Promise<{ enrollmentId: ID }> {
+    const wire = await externalMutate<unknown>(
       `/public/academy/access/${encodeId(token)}/activate`,
       'POST',
       {},
-      { ...options, authMode: options?.authMode ?? 'external' },
+      {
+        ...options,
+        authMode: options?.authMode ?? 'external',
+        idempotencyKey: options?.idempotencyKey ?? createId(),
+      },
     );
+    const record =
+      typeof wire === 'object' && wire !== null ? (wire as Record<string, unknown>) : {};
+    const enrollmentId = asString(
+      record.enrollmentId ??
+        (isEnrollmentLike(record) ? record.id : undefined) ??
+        (isEnrollmentLike(record.enrollment) ? record.enrollment.id : undefined),
+    );
+    if (!enrollmentId) {
+      throw new Error('Activation response did not include enrollment id');
+    }
+    return { enrollmentId };
   },
 
-  getEnrollment(enrollmentId: ID, options?: PublicOptions): Promise<ExternalEnrollmentDetail> {
-    return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}`, {
-      ...options,
-      authMode: options?.authMode ?? 'external',
-    });
+  async getEnrollment(
+    enrollmentId: ID,
+    options?: PublicOptions,
+  ): Promise<ExternalEnrollmentDetail> {
+    const wire = await externalGet<unknown>(
+      `/public/academy/enrollments/${encodeId(enrollmentId)}`,
+      {
+        ...options,
+        authMode: options?.authMode ?? 'external',
+      },
+    );
+    return normalizeExternalEnrollment(wire);
   },
 
-  getOutline(enrollmentId: ID, options?: PublicOptions): Promise<CourseVersionLearnerDetail> {
-    return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}/outline`, {
-      ...options,
-      authMode: options?.authMode ?? 'external',
-    });
+  async getOutline(
+    enrollmentId: ID,
+    options?: PublicOptions,
+  ): Promise<CourseVersionLearnerDetail> {
+    const wire = await externalGet<unknown>(
+      `/public/academy/enrollments/${encodeId(enrollmentId)}/outline`,
+      {
+        ...options,
+        authMode: options?.authMode ?? 'external',
+      },
+    );
+    return normalizeExternalOutline(wire);
   },
 
-  getLesson(
+  async getLesson(
     enrollmentId: ID,
     lessonId: ID,
     options?: PublicOptions,
   ): Promise<LessonLearner> {
-    return externalGet(
+    const wire = await externalGet<unknown>(
       `/public/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}`,
       { ...options, authMode: options?.authMode ?? 'external' },
     );
+    return normalizeExternalLesson(wire);
   },
 
-  completeLesson(
+  async completeLesson(
     enrollmentId: ID,
     lessonId: ID,
     options?: PublicOptions,
   ): Promise<ExternalEnrollmentDetail> {
-    return externalMutate(
+    const wire = await externalMutate<unknown>(
       `/public/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}/complete`,
       'POST',
       {},
-      { ...options, authMode: options?.authMode ?? 'external' },
+      {
+        ...options,
+        authMode: options?.authMode ?? 'external',
+        idempotencyKey: options?.idempotencyKey ?? createId(),
+      },
     );
+    return normalizeExternalEnrollment(wire);
   },
 
-  submitQuiz(
+  /**
+   * Backend returns ExternalQuizAttemptSubmitted: { attempt, enrollment }.
+   * Also accepts legacy flat attempt and falls back to GET enrollment.
+   */
+  async submitQuiz(
     enrollmentId: ID,
     quizId: ID,
     input: { answers: QuizAttemptAnswer[] },
     options?: PublicOptions,
   ): Promise<ExternalQuizSubmitResponse> {
-    return externalMutate(
+    const wire = await externalMutate<unknown>(
       `/public/academy/enrollments/${encodeId(enrollmentId)}/quizzes/${encodeId(quizId)}/attempts`,
       'POST',
-      input,
-      { ...options, authMode: options?.authMode ?? 'external' },
+      { answers: toWireQuizAnswers(input.answers) },
+      {
+        ...options,
+        authMode: options?.authMode ?? 'external',
+        idempotencyKey: options?.idempotencyKey ?? createId(),
+      },
     );
+    const record =
+      typeof wire === 'object' && wire !== null ? (wire as Record<string, unknown>) : {};
+    const attempt = normalizeQuizAttempt(record.attempt ?? record, { enrollmentId, quizId });
+    if (isEnrollmentLike(record.enrollment)) {
+      return {
+        attempt,
+        enrollment: normalizeExternalEnrollment(record.enrollment),
+      };
+    }
+    const enrollment = await academyExternalPublicApi.getEnrollment(enrollmentId, options);
+    return { attempt, enrollment };
   },
 
-  getResults(enrollmentId: ID, options?: PublicOptions): Promise<ExternalEnrollmentResults> {
-    return externalGet(`/public/academy/enrollments/${encodeId(enrollmentId)}/results`, {
-      ...options,
-      authMode: options?.authMode ?? 'external',
-    });
+  async getResults(
+    enrollmentId: ID,
+    options?: PublicOptions,
+  ): Promise<ExternalEnrollmentResults> {
+    const [resultsWire, outline] = await Promise.all([
+      externalGet<unknown>(`/public/academy/enrollments/${encodeId(enrollmentId)}/results`, {
+        ...options,
+        authMode: options?.authMode ?? 'external',
+      }),
+      academyExternalPublicApi.getOutline(enrollmentId, options).catch(() => null),
+    ]);
+    return normalizeExternalResults(resultsWire, outline);
   },
 };

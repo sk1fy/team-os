@@ -178,7 +178,9 @@ describe('course capabilities', () => {
     expect(caps.canEditDraft).toBe(true);
     expect(caps.canPublish).toBe(true);
     expect(caps.canAssignInternally).toBe(true);
-    expect(caps.canCreatePersonalAccess).toBe(true);
+    // Personal access is partner-only; company managers use candidate campaigns.
+    expect(caps.canCreatePersonalAccess).toBe(false);
+    expect(caps.canCreateCandidateCampaign).toBe(true);
     expect(caps.canCopyToCompany).toBe(false);
   });
 

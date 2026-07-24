@@ -1,13 +1,13 @@
 import type { EnrollmentReport } from '@/types/academyExternal';
-import type {
-  AcademyCourseSummary,
-  InternalReportResult,
-  PaginatedResult,
-  QuizAttemptResult,
-} from '@/types/academy';
+import type { AcademyCourseSummary, InternalReportResult, PaginatedResult } from '@/types/academy';
 import type { ID } from '@/types';
 import type { InternalReportFilters } from '@/lib/academy/reportFilters';
-import { academyLearningApi, normalizeEnrollmentSummary, type EnrollmentWire } from './learning';
+import { academyLearningApi } from './learning';
+import {
+  normalizeEnrollmentSummary,
+  normalizeQuizAttempt,
+  type EnrollmentWire,
+} from './wireAdapters';
 import {
   academyDownload,
   academyGet,
@@ -31,6 +31,12 @@ export type PartnerExternalReportRow = {
 };
 
 type EnrollmentReportWire = {
+  learner?: {
+    email?: string;
+    displayName?: string;
+    firstName?: string;
+    lastName?: string;
+  };
   enrollment?: EnrollmentWire;
   lessonResults?: EnrollmentReport['lessonResults'];
   lessons?: Array<{
@@ -43,7 +49,7 @@ type EnrollmentReportWire = {
     quizScore?: number;
     quizPassed?: boolean;
   }>;
-  quizAttempts?: QuizAttemptResult[];
+  quizAttempts?: unknown[];
   learnerEmail?: string;
   learnerName?: string;
 };
@@ -143,13 +149,20 @@ export const academyReportsApi = {
             },
             { totalLessons: lessonResults.length },
           ));
+    const learnerFullName = [payload.learner?.firstName, payload.learner?.lastName]
+      .filter(Boolean)
+      .join(' ');
+    const learnerName =
+      payload.learnerName ?? payload.learner?.displayName ?? (learnerFullName || undefined);
 
     return {
       enrollment,
       lessonResults,
-      quizAttempts: Array.isArray(payload.quizAttempts) ? payload.quizAttempts : [],
-      learnerEmail: payload.learnerEmail,
-      learnerName: payload.learnerName,
+      quizAttempts: Array.isArray(payload.quizAttempts)
+        ? payload.quizAttempts.map((attempt) => normalizeQuizAttempt(attempt, { enrollmentId }))
+        : [],
+      learnerEmail: payload.learnerEmail ?? payload.learner?.email,
+      learnerName,
     };
   },
 

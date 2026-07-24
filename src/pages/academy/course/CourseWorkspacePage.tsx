@@ -58,7 +58,7 @@ export function CourseWorkspacePage() {
   const { courseId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [restriction, setRestriction] = useState<'pause' | 'block' | null>(null);
+  const [restriction, setRestriction] = useState<'pause' | 'block' | 'resolve' | null>(null);
   const [restrictionReason, setRestrictionReason] = useState('');
   const [lifecycleConfirmation, setLifecycleConfirmation] = useState<'archive' | 'delete' | null>(
     null,
@@ -76,10 +76,18 @@ export function CourseWorkspacePage() {
   });
 
   const lifecycle = useMutation({
-    mutationFn: async (action: 'archive' | 'restore' | 'delete' | 'resolve') => {
+    mutationFn: async (
+      action:
+        | 'archive'
+        | 'restore'
+        | 'delete'
+        | { type: 'resolve'; reason: string },
+    ) => {
       if (action === 'archive') return academyCoursesApi.archive(courseId);
       if (action === 'restore') return academyCoursesApi.restore(courseId);
-      if (action === 'resolve') return academyCoursesApi.resolveRestriction(courseId);
+      if (typeof action === 'object' && action.type === 'resolve') {
+        return academyCoursesApi.resolveRestriction(courseId, { reason: action.reason });
+      }
       await academyCoursesApi.delete(courseId);
       return null;
     },
@@ -255,7 +263,10 @@ export function CourseWorkspacePage() {
               <Button
                 variant="secondary"
                 loading={lifecycle.isPending}
-                onClick={() => lifecycle.mutate('resolve')}
+                onClick={() => {
+                  setRestriction('resolve');
+                  setRestrictionReason('');
+                }}
               >
                 Снять ограничение
               </Button>
@@ -385,12 +396,18 @@ export function CourseWorkspacePage() {
           }
         }}
         title={
-          restriction === 'block' ? 'Заблокировать курс партнёра' : 'Приостановить распространение'
+          restriction === 'block'
+            ? 'Заблокировать курс партнёра'
+            : restriction === 'resolve'
+              ? 'Снять ограничение'
+              : 'Приостановить распространение'
         }
         description={
           restriction === 'block'
             ? 'Экстренная блокировка остановит активные прохождения. Причина обязательна.'
-            : 'Новые активации будут остановлены до снятия ограничения.'
+            : restriction === 'resolve'
+              ? 'Укажите причину снятия pause/block. Backend требует обязательный reason.'
+              : 'Новые активации будут остановлены до снятия ограничения.'
         }
         footer={
           <>
@@ -406,16 +423,32 @@ export function CourseWorkspacePage() {
             <Button
               variant={restriction === 'block' ? 'danger' : 'primary'}
               disabled={restrictionReason.trim().length < 3}
-              loading={restrictPartnerCourse.isPending}
+              loading={restrictPartnerCourse.isPending || lifecycle.isPending}
               onClick={() => {
                 if (!restriction || restrictionReason.trim().length < 3) return;
+                if (restriction === 'resolve') {
+                  lifecycle.mutate(
+                    { type: 'resolve', reason: restrictionReason.trim() },
+                    {
+                      onSuccess: () => {
+                        setRestriction(null);
+                        setRestrictionReason('');
+                      },
+                    },
+                  );
+                  return;
+                }
                 restrictPartnerCourse.mutate({
                   action: restriction,
                   reason: restrictionReason.trim(),
                 });
               }}
             >
-              {restriction === 'block' ? 'Заблокировать' : 'Приостановить'}
+              {restriction === 'block'
+                ? 'Заблокировать'
+                : restriction === 'resolve'
+                  ? 'Снять ограничение'
+                  : 'Приостановить'}
             </Button>
           </>
         }
@@ -561,7 +594,8 @@ export function CourseDistributionPage() {
   const accessDeadlineDays = parseDeadlineDays(accessDeadline);
   const campaignDeadlineDays = parseDeadlineDays(campaignDeadline);
   const parsedExtendDays = Number(extendDays);
-  const extendDaysValid = Number.isInteger(parsedExtendDays) && parsedExtendDays >= 1;
+  const extendDaysValid =
+    Number.isInteger(parsedExtendDays) && parsedExtendDays >= 1 && parsedExtendDays <= 7;
 
   const createAssignment = useMutation({
     mutationFn: () =>
@@ -654,18 +688,17 @@ export function CourseDistributionPage() {
         return null;
       }
       if (input.action === 'repeat') {
-        await academyExternalAdminApi.repeatPersonalAccess(input.accessId, {
+        return academyExternalAdminApi.repeatPersonalAccess(input.accessId, {
           idempotencyKey: createId(),
         });
-        return null;
       }
-      if (!Number.isInteger(input.extraDays) || (input.extraDays ?? 0) < 1) {
+      // OpenAPI extend uses deadlineDays (1–7), not extraDays delta.
+      if (!Number.isInteger(input.extraDays) || (input.extraDays ?? 0) < 1 || (input.extraDays ?? 0) > 7) {
         throw new Error('invalid extension');
       }
-      await academyExternalAdminApi.extendPersonalAccess(input.accessId, {
-        extraDays: input.extraDays!,
+      return academyExternalAdminApi.extendPersonalAccess(input.accessId, {
+        deadlineDays: input.extraDays!,
       });
-      return null;
     },
     onSuccess: async (result, input) => {
       void queryClient.invalidateQueries({
@@ -675,7 +708,11 @@ export function CourseDistributionPage() {
         setOneTimeSecretUrl(result.publicUrl);
         try {
           await navigator.clipboard.writeText(result.publicUrl);
-          toast.success('Новая ссылка скопирована');
+          toast.success(
+            input.action === 'repeat'
+              ? 'Повторное прохождение создано, ссылка скопирована'
+              : 'Новая ссылка скопирована',
+          );
         } catch {
           toast.error('Ссылка обновлена, но её не удалось скопировать');
         }
@@ -1070,7 +1107,7 @@ export function CourseDistributionPage() {
           }
         }}
         title="Продлить доступ"
-        description="Срок текущего прохождения будет увеличен на указанное количество дней."
+        description="Срок текущего прохождения будет увеличен на 1–7 дней (OpenAPI deadlineDays)."
         footer={
           <>
             <Button variant="secondary" onClick={() => setExtendAccessId(null)}>
@@ -1096,10 +1133,11 @@ export function CourseDistributionPage() {
         <Input
           type="number"
           min={1}
-          label="Дополнительные дни"
+          max={7}
+          label="Дополнительные дни (1–7)"
           value={extendDays}
           onChange={(event) => setExtendDays(event.target.value)}
-          error={!extendDaysValid ? 'Введите целое число не меньше 1' : undefined}
+          error={!extendDaysValid ? 'Введите целое число от 1 до 7' : undefined}
         />
       </Modal>
 

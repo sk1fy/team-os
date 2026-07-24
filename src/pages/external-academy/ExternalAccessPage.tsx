@@ -6,6 +6,7 @@ import { academyExternalPublicApi } from '@/api/academy';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Input } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
+import { saveExternalCourseMeta } from '@/lib/academy/externalCourseMeta';
 import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import { AcademyStatusCallout } from '@/pages/academy/components/AcademyStatusCallout';
@@ -85,13 +86,22 @@ export function ExternalAccessPage() {
       academyExternalPublicApi.confirmVerification(challengeId!, { code: code.trim() }),
     onSuccess: (session) => {
       setFlowError(null);
+      // Backend confirm returns { learnerId, verifiedAt } and sets external session cookie.
+      // Adapter maps that to accessStatus=ready when no explicit status is present.
       const enrollmentId = session.readyEnrollmentId ?? session.enrollmentId;
       if (session.accessStatus === 'active' && enrollmentId) {
+        if (landing?.courseTitle) {
+          saveExternalCourseMeta(enrollmentId, { courseTitle: landing.courseTitle });
+        }
         clearSensitiveAccessQuery();
         navigate(academyRoutes.externalPlayer(enrollmentId), { replace: true });
         return;
       }
-      if (session.accessStatus === 'ready' || session.accessStatus === 'invited') {
+      if (
+        !session.accessStatus ||
+        session.accessStatus === 'ready' ||
+        session.accessStatus === 'invited'
+      ) {
         setReady(true);
         return;
       }
@@ -131,6 +141,9 @@ export function ExternalAccessPage() {
       academyExternalPublicApi.activate(token, { idempotencyKey: activationKey.current }),
     onSuccess: ({ enrollmentId }) => {
       setFlowError(null);
+      if (landing?.courseTitle) {
+        saveExternalCourseMeta(enrollmentId, { courseTitle: landing.courseTitle });
+      }
       clearSensitiveAccessQuery();
       navigate(academyRoutes.externalPlayer(enrollmentId), { replace: true });
     },
@@ -187,6 +200,9 @@ export function ExternalAccessPage() {
         />
         <Button
           onClick={() => {
+            saveExternalCourseMeta(landing.existingEnrollmentId!, {
+              courseTitle: landing.courseTitle,
+            });
             clearSensitiveAccessQuery();
             navigate(academyRoutes.externalPlayer(landing.existingEnrollmentId!), {
               replace: true,
@@ -230,6 +246,9 @@ export function ExternalAccessPage() {
         {landing.existingEnrollmentId ? (
           <Button
             onClick={() => {
+              saveExternalCourseMeta(landing.existingEnrollmentId!, {
+                courseTitle: landing.courseTitle,
+              });
               clearSensitiveAccessQuery();
               navigate(academyRoutes.externalPlayer(landing.existingEnrollmentId!), {
                 replace: true,

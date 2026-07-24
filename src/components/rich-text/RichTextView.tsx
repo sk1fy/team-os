@@ -13,7 +13,7 @@ import { VideoEmbed } from './videoEmbed';
 
 const extensions = [
   StarterKit.configure({ link: { openOnClick: true } }),
-  Image.configure({ allowBase64: true }),
+  Image.configure({ allowBase64: false }),
   Youtube.configure({ controls: true, nocookie: true }),
   VideoEmbed,
   Table.configure({ resizable: true }),

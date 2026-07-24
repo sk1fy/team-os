@@ -6,6 +6,7 @@ import { academyExternalPublicApi } from '@/api/academy';
 import { queryKeys } from '@/api/queryKeys';
 import { Button } from '@/components/ui';
 import { academyRoutes, deadlineRemaining, enrollmentAccessLabel } from '@/lib/academy';
+import { getExternalCourseMeta } from '@/lib/academy/externalCourseMeta';
 import { toast } from '@/stores/toast';
 import type { QuizAttemptAnswer, QuizAttemptResult } from '@/types/academy';
 import { CoursePlayerShell } from '@/pages/academy/player/CoursePlayerShell';
@@ -35,7 +36,12 @@ export function ExternalEnrollmentPlayerPage() {
   });
 
   const enrollment = enrollmentQuery.data;
-  useTitle(enrollment ? `${enrollment.courseTitle} — Обучение` : 'Обучение');
+  const courseMeta = useMemo(() => getExternalCourseMeta(enrollmentId), [enrollmentId]);
+  const courseTitle =
+    enrollment?.courseTitle && enrollment.courseTitle !== 'Курс'
+      ? enrollment.courseTitle
+      : (courseMeta?.courseTitle ?? enrollment?.courseTitle);
+  useTitle(courseTitle ? `${courseTitle} — Обучение` : 'Обучение');
 
   const outlineQuery = useQuery({
     queryKey: queryKeys.externalAcademy.outline(enrollmentId),
@@ -63,8 +69,7 @@ export function ExternalEnrollmentPlayerPage() {
     enrollment?.accessStatus === 'suspended' ||
     enrollment?.accessStatus === 'revoked' ||
     enrollment?.accessStatus === 'closed';
-  const onlyCompletedLessonContent =
-    deadlineExpired || enrollment?.accessStatus === 'expired';
+  const onlyCompletedLessonContent = deadlineExpired || enrollment?.accessStatus === 'expired';
 
   useEffect(() => {
     if (!deadlineExpired || !enrollment?.accessUntil) return;
@@ -79,9 +84,9 @@ export function ExternalEnrollmentPlayerPage() {
     const requested = flatLessons.find((lesson) => lesson.id === lessonFromUrl);
     const requestedAllowed = Boolean(
       requested &&
-        !blocksAllLessonContent &&
-        (!onlyCompletedLessonContent || requested.completed) &&
-        (!requested.locked || requested.completed),
+      !blocksAllLessonContent &&
+      (!onlyCompletedLessonContent || requested.completed) &&
+      (!requested.locked || requested.completed),
     );
     if (requestedAllowed) return;
 
@@ -114,10 +119,10 @@ export function ExternalEnrollmentPlayerPage() {
   const outlineLesson = flatLessons.find((lesson) => lesson.id === currentLessonId);
   const currentLessonAllowed = Boolean(
     enrollment &&
-      outlineLesson &&
-      !blocksAllLessonContent &&
-      (!onlyCompletedLessonContent || outlineLesson.completed) &&
-      (!outlineLesson.locked || outlineLesson.completed),
+    outlineLesson &&
+    !blocksAllLessonContent &&
+    (!onlyCompletedLessonContent || outlineLesson.completed) &&
+    (!outlineLesson.locked || outlineLesson.completed),
   );
   const lessonQuery = useQuery({
     queryKey: queryKeys.externalAcademy.lesson(enrollmentId, currentLessonId),
@@ -204,14 +209,11 @@ export function ExternalEnrollmentPlayerPage() {
   });
 
   if (enrollmentQuery.isError || outlineQuery.isError) {
-    const presentation = presentExternalError(
-      enrollmentQuery.error ?? outlineQuery.error,
-      {
-        title: 'Нет доступа',
-        description: 'Сессия внешнего ученика недействительна или истекла.',
-        recovery: 'none',
-      },
-    );
+    const presentation = presentExternalError(enrollmentQuery.error ?? outlineQuery.error, {
+      title: 'Нет доступа',
+      description: 'Сессия внешнего ученика недействительна или истекла.',
+      recovery: 'none',
+    });
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <AcademyStatusCallout
@@ -258,9 +260,9 @@ export function ExternalEnrollmentPlayerPage() {
     const target = flatLessons.find((item) => item.id === lessonId);
     const targetAllowed = Boolean(
       target &&
-        !blocksAllLessonContent &&
-        (!onlyCompletedLessonContent || target.completed) &&
-        (!target.locked || target.completed),
+      !blocksAllLessonContent &&
+      (!onlyCompletedLessonContent || target.completed) &&
+      (!target.locked || target.completed),
     );
     if (!targetAllowed) {
       toast.info(
@@ -273,8 +275,7 @@ export function ExternalEnrollmentPlayerPage() {
     setSearchParams({ lesson: lessonId });
   };
   // Quiz completion is atomic via submitQuiz — never completeLesson for quiz lessons.
-  const showComplete =
-    !readOnly && lesson && !lesson.locked && !lessonCompleted && !hasQuiz;
+  const showComplete = !readOnly && lesson && !lesson.locked && !lessonCompleted && !hasQuiz;
 
   const accessCallout =
     deadlineExpired || enrollment.accessStatus === 'expired'
@@ -308,7 +309,7 @@ export function ExternalEnrollmentPlayerPage() {
   return (
     <CoursePlayerShell
       mode="external"
-      title={enrollment.courseTitle}
+      title={courseTitle ?? enrollment.courseTitle}
       percent={enrollment.percent}
       headerLeft={
         <Link to={academyRoutes.externalResults(enrollmentId)}>
@@ -389,15 +390,15 @@ export function ExternalEnrollmentPlayerPage() {
         <LessonFooter
           canGoPrev={Boolean(
             prevLesson &&
-              !blocksAllLessonContent &&
-              (!onlyCompletedLessonContent || prevLesson.completed) &&
-              (!prevLesson.locked || prevLesson.completed),
+            !blocksAllLessonContent &&
+            (!onlyCompletedLessonContent || prevLesson.completed) &&
+            (!prevLesson.locked || prevLesson.completed),
           )}
           canGoNext={Boolean(
             nextLesson &&
-              !blocksAllLessonContent &&
-              (!onlyCompletedLessonContent || nextLesson.completed) &&
-              (!nextLesson.locked || nextLesson.completed),
+            !blocksAllLessonContent &&
+            (!onlyCompletedLessonContent || nextLesson.completed) &&
+            (!nextLesson.locked || nextLesson.completed),
           )}
           onPrev={() => prevLesson && selectLesson(prevLesson.id)}
           onNext={() => nextLesson && selectLesson(nextLesson.id)}
@@ -413,6 +414,7 @@ export function ExternalEnrollmentPlayerPage() {
 
 export function ExternalResultsPage() {
   const { enrollmentId = '' } = useParams();
+  const courseMeta = useMemo(() => getExternalCourseMeta(enrollmentId), [enrollmentId]);
   useTitle('Результаты — TeamOS');
 
   const resultsQuery = useQuery({
@@ -449,11 +451,15 @@ export function ExternalResultsPage() {
       </div>
     );
   }
+  const courseTitle =
+    results.enrollment.courseTitle !== 'Курс'
+      ? results.enrollment.courseTitle
+      : (courseMeta?.courseTitle ?? results.enrollment.courseTitle);
 
   return (
     <div className="mx-auto min-h-screen max-w-3xl space-y-6 p-6">
       <div>
-        <p className="text-sm text-slate-500">{results.enrollment.courseTitle}</p>
+        <p className="text-sm text-slate-500">{courseTitle}</p>
         <h1 className="text-2xl font-semibold text-slate-950">Результаты прохождения</h1>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">

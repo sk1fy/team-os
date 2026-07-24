@@ -429,6 +429,111 @@ describe('Academy deployed-contract adapters', () => {
     });
   });
 
+  it('использует atomic {attempt,progress} для internal quiz без лишних GET после snapshot', async () => {
+    const fetchMock = vi.fn().mockImplementation(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/attempts')) {
+        return jsonResponse({
+          attempt: {
+            id: 'attempt-1',
+            enrollmentId: 'enrollment-1',
+            quizVersionId: 'quiz-1',
+            attemptNumber: 1,
+            score: 100,
+            passed: true,
+            pendingReview: false,
+            createdAt: '2026-07-24T10:00:00Z',
+          },
+          progress: {
+            enrollment: {
+              ...enrollmentWire,
+              progressPercent: 100,
+              progressStatus: 'completed',
+              currentLessonVersionId: 'lesson-3',
+            },
+            lessons: [
+              { lessonVersionId: 'lesson-1', status: 'completed' },
+              { lessonVersionId: 'lesson-2', status: 'completed' },
+              { lessonVersionId: 'lesson-3', status: 'completed' },
+            ],
+            quizAttempts: [],
+          },
+        });
+      }
+      if (url.includes('/outline')) return jsonResponse(outlineWire);
+      if (url.includes('/course-versions/version-1/learner')) return jsonResponse(versionWire);
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await academyLearningApi.submitQuiz('enrollment-1', 'quiz-1', {
+      answers: [{ questionId: 'q1', selectedOptionIds: ['o1'] }],
+    });
+
+    expect(result.attempt).toMatchObject({
+      attemptId: 'attempt-1',
+      score: 100,
+      passed: true,
+    });
+    expect(result.progress.enrollment.progressPercent).toBe(100);
+    expect(result.progress.enrollment.progressStatus).toBe('completed');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const attemptCall = fetchMock.mock.calls.find((call) => String(call[0]).includes('/attempts'));
+    expect(JSON.parse(String((attemptCall?.[1] as RequestInit).body))).toEqual({
+      answers: [{ questionId: 'q1', optionIds: ['o1'] }],
+    });
+  });
+
+  it('преобразует массив personal accesses и one-time token wrapper', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            id: 'pa1',
+            courseId: 'course-1',
+            courseVersionId: 'version-1',
+            expectedEmail: 'a@example.com',
+            deadlineDays: 3,
+            status: 'issued',
+            issuedAt: '2026-07-24T00:00:00Z',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          access: {
+            id: 'pa2',
+            courseId: 'course-1',
+            courseVersionId: 'version-1',
+            expectedEmail: 'b@example.com',
+            deadlineDays: 2,
+            status: 'issued',
+            issuedAt: '2026-07-24T00:00:00Z',
+          },
+          token: 'fresh-token-value-for-public-url-32',
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      academyExternalAdminApi.listPersonalAccesses('course-1', { page: 1, pageSize: 50 }),
+    ).resolves.toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ id: 'pa1', email: 'a@example.com' })],
+    });
+
+    await expect(
+      academyExternalAdminApi.createPersonalAccess('course-1', 'version-1', {
+        email: 'b@example.com',
+        deadlineDays: 2,
+      }),
+    ).resolves.toMatchObject({
+      id: 'pa2',
+      oneTimeToken: 'fresh-token-value-for-public-url-32',
+    });
+  });
+
   it('преобразует поле lessons отчёта в lessonResults и добавляет названия', async () => {
     vi.stubGlobal(
       'fetch',
@@ -436,6 +541,11 @@ describe('Academy deployed-contract adapters', () => {
         const url = String(input);
         if (url.endsWith('/report')) {
           return jsonResponse({
+            learner: {
+              email: 'learner@example.com',
+              firstName: 'Анна',
+              lastName: 'Соколова',
+            },
             enrollment: enrollmentWire,
             lessons: [
               { lessonVersionId: 'lesson-1', status: 'completed' },
@@ -453,6 +563,10 @@ describe('Academy deployed-contract adapters', () => {
     const report = await academyReportsApi.enrollment('enrollment-1');
 
     expect(report.enrollment.courseTitle).toBe('Тестовый курс');
+    expect(report).toMatchObject({
+      learnerEmail: 'learner@example.com',
+      learnerName: 'Анна Соколова',
+    });
     expect(report.lessonResults).toEqual([
       expect.objectContaining({ lessonId: 'lesson-1', title: 'Первый', completed: true }),
       expect.objectContaining({ lessonId: 'lesson-2', title: 'Второй', completed: false }),

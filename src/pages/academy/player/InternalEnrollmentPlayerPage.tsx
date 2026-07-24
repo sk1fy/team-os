@@ -3,7 +3,11 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { ArrowLeft, PanelLeft } from 'lucide-react';
-import { academyLearningApi, type EnrollmentProgressSnapshot } from '@/api/academy';
+import {
+  academyLearningApi,
+  normalizeEnrollmentSummary,
+  type EnrollmentProgressSnapshot,
+} from '@/api/academy';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button } from '@/components/ui';
@@ -101,19 +105,15 @@ function applyProgressSnapshot(
   };
   const lessons = outline.sections.flatMap((section) => section.lessons);
   const completedLessons = lessons.filter((lesson) => lesson.completed).length;
-  const enrollment = snapshot.enrollment;
+  const enrollment = normalizeEnrollmentSummary(snapshot.enrollment, {
+    courseTitle: current.courseTitle,
+    completedLessons,
+    totalLessons: lessons.length,
+  });
   return {
     ...current,
     ...enrollment,
     outline,
-    percent: enrollment.progressPercent ?? current.percent,
-    progressStatus:
-      enrollment.progressStatus === 'completed' || enrollment.progressStatus === 'in_progress'
-        ? enrollment.progressStatus
-        : 'not_started',
-    accessStatus: current.accessStatus,
-    currentLessonId:
-      enrollment.currentLessonId ?? enrollment.currentLessonVersionId ?? current.currentLessonId,
     completedLessons,
     totalLessons: lessons.length,
   };
@@ -248,8 +248,10 @@ export function InternalEnrollmentPlayerPage() {
   const quizMutation = useMutation({
     mutationFn: (answers: QuizAttemptAnswer[]) =>
       academyLearningApi.submitQuiz(enrollmentId, lesson!.quiz!.id, { answers }),
-    onSuccess: ({ attempt, enrollment: updated }) => {
-      // Atomic server payload: attempt + enrollment (completion/unlock) in one response.
+    onSuccess: ({ attempt, progress }) => {
+      if (!enrollment) return;
+      const updated = applyProgressSnapshot(enrollment, progress);
+      // Atomic server payload: attempt + progress; merge into the already loaded outline.
       setQuizResult(attempt);
       applyEnrollmentUpdate(updated);
       if (attempt.passed) {

@@ -1,6 +1,6 @@
 export { academyCoursesApi } from './courses';
 export { academyVersionsApi } from './versions';
-export { academyLearningApi } from './learning';
+export { academyLearningApi, normalizeEnrollmentSummary } from './learning';
 export { academyTemplatesApi } from './templates';
 export { academyDistributionApi } from './distribution';
 export { academyReportsApi } from './reports';

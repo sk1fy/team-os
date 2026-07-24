@@ -15,21 +15,56 @@ import {
   encodeId,
   type RequestOptions,
 } from './httpHelpers';
+import {
+  normalizeCampaign,
+  normalizeCampaignCreated,
+  normalizeCampaignReport,
+  normalizeExternalLearnerDetail,
+  normalizeExternalLearnerSummary,
+  normalizePersonalAccess,
+  normalizePersonalAccessCreated,
+  paginateArray,
+} from './wireAdapters';
 
-/** Backend-plan §11.6–11.7, §11.9 */
+/** Backend-plan §11.6–11.7, §11.9 — OpenAPI ExternalPersonalAccess / ExternalCampaign. */
 export const academyExternalAdminApi = {
-  listPersonalAccesses(
+  async listPersonalAccesses(
     courseId: ID,
     filters: { page?: number; pageSize?: number; status?: string } = {},
     options?: RequestOptions,
   ): Promise<PaginatedResult<PersonalAccessSummary>> {
-    return academyGet(
+    const payload = await academyGet<unknown>(
       `/academy/courses/${encodeId(courseId)}/personal-accesses${buildQuery(filters)}`,
       options,
     );
+    if (Array.isArray(payload)) {
+      const items = payload.map((item) => normalizePersonalAccess(item));
+      return paginateArray(items, filters);
+    }
+    const record =
+      typeof payload === 'object' && payload !== null
+        ? (payload as {
+            items?: unknown[];
+            page?: number;
+            pageSize?: number;
+            total?: number;
+            totalPages?: number;
+          })
+        : {};
+    const items = Array.isArray(record.items)
+      ? record.items.map((item) => normalizePersonalAccess(item))
+      : [];
+    return {
+      items,
+      page: record.page || filters.page || 1,
+      pageSize: record.pageSize || filters.pageSize || 25,
+      total: record.total ?? items.length,
+      totalPages:
+        record.totalPages || Math.max(1, Math.ceil(items.length / (filters.pageSize || 25))),
+    };
   },
 
-  createPersonalAccess(
+  async createPersonalAccess(
     courseId: ID,
     versionId: ID,
     input: {
@@ -40,21 +75,26 @@ export const academyExternalAdminApi = {
     },
     options?: RequestOptions,
   ): Promise<PersonalAccessSummary> {
-    return academyMutate(
+    const wire = await academyMutate<unknown>(
       `/academy/courses/${encodeId(courseId)}/versions/${encodeId(versionId)}/personal-accesses`,
       'POST',
       input,
       options,
     );
+    return normalizePersonalAccessCreated(wire);
   },
 
-  rotatePersonalAccess(accessId: ID, options?: RequestOptions): Promise<PersonalAccessSummary> {
-    return academyMutate(
+  async rotatePersonalAccess(
+    accessId: ID,
+    options?: RequestOptions,
+  ): Promise<PersonalAccessSummary> {
+    const wire = await academyMutate<unknown>(
       `/academy/personal-accesses/${encodeId(accessId)}/rotate-token`,
       'POST',
       {},
       options,
     );
+    return normalizePersonalAccessCreated(wire);
   },
 
   revokePersonalAccess(accessId: ID, options?: RequestOptions): Promise<void> {
@@ -66,37 +106,56 @@ export const academyExternalAdminApi = {
     );
   },
 
+  /**
+   * OpenAPI ExtendExternalPersonalAccessInput requires deadlineDays (1–7),
+   * not extraDays.
+   */
   extendPersonalAccess(
     accessId: ID,
-    input: { extraDays: number },
+    input: { deadlineDays: number },
     options?: RequestOptions,
-  ): Promise<void> {
-    return academyMutate(
+  ): Promise<PersonalAccessSummary> {
+    return academyMutate<unknown>(
       `/academy/personal-accesses/${encodeId(accessId)}/extend`,
       'POST',
-      input,
+      { deadlineDays: input.deadlineDays },
       options,
-    );
+    ).then((wire) => normalizePersonalAccess(wire));
   },
 
-  repeatPersonalAccess(accessId: ID, options?: RequestOptions): Promise<{ enrollmentId: ID }> {
-    return academyMutate(
+  async repeatPersonalAccess(
+    accessId: ID,
+    options?: RequestOptions,
+  ): Promise<PersonalAccessSummary> {
+    const wire = await academyMutate<unknown>(
       `/academy/personal-accesses/${encodeId(accessId)}/repeat`,
       'POST',
       {},
       options,
     );
+    return normalizePersonalAccessCreated(wire);
   },
 
-  listCampaigns(courseId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary[]> {
-    return academyGet(`/academy/courses/${encodeId(courseId)}/campaigns`, options);
+  async listCampaigns(courseId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary[]> {
+    const payload = await academyGet<unknown>(
+      `/academy/courses/${encodeId(courseId)}/campaigns`,
+      options,
+    );
+    if (Array.isArray(payload)) {
+      return payload.map((item) => normalizeCampaign(item));
+    }
+    const record =
+      typeof payload === 'object' && payload !== null ? (payload as { items?: unknown[] }) : {};
+    return Array.isArray(record.items) ? record.items.map((item) => normalizeCampaign(item)) : [];
   },
 
-  getCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
-    return academyGet(`/academy/campaigns/${encodeId(campaignId)}`, options);
+  async getCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return normalizeCampaign(
+      await academyGet<unknown>(`/academy/campaigns/${encodeId(campaignId)}`, options),
+    );
   },
 
-  createCampaign(
+  async createCampaign(
     courseId: ID,
     versionId: ID,
     input: {
@@ -106,36 +165,59 @@ export const academyExternalAdminApi = {
     },
     options?: RequestOptions,
   ): Promise<ExternalCampaignSummary> {
-    return academyMutate(
+    const wire = await academyMutate<unknown>(
       `/academy/courses/${encodeId(courseId)}/versions/${encodeId(versionId)}/campaigns`,
       'POST',
       input,
       options,
     );
+    return normalizeCampaignCreated(wire);
   },
 
-  pauseCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
-    return academyMutate(`/academy/campaigns/${encodeId(campaignId)}/pause`, 'POST', {}, options);
+  async pauseCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return normalizeCampaign(
+      await academyMutate<unknown>(
+        `/academy/campaigns/${encodeId(campaignId)}/pause`,
+        'POST',
+        {},
+        options,
+      ),
+    );
   },
 
-  resumeCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
-    return academyMutate(`/academy/campaigns/${encodeId(campaignId)}/resume`, 'POST', {}, options);
+  async resumeCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return normalizeCampaign(
+      await academyMutate<unknown>(
+        `/academy/campaigns/${encodeId(campaignId)}/resume`,
+        'POST',
+        {},
+        options,
+      ),
+    );
   },
 
-  rotateCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
-    return academyMutate(
+  async rotateCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    const wire = await academyMutate<unknown>(
       `/academy/campaigns/${encodeId(campaignId)}/rotate-token`,
       'POST',
       {},
       options,
     );
+    return normalizeCampaignCreated(wire);
   },
 
-  revokeCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
-    return academyMutate(`/academy/campaigns/${encodeId(campaignId)}/revoke`, 'POST', {}, options);
+  async revokeCampaign(campaignId: ID, options?: RequestOptions): Promise<ExternalCampaignSummary> {
+    return normalizeCampaign(
+      await academyMutate<unknown>(
+        `/academy/campaigns/${encodeId(campaignId)}/revoke`,
+        'POST',
+        {},
+        options,
+      ),
+    );
   },
 
-  campaignReport(
+  async campaignReport(
     campaignId: ID,
     filtersOrOptions: { page?: number; pageSize?: number } | RequestOptions = {},
     options?: RequestOptions,
@@ -150,10 +232,11 @@ export const academyExternalAdminApi = {
     const requestOptions: RequestOptions | undefined = isLegacyOptions
       ? (filtersOrOptions as RequestOptions)
       : options;
-    return academyGet(
+    const wire = await academyGet<unknown>(
       `/academy/campaigns/${encodeId(campaignId)}/report${buildQuery(filters)}`,
       requestOptions,
     );
+    return normalizeCampaignReport(wire, filters);
   },
 
   async listLearners(
@@ -161,38 +244,42 @@ export const academyExternalAdminApi = {
     options?: RequestOptions,
   ): Promise<PaginatedResult<ExternalLearnerSummary>> {
     const payload = await academyGet<
-      PaginatedResult<ExternalLearnerSummary> | ExternalLearnerSummary[]
+      PaginatedResult<ExternalLearnerSummary> | ExternalLearnerSummary[] | unknown
     >(`/academy/external-learners${buildQuery(filters)}`, options);
-    if (!Array.isArray(payload)) {
-      return {
-        ...payload,
-        items: Array.isArray(payload.items) ? payload.items : [],
-        page: payload.page || filters.page || 1,
-        pageSize: payload.pageSize || filters.pageSize || 25,
-        total: payload.total ?? payload.items?.length ?? 0,
-        totalPages: payload.totalPages || 1,
-      };
+    if (Array.isArray(payload)) {
+      const items = payload.map((item) => normalizeExternalLearnerSummary(item));
+      return paginateArray(items, filters);
     }
-
-    const page = filters.page ?? 1;
-    const pageSize = filters.pageSize ?? 25;
+    const record =
+      typeof payload === 'object' && payload !== null
+        ? (payload as {
+            items?: unknown[];
+            page?: number;
+            pageSize?: number;
+            total?: number;
+            totalPages?: number;
+          })
+        : {};
+    const items = Array.isArray(record.items)
+      ? record.items.map((item) => normalizeExternalLearnerSummary(item))
+      : [];
     return {
-      items: payload,
-      page,
-      pageSize,
-      total: payload.length,
-      totalPages: Math.max(1, Math.ceil(payload.length / pageSize)),
+      items,
+      page: record.page || filters.page || 1,
+      pageSize: record.pageSize || filters.pageSize || 25,
+      total: record.total ?? items.length,
+      totalPages: record.totalPages || 1,
     };
   },
 
   async getLearner(learnerId: ID, options?: RequestOptions): Promise<ExternalLearnerDetail> {
-    const learner = await academyGet<ExternalLearnerDetail>(
-      `/academy/external-learners/${encodeId(learnerId)}`,
-      options,
-    );
-    return {
-      ...learner,
-      timeline: Array.isArray(learner.timeline) ? learner.timeline : [],
-    };
+    const [learner, timeline] = await Promise.all([
+      academyGet<unknown>(`/academy/external-learners/${encodeId(learnerId)}`, options),
+      academyGet<unknown>(
+        `/academy/external-learners/${encodeId(learnerId)}/timeline`,
+        options,
+      ).catch(() => null),
+    ]);
+    return normalizeExternalLearnerDetail(learner, timeline ?? learner);
   },
 };

@@ -30,7 +30,7 @@ export function AcademyPartnerCoursesPage() {
   const queryClient = useQueryClient();
   const [restriction, setRestriction] = useState<{
     courseId: string;
-    action: 'pause' | 'block';
+    action: 'pause' | 'block' | 'resolve';
   } | null>(null);
   const [restrictionReason, setRestrictionReason] = useState('');
 
@@ -84,9 +84,12 @@ export function AcademyPartnerCoursesPage() {
   });
 
   const resolveRestriction = useMutation({
-    mutationFn: (courseId: string) => academyCoursesApi.resolveRestriction(courseId),
+    mutationFn: (input: { courseId: string; reason: string }) =>
+      academyCoursesApi.resolveRestriction(input.courseId, { reason: input.reason }),
     onSuccess: () => {
       toast.success('Ограничение снято');
+      setRestriction(null);
+      setRestrictionReason('');
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Ошибка'),
@@ -217,7 +220,10 @@ export function AcademyPartnerCoursesPage() {
                             size="sm"
                             variant="secondary"
                             loading={resolveRestriction.isPending}
-                            onClick={() => resolveRestriction.mutate(course.id)}
+                            onClick={() => {
+                              setRestriction({ courseId: course.id, action: 'resolve' });
+                              setRestrictionReason('');
+                            }}
                           >
                             Снять ограничение
                           </Button>
@@ -241,12 +247,18 @@ export function AcademyPartnerCoursesPage() {
           }
         }}
         title={
-          restriction?.action === 'block' ? 'Заблокировать курс' : 'Приостановить распространение'
+          restriction?.action === 'block'
+            ? 'Заблокировать курс'
+            : restriction?.action === 'resolve'
+              ? 'Снять ограничение'
+              : 'Приостановить распространение'
         }
         description={
           restriction?.action === 'block'
             ? 'Экстренная блокировка остановит активные прохождения. Причина обязательна.'
-            : 'Новые активации будут остановлены до снятия ограничения.'
+            : restriction?.action === 'resolve'
+              ? 'Укажите причину снятия pause/block. Backend требует обязательный reason.'
+              : 'Новые активации будут остановлены до снятия ограничения.'
         }
         footer={
           <>
@@ -262,7 +274,7 @@ export function AcademyPartnerCoursesPage() {
             <Button
               variant={restriction?.action === 'block' ? 'danger' : 'primary'}
               disabled={restrictionReason.trim().length < 3}
-              loading={pause.isPending || block.isPending}
+              loading={pause.isPending || block.isPending || resolveRestriction.isPending}
               onClick={() => {
                 if (!restriction || restrictionReason.trim().length < 3) return;
                 const input = {
@@ -270,10 +282,15 @@ export function AcademyPartnerCoursesPage() {
                   reason: restrictionReason.trim(),
                 };
                 if (restriction.action === 'block') block.mutate(input);
+                else if (restriction.action === 'resolve') resolveRestriction.mutate(input);
                 else pause.mutate(input);
               }}
             >
-              {restriction?.action === 'block' ? 'Заблокировать' : 'Приостановить'}
+              {restriction?.action === 'block'
+                ? 'Заблокировать'
+                : restriction?.action === 'resolve'
+                  ? 'Снять ограничение'
+                  : 'Приостановить'}
             </Button>
           </>
         }

@@ -94,8 +94,10 @@ export function resolveCourseCapabilities(ctx: CapabilityContext): CourseUiCapab
       canRestore: isArchived,
       canDelete: !isDeleted,
       canAssignInternally: isActive && hasPublished,
+      // Company managers distribute via assignments + candidate campaigns.
+      // Personal access links are partner-owned only (backend policy).
       canCreateCandidateCampaign: isActive && hasPublished && distribution === 'active',
-      canCreatePersonalAccess: isActive && hasPublished && distribution === 'active',
+      canCreatePersonalAccess: false,
       canViewInternalReports: true,
       canViewExternalReports: true,
       canCopyToCompany: false,

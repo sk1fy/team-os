@@ -2,8 +2,6 @@ import type {
   CatalogCourseCard,
   CourseVersionLearnerDetail,
   EnrollmentDetail,
-  EnrollmentAccessStatus,
-  EnrollmentProgressStatus,
   EnrollmentSummary,
   LessonLearner,
   MyLearningSummary,
@@ -12,6 +10,7 @@ import type {
   QuizAttemptResult,
 } from '@/types/academy';
 import type { ID } from '@/types';
+import { createId } from '@/lib/id';
 import {
   academyGet,
   academyMutate,
@@ -19,19 +18,22 @@ import {
   encodeId,
   type RequestOptions,
 } from './httpHelpers';
+import {
+  isEnrollmentLike,
+  isRecord,
+  normalizeEnrollmentSummary,
+  normalizeQuizAttempt,
+  toWireQuizAnswers,
+  type EnrollmentWire,
+} from './wireAdapters';
+
+export type { EnrollmentWire } from './wireAdapters';
+export { normalizeEnrollmentSummary } from './wireAdapters';
 
 /** Atomic quiz grade payload — attempt + enrollment progress in one response. */
 export type QuizSubmitResponse = {
   attempt: QuizAttemptResult;
-  enrollment: EnrollmentDetail;
-};
-
-export type EnrollmentWire = Partial<EnrollmentSummary> & {
-  id: ID;
-  courseId: ID;
-  courseVersionId: ID;
-  progressPercent?: number;
-  currentLessonVersionId?: ID;
+  progress: EnrollmentProgressSnapshot;
 };
 
 type OutlineLessonWire = {
@@ -70,54 +72,38 @@ export type EnrollmentProgressSnapshot = {
     id?: ID;
     status: string;
   }[];
+  quizAttempts?: unknown[];
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isEnrollmentWire(value: unknown): value is EnrollmentWire {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.courseId === 'string' &&
-    typeof value.courseVersionId === 'string'
-  );
-}
-
-function progressStatus(value: unknown): EnrollmentProgressStatus {
-  return value === 'in_progress' || value === 'completed' ? value : 'not_started';
-}
-
-function accessStatus(value: unknown): EnrollmentAccessStatus {
-  return value === 'invited' ||
-    value === 'ready' ||
-    value === 'expired' ||
-    value === 'frozen' ||
-    value === 'suspended' ||
-    value === 'revoked' ||
-    value === 'closed'
-    ? value
-    : 'active';
-}
-
-export function normalizeEnrollmentSummary(
-  wire: EnrollmentWire,
-  options: { courseTitle?: string; completedLessons?: number; totalLessons?: number } = {},
-): EnrollmentSummary {
+function normalizeQuizSubmitResponse(
+  wire: unknown,
+  context: { enrollmentId: ID; quizId?: ID },
+): QuizSubmitResponse {
+  const record = isRecord(wire) ? wire : {};
+  const progress = isRecord(record.progress) ? record.progress : null;
+  if (!progress || !isEnrollmentLike(progress.enrollment)) {
+    throw new Error('Ответ теста не содержит атомарный снимок прогресса');
+  }
   return {
-    ...wire,
-    id: wire.id,
-    courseId: wire.courseId,
-    courseVersionId: wire.courseVersionId,
-    courseTitle: wire.courseTitle ?? options.courseTitle ?? 'Курс',
-    learnerType: wire.learnerType === 'external' ? 'external' : 'user',
-    progressStatus: progressStatus(wire.progressStatus),
-    accessStatus: accessStatus(wire.accessStatus),
-    percent: wire.percent ?? wire.progressPercent ?? 0,
-    completedLessons: wire.completedLessons ?? options.completedLessons ?? 0,
-    totalLessons: wire.totalLessons ?? options.totalLessons ?? 0,
-    currentLessonId: wire.currentLessonId ?? wire.currentLessonVersionId,
+    attempt: normalizeQuizAttempt(record.attempt, context),
+    progress: {
+      enrollment: progress.enrollment,
+      lessons: Array.isArray(progress.lessons)
+        ? progress.lessons.flatMap((lesson) => {
+            if (!isRecord(lesson) || typeof lesson.status !== 'string') return [];
+            return [
+              {
+                lessonVersionId:
+                  typeof lesson.lessonVersionId === 'string' ? lesson.lessonVersionId : undefined,
+                lessonId: typeof lesson.lessonId === 'string' ? lesson.lessonId : undefined,
+                id: typeof lesson.id === 'string' ? lesson.id : undefined,
+                status: lesson.status,
+              },
+            ];
+          })
+        : [],
+      quizAttempts: Array.isArray(progress.quizAttempts) ? progress.quizAttempts : [],
+    },
   };
 }
 
@@ -246,7 +232,7 @@ export const academyLearningApi = {
     }
 
     const wirePayload = outlinePayload as EnrollmentOutlineWire;
-    const wire = isEnrollmentWire(wirePayload.enrollment)
+    const wire = isEnrollmentLike(wirePayload.enrollment)
       ? wirePayload.enrollment
       : await academyGet<EnrollmentWire>(`/academy/enrollments/${encodeId(enrollmentId)}`, options);
     const sections = Array.isArray(wirePayload.sections) ? wirePayload.sections : [];
@@ -273,30 +259,53 @@ export const academyLearningApi = {
     return academyMutate<EnrollmentProgressSnapshot>(
       `/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}/complete`,
       'POST',
-      undefined,
-      options,
+      {},
+      {
+        ...options,
+        // OpenAPI requires Idempotency-Key (8–255 bytes) on lesson completion.
+        idempotencyKey: options?.idempotencyKey ?? createId(),
+      },
     );
   },
 
   /**
-   * Server grades the attempt and atomically updates lesson completion / unlock.
-   * Do not call completeLesson separately after a passed quiz.
+   * Server returns EnrollmentQuizAttemptSubmitted: { attempt, progress }.
+   * The caller merges progress into its already loaded enrollment detail.
    */
-  submitQuiz(
+  async submitQuiz(
     enrollmentId: ID,
     quizId: ID,
     input: { answers: QuizAttemptAnswer[] },
     options?: RequestOptions,
   ): Promise<QuizSubmitResponse> {
-    return academyMutate<{ attempt: QuizAttemptResult }>(
+    const wire = await academyMutate<unknown>(
       `/academy/enrollments/${encodeId(enrollmentId)}/quizzes/${encodeId(quizId)}/attempts`,
       'POST',
-      input,
+      { answers: toWireQuizAnswers(input.answers) },
+      {
+        ...options,
+        idempotencyKey: options?.idempotencyKey ?? createId(),
+      },
+    );
+    return normalizeQuizSubmitResponse(wire, { enrollmentId, quizId });
+  },
+
+  async reviewQuizAttempt(
+    enrollmentId: ID,
+    attemptId: ID,
+    input: { passed: boolean; comment?: string },
+    options?: RequestOptions,
+  ): Promise<QuizSubmitResponse> {
+    const wire = await academyMutate<unknown>(
+      `/academy/enrollments/${encodeId(enrollmentId)}/quiz-attempts/${encodeId(attemptId)}/review`,
+      'POST',
+      {
+        passed: input.passed,
+        ...(input.comment?.trim() ? { comment: input.comment.trim() } : {}),
+      },
       options,
-    ).then(async ({ attempt }) => ({
-      attempt,
-      enrollment: await academyLearningApi.getEnrollment(enrollmentId, options),
-    }));
+    );
+    return normalizeQuizSubmitResponse(wire, { enrollmentId });
   },
 
   enrollFromCatalog(courseId: ID, options?: RequestOptions): Promise<EnrollmentSummary> {
