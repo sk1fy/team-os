@@ -8,4 +8,4 @@ export { academyExternalAdminApi } from './externalAdmin';
 export { academyExternalPublicApi } from './externalPublic';
 export type { CreateCourseInput, UpdateCourseInput } from './courses';
 export type { RequestOptions } from './httpHelpers';
-export type { QuizSubmitResponse } from './learning';
+export type { EnrollmentProgressSnapshot, QuizSubmitResponse } from './learning';

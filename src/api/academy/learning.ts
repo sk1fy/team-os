@@ -57,6 +57,14 @@ type EnrollmentOutlineWire = {
   sections?: OutlineSectionWire[];
 };
 
+export type EnrollmentProgressSnapshot = {
+  enrollment: EnrollmentWire;
+  lessons: {
+    lessonVersionId: ID;
+    status: string;
+  }[];
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -252,13 +260,13 @@ export const academyLearningApi = {
     enrollmentId: ID,
     lessonId: ID,
     options?: RequestOptions,
-  ): Promise<EnrollmentDetail> {
-    return academyMutate<unknown>(
+  ): Promise<EnrollmentProgressSnapshot> {
+    return academyMutate<EnrollmentProgressSnapshot>(
       `/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}/complete`,
       'POST',
       {},
       options,
-    ).then(() => academyLearningApi.getEnrollment(enrollmentId, options));
+    );
   },
 
   /**

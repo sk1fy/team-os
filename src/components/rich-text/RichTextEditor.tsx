@@ -119,7 +119,9 @@ export function RichTextEditor({
     if (!editor) return;
     const current = JSON.stringify(editor.getJSON());
     const next = JSON.stringify(value);
-    if (current !== next) editor.commands.setContent(value as JSONContent);
+    if (current !== next) {
+      editor.commands.setContent(value as JSONContent, { emitUpdate: false });
+    }
   }, [editor, value]);
 
   if (!editor) return null;
@@ -142,7 +144,11 @@ export function RichTextEditor({
       setImageError('Введите корректную ссылку на изображение с http:// или https://.');
       return;
     }
-    editor.chain().focus().setImage({ src, alt: imageAlt.trim() || undefined }).run();
+    editor
+      .chain()
+      .focus()
+      .setImage({ src, alt: imageAlt.trim() || undefined })
+      .run();
     setImageOpen(false);
     setImageUrl('');
     setImageAlt('');

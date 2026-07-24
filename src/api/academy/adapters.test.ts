@@ -162,6 +162,39 @@ describe('Academy deployed-contract adapters', () => {
     });
   });
 
+  it('распаковывает курс из результата инстанцирования шаблона', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          course: {
+            id: 'course-from-template',
+            title: 'Адаптация сотрудника',
+            currentDraftVersionId: 'draft-from-template',
+          },
+          draft: {
+            id: 'draft-from-template',
+            courseId: 'course-from-template',
+            versionNumber: 1,
+            status: 'draft',
+            title: 'Адаптация сотрудника',
+            sections: [],
+          },
+          origin: {
+            sourceTemplateId: 'template-1',
+            sourceTemplateVersionId: 'version-1',
+          },
+        }),
+      ),
+    );
+
+    await expect(academyTemplatesApi.instantiate('version-1')).resolves.toMatchObject({
+      id: 'course-from-template',
+      title: 'Адаптация сотрудника',
+      draftVersion: { id: 'draft-from-template', status: 'draft' },
+    });
+  });
+
   it('преобразует массив курсов и фактические идентификаторы версий', async () => {
     vi.stubGlobal(
       'fetch',
@@ -232,6 +265,39 @@ describe('Academy deployed-contract adapters', () => {
         lockReason: 'Сначала завершите предыдущий урок',
       }),
     ]);
+  });
+
+  it('возвращает атомарный snapshot завершения урока без дополнительного GET', async () => {
+    const snapshot = {
+      enrollment: {
+        ...enrollmentWire,
+        progressStatus: 'in_progress',
+        progressPercent: 67,
+        currentLessonVersionId: 'lesson-3',
+      },
+      lessons: [
+        {
+          enrollmentId: 'enrollment-1',
+          lessonVersionId: 'lesson-2',
+          status: 'completed',
+          activeSeconds: 0,
+        },
+        {
+          enrollmentId: 'enrollment-1',
+          lessonVersionId: 'lesson-3',
+          status: 'current',
+          activeSeconds: 0,
+        },
+      ],
+      quizAttempts: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(snapshot));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(academyLearningApi.completeLesson('enrollment-1', 'lesson-2')).resolves.toEqual(
+      snapshot,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('распаковывает lesson из фактической server envelope', async () => {

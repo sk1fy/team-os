@@ -12,6 +12,7 @@ import {
   encodeId,
   type RequestOptions,
 } from './httpHelpers';
+import { normalizeCourse } from './courses';
 
 type TemplateVersionWire = {
   id: ID;
@@ -29,6 +30,12 @@ type TemplateWire = Partial<AcademyTemplateSummary> & {
   latestPublishedVersionId?: ID;
   currentDraftVersionId?: ID;
   versions?: TemplateVersionWire[];
+};
+
+type TemplateInstantiationWire = {
+  course: Parameters<typeof normalizeCourse>[0];
+  draft: CourseVersionAuthorDetail;
+  origin: unknown;
 };
 
 const SYSTEM_TEMPLATE_TITLES: Record<string, string> = {
@@ -155,12 +162,12 @@ export const academyTemplatesApi = {
     input: { title?: string } = {},
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
-    return academyMutate(
+    return academyMutate<TemplateInstantiationWire>(
       `/academy/template-versions/${encodeId(templateVersionId)}/instantiate`,
       'POST',
       input,
       options,
-    );
+    ).then((result) => normalizeCourse(result.course));
   },
 
   archive(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {

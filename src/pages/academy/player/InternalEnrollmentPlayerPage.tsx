@@ -3,15 +3,11 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { ArrowLeft, PanelLeft } from 'lucide-react';
-import { academyLearningApi } from '@/api/academy';
+import { academyLearningApi, type EnrollmentProgressSnapshot } from '@/api/academy';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button } from '@/components/ui';
-import {
-  academyRoutes,
-  enrollmentAccessLabel,
-  enrollmentProgressLabel,
-} from '@/lib/academy';
+import { academyRoutes, enrollmentAccessLabel, enrollmentProgressLabel } from '@/lib/academy';
 import { toast } from '@/stores/toast';
 import type {
   EnrollmentDetail,
@@ -78,6 +74,48 @@ function nextAvailableLessonId(
   return lessons.slice(currentIndex + 1).find((lesson) => !lesson.locked)?.id;
 }
 
+function applyProgressSnapshot(
+  current: EnrollmentDetail,
+  snapshot: EnrollmentProgressSnapshot,
+): EnrollmentDetail {
+  const lessonStatuses = new Map(
+    snapshot.lessons.map((lesson) => [lesson.lessonVersionId, lesson.status]),
+  );
+  const outline = {
+    ...current.outline,
+    sections: current.outline.sections.map((section) => ({
+      ...section,
+      lessons: section.lessons.map((lesson) => {
+        const status = lessonStatuses.get(lesson.id);
+        if (!status) return lesson;
+        return {
+          ...lesson,
+          completed: status === 'completed',
+          locked: status === 'locked',
+        };
+      }),
+    })),
+  };
+  const lessons = outline.sections.flatMap((section) => section.lessons);
+  const completedLessons = lessons.filter((lesson) => lesson.completed).length;
+  const enrollment = snapshot.enrollment;
+  return {
+    ...current,
+    ...enrollment,
+    outline,
+    percent: enrollment.progressPercent ?? current.percent,
+    progressStatus:
+      enrollment.progressStatus === 'completed' || enrollment.progressStatus === 'in_progress'
+        ? enrollment.progressStatus
+        : 'not_started',
+    accessStatus: current.accessStatus,
+    currentLessonId:
+      enrollment.currentLessonId ?? enrollment.currentLessonVersionId ?? current.currentLessonId,
+    completedLessons,
+    totalLessons: lessons.length,
+  };
+}
+
 export function InternalEnrollmentPlayerPage() {
   const { enrollmentId = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -94,22 +132,15 @@ export function InternalEnrollmentPlayerPage() {
   });
 
   const enrollment = enrollmentQuery.data;
-  useTitle(
-    enrollment ? `${enrollment.courseTitle} — Обучение — TeamOS` : 'Обучение — TeamOS',
-  );
+  useTitle(enrollment ? `${enrollment.courseTitle} — Обучение — TeamOS` : 'Обучение — TeamOS');
 
-  const flatLessons = useMemo(
-    () => (enrollment ? flattenLessons(enrollment) : []),
-    [enrollment],
-  );
+  const flatLessons = useMemo(() => (enrollment ? flattenLessons(enrollment) : []), [enrollment]);
 
   // Resume algorithm: URL if available → server current → first available
   useEffect(() => {
     if (!enrollment) return;
     const lessons = flattenLessons(enrollment);
-    const urlLesson = lessonFromUrl
-      ? lessons.find((l) => l.id === lessonFromUrl)
-      : undefined;
+    const urlLesson = lessonFromUrl ? lessons.find((l) => l.id === lessonFromUrl) : undefined;
 
     let targetId: string | undefined;
     if (urlLesson && canReadOutlineLesson(enrollment, urlLesson)) {
@@ -195,15 +226,16 @@ export function InternalEnrollmentPlayerPage() {
 
   const completeMutation = useMutation({
     mutationFn: () => academyLearningApi.completeLesson(enrollmentId, currentLessonId!),
-    onSuccess: (updated) => {
+    onSuccess: (snapshot) => {
+      if (!enrollment) return;
+      const updated = applyProgressSnapshot(enrollment, snapshot);
       applyEnrollmentUpdate(updated);
       toast.success(
-        updated.progressStatus === 'completed'
-          ? 'Курс завершён!'
-          : 'Урок отмечен как пройденный',
+        updated.progressStatus === 'completed' ? 'Курс завершён!' : 'Урок отмечен как пройденный',
       );
       const nextId = nextAvailableLessonId(updated, currentLessonId);
       if (nextId) selectLesson(nextId);
+      void enrollmentQuery.refetch();
     },
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : 'Не удалось завершить урок');
@@ -424,8 +456,7 @@ export function LearnRouteEntry() {
       return;
     }
     if (enrollmentProbe.isError) {
-      const status =
-        enrollmentProbe.error instanceof ApiError ? enrollmentProbe.error.status : 0;
+      const status = enrollmentProbe.error instanceof ApiError ? enrollmentProbe.error.status : 0;
       // 404 → try legacy courseId resolution; other errors stay on player error UI
       if (status === 404) setMode('resolve');
       else setMode('player');

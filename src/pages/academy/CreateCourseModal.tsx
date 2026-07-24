@@ -48,7 +48,6 @@ export function CreateCourseModal({
         },
         { idempotencyKey },
       );
-      await academyCoursesApi.ensureDraft(course.id, { idempotencyKey: createId() });
       return course;
     },
     onSuccess: (course) => {
