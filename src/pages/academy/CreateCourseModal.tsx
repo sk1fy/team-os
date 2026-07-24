@@ -39,7 +39,7 @@ export function CreateCourseModal({
       const idempotencyKey = createIdempotencyKey.current ?? createId();
       createIdempotencyKey.current = idempotencyKey;
       // Server sets company vs partner owner from role — do not send ownerType.
-      const course = await academyCoursesApi.create(
+      const result = await academyCoursesApi.createDetailed(
         {
           title: title.trim(),
           description: description.trim() || undefined,
@@ -48,10 +48,14 @@ export function CreateCourseModal({
         },
         { idempotencyKey },
       );
-      return course;
+      return result;
     },
-    onSuccess: (course) => {
+    onSuccess: ({ course, draft }) => {
       createIdempotencyKey.current = null;
+      queryClient.setQueryData(queryKeys.academyV2.course(course.id), course);
+      if (draft) {
+        queryClient.setQueryData(queryKeys.academyV2.draft(course.id), draft);
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Курс создан');
       resetAndClose();
@@ -161,7 +165,7 @@ export function CreateCourseModal({
           ) : (
             <Button
               loading={create.isPending}
-              disabled={!title.trim()}
+              disabled={!title.trim() || create.isPending}
               onClick={() => create.mutate()}
             >
               Создать и открыть конструктор

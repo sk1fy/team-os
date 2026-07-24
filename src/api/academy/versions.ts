@@ -9,6 +9,34 @@ import type {
 import type { ID, RichTextContent } from '@/types';
 import { academyGet, academyMutate, encodeId, type RequestOptions } from './httpHelpers';
 
+type SectionAuthorWire = SectionAuthor & {
+  sectionVersionId?: ID;
+  courseVersionId?: ID;
+};
+
+type LessonAuthorWire = LessonAuthor & {
+  lessonVersionId?: ID;
+  sectionVersionId?: ID;
+  courseVersionId?: ID;
+};
+
+function normalizeSection(section: SectionAuthorWire): SectionAuthor {
+  return {
+    ...section,
+    id: section.sectionVersionId ?? section.id,
+    versionId: section.courseVersionId ?? section.versionId,
+  };
+}
+
+function normalizeLesson(lesson: LessonAuthorWire): LessonAuthor {
+  return {
+    ...lesson,
+    id: lesson.lessonVersionId ?? lesson.id,
+    sectionId: lesson.sectionVersionId ?? lesson.sectionId,
+    versionId: lesson.courseVersionId ?? lesson.versionId,
+  };
+}
+
 /** Paths aligned with backend-plan §11.1–11.2 (course-versions content). */
 export const academyVersionsApi = {
   list(courseId: ID, options?: RequestOptions): Promise<CourseVersionSummary[]> {
@@ -42,12 +70,12 @@ export const academyVersionsApi = {
     input: { title: string },
     options?: RequestOptions,
   ): Promise<SectionAuthor> {
-    return academyMutate(
+    return academyMutate<SectionAuthorWire>(
       `/academy/course-versions/${encodeId(versionId)}/sections`,
       'POST',
       input,
       options,
-    );
+    ).then(normalizeSection);
   },
 
   updateSection(
@@ -55,16 +83,16 @@ export const academyVersionsApi = {
     input: { title?: string; order?: number },
     options?: RequestOptions,
   ): Promise<SectionAuthor> {
-    return academyMutate(
+    return academyMutate<SectionAuthorWire>(
       `/academy/course-version-sections/${encodeId(sectionId)}`,
       'PATCH',
       input,
       options,
-    );
+    ).then(normalizeSection);
   },
 
   deleteSection(sectionId: ID, options?: RequestOptions): Promise<void> {
-    return academyMutate(
+    return academyMutate<void>(
       `/academy/course-version-sections/${encodeId(sectionId)}`,
       'DELETE',
       undefined,
@@ -83,12 +111,12 @@ export const academyVersionsApi = {
     },
     options?: RequestOptions,
   ): Promise<LessonAuthor> {
-    return academyMutate(
+    return academyMutate<LessonAuthorWire>(
       `/academy/course-versions/${encodeId(versionId)}/lessons`,
       'POST',
       input,
       options,
-    );
+    ).then(normalizeLesson);
   },
 
   updateLesson(
@@ -101,12 +129,12 @@ export const academyVersionsApi = {
     },
     options?: RequestOptions,
   ): Promise<LessonAuthor> {
-    return academyMutate(
+    return academyMutate<LessonAuthorWire>(
       `/academy/course-version-lessons/${encodeId(lessonId)}`,
       'PATCH',
       input,
       options,
-    );
+    ).then(normalizeLesson);
   },
 
   deleteLesson(lessonId: ID, options?: RequestOptions): Promise<void> {
@@ -123,12 +151,12 @@ export const academyVersionsApi = {
     input: { sectionId: ID; order: number },
     options?: RequestOptions,
   ): Promise<LessonAuthor> {
-    return academyMutate(
+    return academyMutate<LessonAuthorWire>(
       `/academy/course-version-lessons/${encodeId(lessonId)}/move`,
       'POST',
       input,
       options,
-    );
+    ).then(normalizeLesson);
   },
 
   upsertQuiz(

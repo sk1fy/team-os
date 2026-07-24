@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
 import { FileStack } from 'lucide-react';
 import { academyTemplatesApi } from '@/api/academy';
@@ -23,6 +23,7 @@ export function AcademyTemplatesPage() {
   const requestedPage = Number(searchParams.get('page') ?? '1');
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const filters = useMemo(
     () => ({ q: debouncedQ || undefined, page, pageSize: 50 }),
@@ -34,18 +35,33 @@ export function AcademyTemplatesPage() {
   });
 
   const instantiate = useMutation({
-    mutationFn: (templateVersionId: string) =>
-      academyTemplatesApi.instantiate(templateVersionId, {}, { idempotencyKey: createId() }),
-    onSuccess: (course) => {
+    mutationFn: (input: { templateVersionId: string }) =>
+      academyTemplatesApi.instantiateDetailed(
+        input.templateVersionId,
+        {},
+        { idempotencyKey: createId() },
+      ),
+    onSuccess: ({ course, draft }) => {
+      queryClient.setQueryData(queryKeys.academyV2.course(course.id), course);
+      queryClient.setQueryData(queryKeys.academyV2.draft(course.id), draft);
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Курс создан из шаблона');
-      window.location.assign(academyRoutes.builder(course.id));
+      navigate(academyRoutes.builder(course.id));
     },
     onError: (e) =>
       toast.error(e instanceof ApiError ? e.message : 'Не удалось создать курс из шаблона'),
   });
 
-  const items = templatesQuery.data?.items ?? [];
+  const items = useMemo(() => {
+    const serverItems = templatesQuery.data?.items ?? [];
+    const normalizedQuery = debouncedQ.trim().toLocaleLowerCase('ru');
+    if (!normalizedQuery) return serverItems;
+    return serverItems.filter((template) =>
+      `${template.title} ${template.description ?? ''}`
+        .toLocaleLowerCase('ru')
+        .includes(normalizedQuery),
+    );
+  }, [debouncedQ, templatesQuery.data?.items]);
   const groups = [
     {
       key: 'system',
@@ -96,8 +112,29 @@ export function AcademyTemplatesPage() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={FileStack}
-          title="Шаблонов нет"
-          description="Системные шаблоны появятся после seed на backend."
+          title={q ? 'Шаблоны не найдены' : 'Шаблонов нет'}
+          description={
+            q
+              ? 'Измените поисковый запрос или очистите поле.'
+              : 'Системные шаблоны появятся после seed на backend.'
+          }
+          action={
+            q ? (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.delete('q');
+                    next.delete('page');
+                    return next;
+                  })
+                }
+              >
+                Сбросить поиск
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="space-y-8">
@@ -124,7 +161,10 @@ export function AcademyTemplatesPage() {
                         <Button
                           size="sm"
                           loading={instantiate.isPending}
-                          onClick={() => instantiate.mutate(tpl.latestVersionId!)}
+                          disabled={instantiate.isPending}
+                          onClick={() =>
+                            instantiate.mutate({ templateVersionId: tpl.latestVersionId! })
+                          }
                         >
                           Создать курс
                         </Button>

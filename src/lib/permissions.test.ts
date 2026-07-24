@@ -10,11 +10,7 @@ import {
   modulesForRole,
   safeHomePath,
 } from './permissions';
-import {
-  academyNavForRole,
-  canAccessAcademyPath,
-  legacyAcademyRedirects,
-} from './academy/routes';
+import { academyNavForRole, canAccessAcademyPath, legacyAcademyRedirects } from './academy/routes';
 import { resolveCourseCapabilities } from './academy/capabilities';
 
 describe('permissions', () => {
@@ -68,13 +64,7 @@ describe('permissions', () => {
 describe('module matrix', () => {
   it('partner имеет только knowledge/academy/notifications/profile/settings', () => {
     const modules = modulesForRole('partner');
-    expect(modules).toEqual([
-      'knowledge',
-      'academy',
-      'notifications',
-      'profile',
-      'settings',
-    ]);
+    expect(modules).toEqual(['knowledge', 'academy', 'notifications', 'profile', 'settings']);
     expect(canAccessModule('partner', 'employees')).toBe(false);
     expect(canAccessModule('partner', 'tasks')).toBe(false);
     expect(canAccessModule('partner', 'distribution')).toBe(false);
@@ -188,6 +178,7 @@ describe('course capabilities', () => {
     expect(caps.canEditDraft).toBe(true);
     expect(caps.canPublish).toBe(true);
     expect(caps.canAssignInternally).toBe(true);
+    expect(caps.canCreatePersonalAccess).toBe(true);
     expect(caps.canCopyToCompany).toBe(false);
   });
 

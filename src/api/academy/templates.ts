@@ -13,6 +13,7 @@ import {
   type RequestOptions,
 } from './httpHelpers';
 import { normalizeCourse } from './courses';
+import { normalizeDraft } from './courses';
 
 type TemplateVersionWire = {
   id: ID;
@@ -36,6 +37,11 @@ type TemplateInstantiationWire = {
   course: Parameters<typeof normalizeCourse>[0];
   draft: CourseVersionAuthorDetail;
   origin: unknown;
+};
+
+export type TemplateInstantiationResult = {
+  course: AcademyCourseDetail;
+  draft: CourseVersionAuthorDetail;
 };
 
 const SYSTEM_TEMPLATE_TITLES: Record<string, string> = {
@@ -157,17 +163,35 @@ export const academyTemplatesApi = {
   },
 
   /** Instantiate a published template version into an independent course draft. */
-  instantiate(
+  instantiateDetailed(
     templateVersionId: ID,
     input: { title?: string } = {},
     options?: RequestOptions,
-  ): Promise<AcademyCourseDetail> {
+  ): Promise<TemplateInstantiationResult> {
     return academyMutate<TemplateInstantiationWire>(
       `/academy/template-versions/${encodeId(templateVersionId)}/instantiate`,
       'POST',
       input,
       options,
-    ).then((result) => normalizeCourse(result.course));
+    ).then((result) => {
+      const draft = normalizeDraft(result.draft);
+      return {
+        course: normalizeCourse({
+          ...result.course,
+          currentDraftVersionId: result.course.currentDraftVersionId ?? draft.id,
+        }),
+        draft,
+      };
+    });
+  },
+
+  async instantiate(
+    templateVersionId: ID,
+    input: { title?: string } = {},
+    options?: RequestOptions,
+  ): Promise<AcademyCourseDetail> {
+    return (await academyTemplatesApi.instantiateDetailed(templateVersionId, input, options))
+      .course;
   },
 
   archive(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {

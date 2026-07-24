@@ -50,6 +50,10 @@ function parseDeadlineDays(value: string): number | null {
   return Number.isInteger(days) && days >= 1 && days <= 7 ? days : null;
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export function CourseWorkspacePage() {
   const { courseId = '' } = useParams();
   const navigate = useNavigate();
@@ -64,7 +68,7 @@ export function CourseWorkspacePage() {
   const courseQuery = useQuery({
     queryKey: queryKeys.academyV2.course(courseId),
     queryFn: ({ signal }) => academyCoursesApi.get(courseId, { signal }),
-    enabled: Boolean(courseId),
+    enabled: isUuid(courseId),
   });
   const userQuery = useQuery({
     queryKey: queryKeys.currentUser,
@@ -152,6 +156,15 @@ export function CourseWorkspacePage() {
     }
     return (
       <ErrorState title="Не удалось загрузить курс" onRetry={() => void courseQuery.refetch()} />
+    );
+  }
+
+  if (!isUuid(courseId)) {
+    return (
+      <ErrorState
+        title="Курс не найден"
+        description="Проверьте ссылку и выберите курс из списка."
+      />
     );
   }
 

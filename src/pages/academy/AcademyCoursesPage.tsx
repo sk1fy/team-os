@@ -177,14 +177,36 @@ export function AcademyCoursesPage() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={Library}
-          title="Курсов пока нет"
-          description="Создайте первый курс или возьмите системный шаблон."
+          title={q ? 'Курсы не найдены' : 'Курсов пока нет'}
+          description={
+            q
+              ? 'Измените поисковый запрос или сбросьте его.'
+              : 'Создайте первый курс или возьмите системный шаблон.'
+          }
           action={
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setCreateOpen(true)}>Создать курс</Button>
-              <Link to={academyRoutes.templates}>
-                <Button variant="secondary">Шаблоны</Button>
-              </Link>
+              {q ? (
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    setSearchParams((prev) => {
+                      const next = new URLSearchParams(prev);
+                      next.delete('q');
+                      next.delete('page');
+                      return next;
+                    })
+                  }
+                >
+                  Сбросить поиск
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => setCreateOpen(true)}>Создать курс</Button>
+                  <Link to={academyRoutes.templates}>
+                    <Button variant="secondary">Шаблоны</Button>
+                  </Link>
+                </>
+              )}
             </div>
           }
         />

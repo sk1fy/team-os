@@ -12,7 +12,12 @@ export interface CapabilityContext {
   userId: string;
   course: Pick<
     AcademyCourseSummary,
-    'ownerType' | 'ownerUserId' | 'lifecycleStatus' | 'distributionStatus' | 'draftVersion' | 'latestPublishedVersion'
+    | 'ownerType'
+    | 'ownerUserId'
+    | 'lifecycleStatus'
+    | 'distributionStatus'
+    | 'draftVersion'
+    | 'latestPublishedVersion'
   > & {
     capabilities?: Partial<CourseUiCapabilities>;
   };
@@ -90,13 +95,13 @@ export function resolveCourseCapabilities(ctx: CapabilityContext): CourseUiCapab
       canDelete: !isDeleted,
       canAssignInternally: isActive && hasPublished,
       canCreateCandidateCampaign: isActive && hasPublished && distribution === 'active',
+      canCreatePersonalAccess: isActive && hasPublished && distribution === 'active',
       canViewInternalReports: true,
       canViewExternalReports: true,
       canCopyToCompany: false,
       canPauseDistribution: false,
       canBlock: false,
       canResolveRestriction: false,
-      canCreatePersonalAccess: false,
       canCreatePromoCampaign: false,
     };
   } else if (manager && partnerCourse) {

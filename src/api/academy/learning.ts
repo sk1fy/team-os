@@ -36,6 +36,9 @@ export type EnrollmentWire = Partial<EnrollmentSummary> & {
 
 type OutlineLessonWire = {
   id: ID;
+  lessonId?: ID;
+  lessonVersionId?: ID;
+  sectionVersionId?: ID;
   title?: string;
   order?: number;
   status?: string;
@@ -47,6 +50,8 @@ type OutlineLessonWire = {
 
 type OutlineSectionWire = {
   id: ID;
+  sectionId?: ID;
+  sectionVersionId?: ID;
   title?: string;
   order?: number;
   lessons?: OutlineLessonWire[];
@@ -60,7 +65,9 @@ type EnrollmentOutlineWire = {
 export type EnrollmentProgressSnapshot = {
   enrollment: EnrollmentWire;
   lessons: {
-    lessonVersionId: ID;
+    lessonVersionId?: ID;
+    lessonId?: ID;
+    id?: ID;
     status: string;
   }[];
 };
@@ -125,16 +132,18 @@ function buildEnrollmentDetail(
     ),
   );
   const normalizedSections = sections.map((section, sectionIndex) => ({
-    id: section.id,
+    id: section.sectionVersionId ?? section.id,
     title: section.title ?? `Раздел ${sectionIndex + 1}`,
     order: section.order ?? sectionIndex,
     lessons: (section.lessons ?? []).map((lesson, lessonIndex) => {
-      const versionLesson = versionLessons.get(lesson.id);
+      const lessonVersionId = lesson.lessonVersionId ?? lesson.id;
+      const versionLesson = versionLessons.get(lessonVersionId) ?? versionLessons.get(lesson.id);
       const completed = lesson.completed === true || lesson.status === 'completed';
       const locked = lesson.locked === true || lesson.status === 'locked';
       return {
         ...versionLesson,
-        id: lesson.id,
+        id: lessonVersionId,
+        sectionId: lesson.sectionVersionId ?? section.sectionVersionId ?? section.id,
         title: lesson.title ?? versionLesson?.title ?? `Урок ${lessonIndex + 1}`,
         order: lesson.order ?? versionLesson?.order ?? lessonIndex,
         locked,
@@ -175,7 +184,7 @@ function normalizeLesson(payload: unknown): LessonLearner {
   const status = typeof lesson.status === 'string' ? lesson.status : undefined;
 
   return {
-    id: String(lesson.id ?? ''),
+    id: String(lesson.lessonVersionId ?? lesson.id ?? ''),
     courseId: String(lesson.courseId ?? enrollment.courseId ?? ''),
     sectionId: String(lesson.sectionId ?? lesson.sectionVersionId ?? ''),
     versionId: String(
@@ -264,7 +273,7 @@ export const academyLearningApi = {
     return academyMutate<EnrollmentProgressSnapshot>(
       `/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}/complete`,
       'POST',
-      {},
+      undefined,
       options,
     );
   },

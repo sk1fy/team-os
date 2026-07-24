@@ -35,6 +35,7 @@ const outlineWire = {
         { id: 'lesson-2', title: 'Второй', order: 1, status: 'current' },
         {
           id: 'lesson-3',
+          lessonVersionId: 'lesson-version-3',
           title: 'Третий',
           order: 2,
           status: 'locked',
@@ -234,6 +235,76 @@ describe('Academy deployed-contract adapters', () => {
     expect(draft.sections[0]?.lessons).toEqual([]);
   });
 
+  it('распаковывает envelope создания курса и использует version ids для команд draft', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          course: {
+            id: 'course-1',
+            title: 'Новый курс',
+          },
+          draft: {
+            id: 'draft-entity-1',
+            courseVersionId: 'draft-version-1',
+            courseId: 'course-1',
+            versionNumber: 1,
+            status: 'draft',
+            title: 'Новый курс',
+            sequential: true,
+            createdAt: '',
+            updatedAt: '',
+            sections: [
+              {
+                id: 'section-entity-1',
+                sectionVersionId: 'section-version-1',
+                courseId: 'course-1',
+                versionId: 'draft-version-1',
+                title: 'Первый раздел',
+                order: 0,
+                lessons: [
+                  {
+                    id: 'lesson-entity-1',
+                    lessonVersionId: 'lesson-version-1',
+                    sectionId: 'section-entity-1',
+                    sectionVersionId: 'section-version-1',
+                    courseId: 'course-1',
+                    versionId: 'draft-version-1',
+                    title: 'Первый урок',
+                    order: 0,
+                    content: { type: 'doc', content: [] },
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    const result = await academyCoursesApi.createDetailed({ title: 'Новый курс' });
+
+    expect(result.course).toMatchObject({
+      id: 'course-1',
+      draftVersion: { id: 'draft-version-1' },
+    });
+    expect(result.draft).toMatchObject({
+      id: 'draft-version-1',
+      sections: [
+        {
+          id: 'section-version-1',
+          lessons: [
+            {
+              id: 'lesson-version-1',
+              sectionId: 'section-version-1',
+              versionId: 'draft-version-1',
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('собирает enrollment detail из отдельных enrollment outline и version ресурсов', async () => {
     vi.stubGlobal(
       'fetch',
@@ -259,7 +330,7 @@ describe('Academy deployed-contract adapters', () => {
       expect.objectContaining({ id: 'lesson-1', completed: true, locked: false }),
       expect.objectContaining({ id: 'lesson-2', completed: false, locked: false, hasQuiz: true }),
       expect.objectContaining({
-        id: 'lesson-3',
+        id: 'lesson-version-3',
         completed: false,
         locked: true,
         lockReason: 'Сначала завершите предыдущий урок',

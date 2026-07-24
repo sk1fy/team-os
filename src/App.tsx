@@ -255,12 +255,19 @@ const academyV2 = isAcademyV2Enabled();
 
 function RedirectAcademyBuilder() {
   const { courseId = '' } = useParams();
-  return <Navigate to={`/academy/courses/${courseId}/builder`} replace />;
+  const { search, hash } = useLocation();
+  return <Navigate to={`/academy/courses/${courseId}/builder${search}${hash}`} replace />;
 }
 
 function RedirectAcademyCourse() {
   const { courseId = '' } = useParams();
-  return <Navigate to={`/academy/courses/${courseId}`} replace />;
+  const { search, hash } = useLocation();
+  return <Navigate to={`/academy/courses/${courseId}${search}${hash}`} replace />;
+}
+
+function RedirectAcademyPath({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
 }
 
 function AccessDenied({ homePath }: { homePath: string }) {
@@ -400,11 +407,17 @@ export function App() {
           {/* Experimental academies: live until cutover; redirect when V2 enabled */}
           {academyV2 ? (
             <>
-              <Route path="/academy-opus" element={<Navigate to="/academy" replace />} />
+              <Route path="/academy-opus" element={<RedirectAcademyPath to="/academy" />} />
               <Route path="/academy-opus/:courseId/builder" element={<RedirectAcademyBuilder />} />
-              <Route path="/academy-grok" element={<Navigate to="/academy" replace />} />
-              <Route path="/academy-grok/catalog" element={<Navigate to="/academy/catalog" replace />} />
-              <Route path="/academy-grok/reports" element={<Navigate to="/academy/reports" replace />} />
+              <Route path="/academy-grok" element={<RedirectAcademyPath to="/academy" />} />
+              <Route
+                path="/academy-grok/catalog"
+                element={<RedirectAcademyPath to="/academy/catalog" />}
+              />
+              <Route
+                path="/academy-grok/reports"
+                element={<RedirectAcademyPath to="/academy/reports" />}
+              />
               <Route path="/academy-grok/courses/:courseId" element={<RedirectAcademyCourse />} />
               <Route
                 path="/academy-grok/courses/:courseId/builder"
@@ -488,10 +501,7 @@ export function App() {
                 </RequireAuth>
               }
             />
-            <Route
-              path="/learn/:enrollmentId"
-              element={<AcademyLearnEntry />}
-            />
+            <Route path="/learn/:enrollmentId" element={<AcademyLearnEntry />} />
             {/* Explicit legacy alias */}
             <Route
               path="/learn-legacy/:courseId"

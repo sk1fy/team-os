@@ -118,7 +118,12 @@ export function AcademyPartnerCoursesPage() {
         <EmptyState
           icon={Building2}
           title="Партнёрских курсов нет"
-          description="Когда партнёры опубликуют курсы, они появятся здесь."
+          description="Добавьте пользователя с ролью партнёра. После публикации его курсы появятся здесь для контроля и копирования."
+          action={
+            <Link to="/employees?role=partner&addUser=1">
+              <Button>Добавить партнёра</Button>
+            </Link>
+          }
         />
       ) : (
         <div className="space-y-8">

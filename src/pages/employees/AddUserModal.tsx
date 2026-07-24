@@ -12,6 +12,7 @@ import { EMAIL_ERROR, PHONE_ERROR, isValidEmail, isValidPhone } from '@/lib/form
 interface AddUserModalProps {
   open: boolean;
   onClose: () => void;
+  initialRole?: Exclude<UserRole, 'owner'>;
 }
 
 const roleOptions: { value: UserRole; label: string }[] = [
@@ -20,7 +21,7 @@ const roleOptions: { value: UserRole; label: string }[] = [
   { value: 'partner', label: roleLabels.partner },
 ];
 
-export function AddUserModal({ open, onClose }: AddUserModalProps) {
+export function AddUserModal({ open, onClose, initialRole = 'employee' }: AddUserModalProps) {
   const queryClient = useQueryClient();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -50,10 +51,10 @@ export function AddUserModal({ open, onClose }: AddUserModalProps) {
     setLastName('');
     setEmail('');
     setPhone('');
-    setRole('employee');
+    setRole(initialRole);
     setPositionId(NO_POSITION_VALUE);
     setErrors({});
-  }, [open]);
+  }, [initialRole, open]);
 
   const positionOptions = useMemo(
     () => buildPositionOptions(positions ?? [], departments ?? []),

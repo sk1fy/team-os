@@ -314,6 +314,20 @@ export function CourseBuilderPage() {
     return undefined;
   }, [sections, selectedLessonId]);
 
+  const isEditorDirty = (
+    nextTitle: string,
+    nextContent: RichTextContent,
+    nextQuiz: QuizAuthor | null,
+  ): boolean => {
+    if (!selectedLesson) return false;
+    return (
+      nextTitle !== selectedLesson.title ||
+      JSON.stringify(nextContent) !==
+        JSON.stringify(selectedLesson.content ?? { type: 'doc', content: [] }) ||
+      JSON.stringify(nextQuiz) !== JSON.stringify(selectedLesson.quiz ?? null)
+    );
+  };
+
   useEffect(() => {
     const selectedExists = sections.some((section) =>
       section.lessons.some((lesson) => lesson.id === selectedLessonId),
@@ -785,8 +799,9 @@ export function CourseBuilderPage() {
                   className="min-w-[16rem] flex-1"
                   value={title}
                   onChange={(e) => {
-                    setTitle(e.target.value);
-                    setDirty(true);
+                    const nextTitle = e.target.value;
+                    setTitle(nextTitle);
+                    setDirty(isEditorDirty(nextTitle, content, quiz));
                   }}
                 />
                 <div className="flex gap-2">
@@ -820,7 +835,7 @@ export function CourseBuilderPage() {
                 value={content}
                 onChange={(next) => {
                   setContent(next);
-                  setDirty(true);
+                  setDirty(isEditorDirty(title, next, quiz));
                 }}
               />
 
@@ -829,11 +844,11 @@ export function CourseBuilderPage() {
                   quiz={quiz}
                   onChange={(next) => {
                     setQuiz(next);
-                    setDirty(true);
+                    setDirty(isEditorDirty(title, content, next));
                   }}
                   onRemove={() => {
                     setQuiz(null);
-                    setDirty(true);
+                    setDirty(isEditorDirty(title, content, null));
                   }}
                 />
               ) : (
@@ -841,8 +856,9 @@ export function CourseBuilderPage() {
                   variant="secondary"
                   size="sm"
                   onClick={() => {
-                    setQuiz(createEmptyQuiz(selectedLesson.id));
-                    setDirty(true);
+                    const nextQuiz = createEmptyQuiz(selectedLesson.id);
+                    setQuiz(nextQuiz);
+                    setDirty(isEditorDirty(title, content, nextQuiz));
                   }}
                 >
                   Добавить тест

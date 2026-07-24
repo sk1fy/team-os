@@ -42,9 +42,7 @@ function externalAccessLabel(status: string): string {
 
 function isUuid(value: string | undefined): boolean {
   if (!value) return true;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 /**
@@ -129,8 +127,11 @@ export function AcademyReportsPage() {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = 'academy-internal-report.csv';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
       anchor.click();
-      URL.revokeObjectURL(url);
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     } catch (error) {
       if (!controller.signal.aborted) {
         toast.error(error instanceof ApiError ? error.message : 'Не удалось выгрузить CSV');

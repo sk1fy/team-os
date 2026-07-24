@@ -79,7 +79,10 @@ function applyProgressSnapshot(
   snapshot: EnrollmentProgressSnapshot,
 ): EnrollmentDetail {
   const lessonStatuses = new Map(
-    snapshot.lessons.map((lesson) => [lesson.lessonVersionId, lesson.status]),
+    snapshot.lessons.flatMap((lesson) => {
+      const lessonId = lesson.lessonVersionId ?? lesson.lessonId ?? lesson.id;
+      return lessonId ? [[lessonId, lesson.status] as const] : [];
+    }),
   );
   const outline = {
     ...current.outline,

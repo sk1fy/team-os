@@ -401,7 +401,11 @@ export function EmployeesPage() {
         ]}
       />
 
-      <AddUserModal open={addUserOpen} onClose={() => updateParams({ addUser: null })} />
+      <AddUserModal
+        open={addUserOpen}
+        initialRole={roleFilter === 'partner' ? 'partner' : 'employee'}
+        onClose={() => updateParams({ addUser: null })}
+      />
       <EmployeeDrawer userId={selectedEmployeeId} onClose={() => updateParams({ drawer: null })} />
       <Modal
         open={Boolean(deleteUserId)}
