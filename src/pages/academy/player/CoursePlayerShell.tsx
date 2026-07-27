@@ -105,42 +105,44 @@ export function CoursePlayerShell({
           >
             {title}
           </h1>
-          {currentLesson ? (
-            <p
-              className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-600"
-              title={
-                currentLesson.locked
-                  ? `${currentLesson.title}. ${currentLesson.lockReason ?? 'Урок пока недоступен'}`
-                  : currentLesson.title
-              }
-            >
-              <span className="shrink-0 font-medium">
-                Урок {currentLessonIndex + 1} из {orderedLessons.length}
-              </span>
-              <span aria-hidden>·</span>
-              <span className="truncate">{currentLesson.title}</span>
-              {currentLesson.locked ? (
-                <span className="sr-only">
-                  . {currentLesson.lockReason ?? 'Урок пока недоступен'}
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            {currentLesson ? (
+              <p
+                className="flex min-w-0 items-center gap-1 text-xs text-slate-600"
+                title={
+                  currentLesson.locked
+                    ? `${currentLesson.title}. ${currentLesson.lockReason ?? 'Урок пока недоступен'}`
+                    : currentLesson.title
+                }
+              >
+                <span className="shrink-0 font-medium">
+                  Урок {currentLessonIndex + 1} из {orderedLessons.length}
                 </span>
-              ) : null}
-            </p>
-          ) : null}
-          <div className="mt-0.5 flex items-center gap-2">
-            <div
-              className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100 sm:w-32"
-              role="progressbar"
-              aria-label="Прогресс курса"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.min(100, Math.max(0, percent))}
-            >
+                <span aria-hidden>·</span>
+                <span className="truncate">{currentLesson.title}</span>
+                {currentLesson.locked ? (
+                  <span className="sr-only">
+                    . {currentLesson.lockReason ?? 'Урок пока недоступен'}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+            <div className="flex shrink-0 items-center gap-2">
               <div
-                className="h-full rounded-full bg-primary-500"
-                style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-              />
+                className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-200 sm:w-32"
+                role="progressbar"
+                aria-label="Прогресс курса"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.min(100, Math.max(0, percent))}
+              >
+                <div
+                  className="h-full rounded-full bg-primary-500 transition-[width] duration-300"
+                  style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+                />
+              </div>
+              <span className="text-xs font-medium tabular-nums text-slate-500">{percent}%</span>
             </div>
-            <span className="text-xs text-slate-500">{percent}%</span>
           </div>
         </div>
         {headerMeta}
@@ -157,7 +159,11 @@ export function CoursePlayerShell({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-          {callout ? <div className="border-b border-slate-100 px-4 py-3 sm:px-6">{callout}</div> : null}
+          {callout ? (
+            <div className="px-4 pt-4 sm:px-6">
+              <div className="mx-auto max-w-3xl">{callout}</div>
+            </div>
+          ) : null}
           <div className="flex-1">{content}</div>
           {footer ? (
             <div className="sticky bottom-0 border-t border-slate-200 bg-surface px-4 py-3 sm:px-6">
@@ -258,7 +264,14 @@ function CourseOutlinePanel({
                       />
                       <span className="line-clamp-2 min-w-0 flex-1">{lesson.title}</span>
                       {lesson.hasQuiz ? (
-                        <span className="text-[10px] font-medium uppercase text-slate-400">
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                            active
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'bg-slate-100 text-slate-500',
+                          )}
+                        >
                           тест
                         </span>
                       ) : null}
@@ -363,8 +376,10 @@ export function CoursePreviewPage() {
         </Button>
       }
       headerMeta={
-        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
-          {draftVersionId ? 'Черновик · без сохранения прогресса' : 'Версия · без сохранения прогресса'}
+        <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">
+          {draftVersionId
+            ? 'Черновик · без сохранения прогресса'
+            : 'Версия · без сохранения прогресса'}
         </span>
       }
       outline={{

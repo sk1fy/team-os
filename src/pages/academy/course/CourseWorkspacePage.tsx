@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
 import {
   academyCoursesApi,
@@ -23,6 +23,7 @@ import {
 import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
 import { toast } from '@/stores/toast';
+import { cn } from '@/lib/cn';
 import { createId } from '@/lib/id';
 
 const personalAccessStatusLabels = {
@@ -270,6 +271,7 @@ export function CourseWorkspacePage() {
             {caps?.canDelete ? (
               <Button
                 variant="secondary"
+                className="border-danger-500/30 text-danger-600 hover:border-danger-500/50 hover:bg-danger-50 hover:text-danger-700"
                 loading={lifecycle.isPending}
                 onClick={() => setLifecycleConfirmation('delete')}
               >
@@ -283,7 +285,7 @@ export function CourseWorkspacePage() {
       <div className="flex flex-wrap gap-2">
         <StatusBadgeFromPresentation status={lifecycleStatusLabel(course.lifecycleStatus)} />
         <StatusBadgeFromPresentation status={distributionStatusLabel(course.distributionStatus)} />
-        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-500/10">
           {course.ownerType === 'partner' ? 'Курс партнёра' : 'Курс компании'}
         </span>
       </div>
@@ -306,39 +308,28 @@ export function CourseWorkspacePage() {
         <WorkspaceTab to={academyRoutes.versions(course.id)} label="Версии" />
       </nav>
 
-      <section className="rounded-xl border border-slate-200 bg-surface p-5 text-sm text-slate-600">
-        <dl className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Черновик
-            </dt>
-            <dd className="mt-1">
-              {course.draftVersion ? `v${course.draftVersion.versionNumber} (draft)` : 'Нет'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Опубликовано
-            </dt>
-            <dd className="mt-1">
-              {course.latestPublishedVersion
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-card">
+        <dl className="grid gap-px bg-slate-100 text-sm text-slate-700 sm:grid-cols-2">
+          <WorkspaceFact
+            term="Черновик"
+            value={course.draftVersion ? `v${course.draftVersion.versionNumber}` : 'Нет'}
+            muted={!course.draftVersion}
+          />
+          <WorkspaceFact
+            term="Опубликовано"
+            value={
+              course.latestPublishedVersion
                 ? `v${course.latestPublishedVersion.versionNumber}`
-                : 'Нет опубликованной версии'}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Обновлён
-            </dt>
-            <dd className="mt-1">{new Date(course.updatedAt).toLocaleString('ru-RU')}</dd>
-          </div>
+                : 'Нет опубликованной версии'
+            }
+            muted={!course.latestPublishedVersion}
+          />
+          <WorkspaceFact
+            term="Обновлён"
+            value={new Date(course.updatedAt).toLocaleString('ru-RU')}
+          />
           {course.origin?.sourceCourseTitle ? (
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Источник
-              </dt>
-              <dd className="mt-1">{course.origin.sourceCourseTitle}</dd>
-            </div>
+            <WorkspaceFact term="Источник" value={course.origin.sourceCourseTitle} />
           ) : null}
         </dl>
       </section>
@@ -464,14 +455,33 @@ export function CourseWorkspacePage() {
   );
 }
 
+function WorkspaceFact({ term, value, muted }: { term: string; value: string; muted?: boolean }) {
+  return (
+    <div className="bg-surface px-5 py-4">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{term}</dt>
+      <dd className={cn('mt-1', muted ? 'text-slate-400' : 'font-medium text-slate-800')}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 function WorkspaceTab({ to, label }: { to: string; label: string }) {
   return (
-    <Link
+    <NavLink
       to={to}
-      className="rounded-md px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+      end
+      className={({ isActive }) =>
+        cn(
+          '-mb-3 rounded-t-md border-b-2 px-3 pb-3 pt-1.5 font-medium transition-colors',
+          isActive
+            ? 'border-primary-600 text-primary-700'
+            : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900',
+        )
+      }
     >
       {label}
-    </Link>
+    </NavLink>
   );
 }
 

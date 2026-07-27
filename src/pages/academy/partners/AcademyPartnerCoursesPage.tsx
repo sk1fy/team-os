@@ -18,6 +18,7 @@ import {
   resolveCourseCapabilities,
 } from '@/lib/academy';
 import { toast } from '@/stores/toast';
+import { plural } from '@/lib/format';
 import { createId } from '@/lib/id';
 import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 
@@ -132,10 +133,24 @@ export function AcademyPartnerCoursesPage() {
         <div className="space-y-8">
           {[...groups.entries()].map(([partnerKey, courses]) => (
             <section key={partnerKey} className="space-y-3">
-              <h2 className="text-sm font-semibold text-slate-800">
-                {courses[0]?.ownerDisplayName ?? `Партнёр ${partnerKey}`}
-              </h2>
-              <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-surface">
+              <div className="flex flex-wrap items-center gap-2">
+                <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />
+                <h2 className="text-sm font-semibold text-slate-800">
+                  {courses[0]?.ownerDisplayName ?? 'Партнёр'}
+                </h2>
+                {courses[0]?.ownerDisplayName ? null : (
+                  <span
+                    className="max-w-[14rem] truncate rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-500"
+                    title={partnerKey}
+                  >
+                    {partnerKey}
+                  </span>
+                )}
+                <span className="text-xs text-slate-400">
+                  {courses.length} {plural(courses.length, ['курс', 'курса', 'курсов'])}
+                </span>
+              </div>
+              <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-card">
                 {courses.map((course) => {
                   const capabilities = userQuery.data
                     ? resolveCourseCapabilities({
@@ -148,16 +163,16 @@ export function AcademyPartnerCoursesPage() {
                   return (
                     <li
                       key={course.id}
-                      className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
                         <Link
                           to={academyRoutes.course(course.id)}
-                          className="font-medium text-slate-900 hover:text-primary-700"
+                          className="font-medium text-slate-900 underline-offset-2 hover:text-primary-700 hover:underline"
                         >
                           {course.title}
                         </Link>
-                        <div className="mt-1 flex flex-wrap gap-2">
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
                           <StatusBadgeFromPresentation
                             status={lifecycleStatusLabel(course.lifecycleStatus)}
                           />
@@ -166,11 +181,11 @@ export function AcademyPartnerCoursesPage() {
                           />
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex shrink-0 flex-wrap gap-2">
                         {course.latestPublishedVersion ? (
                           <Link to={academyRoutes.previewVersion(course.latestPublishedVersion.id)}>
                             <Button size="sm" variant="secondary">
-                              Preview
+                              Предпросмотр
                             </Button>
                           </Link>
                         ) : null}
@@ -204,7 +219,8 @@ export function AcademyPartnerCoursesPage() {
                         {capabilities?.canBlock ? (
                           <Button
                             size="sm"
-                            variant="danger"
+                            variant="secondary"
+                            className="border-danger-500/30 text-danger-600 hover:border-danger-500/50 hover:bg-danger-50 hover:text-danger-700"
                             loading={block.isPending}
                             onClick={() => {
                               setRestriction({ courseId: course.id, action: 'block' });

@@ -128,7 +128,7 @@ export function AcademyCoursesPage() {
         }
       />
 
-      <div className="grid gap-3 md:grid-cols-[minmax(16rem,1fr)_13rem_13rem]">
+      <div className="grid gap-3 md:grid-cols-[minmax(16rem,1fr)_13rem_13rem] md:items-end">
         <Input
           value={q}
           onChange={(e) => {
@@ -211,15 +211,15 @@ export function AcademyCoursesPage() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-surface">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-surface shadow-card">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-4 py-3">Курс</th>
-                <th className="px-4 py-3">Статус</th>
-                <th className="px-4 py-3">Распространение</th>
-                <th className="px-4 py-3">Версия</th>
-                <th className="px-4 py-3 text-right">Действия</th>
+                <th className="px-4 py-2.5 font-semibold">Курс</th>
+                <th className="px-4 py-2.5 font-semibold">Статус</th>
+                <th className="px-4 py-2.5 font-semibold">Распространение</th>
+                <th className="px-4 py-2.5 font-semibold">Версия</th>
+                <th className="px-4 py-2.5 text-right font-semibold">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -232,11 +232,14 @@ export function AcademyCoursesPage() {
                     }).canEditDraft
                   : false;
                 return (
-                  <tr key={course.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-3">
+                  <tr
+                    key={course.id}
+                    className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"
+                  >
+                    <td className="px-4 py-3 align-middle">
                       <Link
                         to={academyRoutes.course(course.id)}
-                        className="font-medium text-slate-900 hover:text-primary-700"
+                        className="font-medium text-slate-900 underline-offset-2 hover:text-primary-700 hover:underline"
                       >
                         {course.title}
                       </Link>
@@ -245,32 +248,40 @@ export function AcademyCoursesPage() {
                           Источник: {course.origin.sourceCourseTitle}
                         </p>
                       ) : null}
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        <Badge>{course.ownerType === 'partner' ? 'Партнёр' : 'Компания'}</Badge>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <Badge className="rounded-full px-2.5 font-medium">
+                          {course.ownerType === 'partner' ? 'Партнёр' : 'Компания'}
+                        </Badge>
                         {course.draftVersion ? (
-                          <Badge variant="warning">Есть черновик</Badge>
+                          <Badge variant="warning" className="rounded-full px-2.5 font-medium">
+                            Есть черновик
+                          </Badge>
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
                       <StatusBadgeFromPresentation
                         status={lifecycleStatusLabel(course.lifecycleStatus)}
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
                       <StatusBadgeFromPresentation
                         status={distributionStatusLabel(course.distributionStatus)}
                       />
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {course.latestPublishedVersion
-                        ? `v${course.latestPublishedVersion.versionNumber}`
-                        : course.draftVersion
-                          ? 'Черновик'
-                          : '—'}
+                    <td className="px-4 py-3 align-middle whitespace-nowrap">
+                      {course.latestPublishedVersion ? (
+                        <span className="font-medium tabular-nums text-slate-700">
+                          v{course.latestPublishedVersion.versionNumber}
+                        </span>
+                      ) : course.draftVersion ? (
+                        <span className="text-slate-500">Черновик</span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex justify-end gap-1 whitespace-nowrap">
                         {canEditDraft ? (
                           <Link to={academyRoutes.builder(course.id)}>
                             <Button size="sm" variant="ghost">

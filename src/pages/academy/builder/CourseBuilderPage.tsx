@@ -25,11 +25,12 @@ import {
   ChevronRight,
   ChevronUp,
   CircleAlert,
-  CircleDot,
+  CircleDashed,
   Eye,
   FolderPlus,
   GripVertical,
   Link2,
+  ListChecks,
   ListPlus,
   MoreHorizontal,
   Pencil,
@@ -748,7 +749,7 @@ export function CourseBuilderPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-page">
-      <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-surface/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-surface/95 px-4 py-3 shadow-card backdrop-blur">
         <div className="min-w-0">
           <Link
             to={academyRoutes.course(courseId)}
@@ -767,14 +768,21 @@ export function CourseBuilderPage() {
               · черновик
               {draft.versionNumber ? ` v${draft.versionNumber}` : ''}
             </span>
-            <Badge variant={lifecyclePresentation.variant} className="ml-2 align-middle">
+            <Badge
+              variant={lifecyclePresentation.variant}
+              className="ml-2 rounded-full px-2.5 align-middle font-medium"
+            >
               {lifecyclePresentation.label}
             </Badge>
           </h1>
           <p className="text-xs text-slate-500">
             {sections.length} {plural(sections.length, ['раздел', 'раздела', 'разделов'])} ·{' '}
             {lessonCount} {plural(lessonCount, ['урок', 'урока', 'уроков'])}
-            {dirty ? ' · есть несохранённые изменения' : ''}
+            {dirty ? (
+              <span className="ml-1 font-medium text-warning-700">
+                · есть несохранённые изменения
+              </span>
+            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1156,13 +1164,13 @@ function BuilderOutline({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <div className="rounded-xl border border-slate-200 p-2">
+      <div className={cn(sections.length === 0 && 'rounded-xl border border-slate-200 p-2')}>
         {sections.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-slate-500">
             Добавьте первый раздел — уроки создаются внутри него.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2.5">
             {sections.map((section) => (
               <BuilderSectionOutline
                 key={section.id}
@@ -1226,8 +1234,8 @@ function BuilderSectionOutline({
       ref={setNodeRef}
       data-builder-section={section.id}
       className={cn(
-        'rounded-lg border bg-slate-50/80 p-2 transition-colors',
-        isOver ? 'border-primary-300 bg-primary-50/60' : 'border-slate-100',
+        'rounded-lg border bg-slate-50 p-2 transition-colors',
+        isOver ? 'border-primary-300 bg-primary-50/60' : 'border-slate-200',
       )}
     >
       <div className="flex items-center gap-1">
@@ -1396,6 +1404,12 @@ function SortableLessonRow({
     !lesson.title.trim() ||
     !hasLessonContent(lesson.content) ||
     Boolean(lesson.quiz && validateQuiz(lesson.quiz).some((issue) => issue.severity === 'error'));
+  const hasIndicators =
+    !hasLessonContent(lesson.content) ||
+    Boolean(lesson.quiz) ||
+    Boolean(lesson.sourceArticleId) ||
+    hasValidationError ||
+    (selected && dirty);
 
   return (
     <li
@@ -1424,44 +1438,49 @@ function SortableLessonRow({
         )}
       >
         <span className="line-clamp-2">{lesson.title}</span>
-        <span className="mt-1 flex flex-wrap items-center gap-1.5">
-          {!hasLessonContent(lesson.content) ? (
-            <span title="Пустой контент" className={selected ? 'text-white/80' : 'text-slate-400'}>
-              <CircleDot className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">Пустой контент</span>
-            </span>
-          ) : null}
-          {lesson.quiz ? (
-            <span title="Есть тест" className={selected ? 'text-white/90' : 'text-primary-600'}>
-              <CircleDot className="size-3.5 fill-current" aria-hidden="true" />
-              <span className="sr-only">Есть тест</span>
-            </span>
-          ) : null}
-          {lesson.sourceArticleId ? (
-            <span
-              title="Источник — база знаний"
-              className={selected ? 'text-white/90' : 'text-sky-600'}
-            >
-              <Link2 className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">Источник — база знаний</span>
-            </span>
-          ) : null}
-          {hasValidationError ? (
-            <span
-              title="Есть ошибка валидации"
-              className={selected ? 'text-white' : 'text-danger-600'}
-            >
-              <CircleAlert className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">Есть ошибка валидации</span>
-            </span>
-          ) : null}
-          {selected && dirty ? (
-            <span title="Есть несохранённые изменения" className="text-white">
-              <Save className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">Есть несохранённые изменения</span>
-            </span>
-          ) : null}
-        </span>
+        {hasIndicators ? (
+          <span className="mt-1 flex flex-wrap items-center gap-2">
+            {!hasLessonContent(lesson.content) ? (
+              <span
+                title="Пустой контент"
+                className={selected ? 'text-white/70' : 'text-slate-400'}
+              >
+                <CircleDashed className="size-3.5" aria-hidden="true" />
+                <span className="sr-only">Пустой контент</span>
+              </span>
+            ) : null}
+            {lesson.quiz ? (
+              <span title="Есть тест" className={selected ? 'text-white/90' : 'text-primary-600'}>
+                <ListChecks className="size-3.5" aria-hidden="true" />
+                <span className="sr-only">Есть тест</span>
+              </span>
+            ) : null}
+            {lesson.sourceArticleId ? (
+              <span
+                title="Источник — база знаний"
+                className={selected ? 'text-white/90' : 'text-sky-600'}
+              >
+                <Link2 className="size-3.5" aria-hidden="true" />
+                <span className="sr-only">Источник — база знаний</span>
+              </span>
+            ) : null}
+            {hasValidationError ? (
+              <span
+                title="Есть ошибка валидации"
+                className={selected ? 'text-white' : 'text-danger-600'}
+              >
+                <CircleAlert className="size-3.5" aria-hidden="true" />
+                <span className="sr-only">Есть ошибка валидации</span>
+              </span>
+            ) : null}
+            {selected && dirty ? (
+              <span title="Есть несохранённые изменения" className="text-white">
+                <Save className="size-3.5" aria-hidden="true" />
+                <span className="sr-only">Есть несохранённые изменения</span>
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </button>
       <Dropdown
         trigger={
