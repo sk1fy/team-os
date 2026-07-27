@@ -18,6 +18,35 @@ afterEach(() => {
 });
 
 describe('Academy V2 HTTP contracts', () => {
+  it('reads and updates the company course partner audience', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ audience: 'selected_partners', partnerUserIds: ['partner-1'] }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ audience: 'all_partners', partnerUserIds: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(academyCoursesApi.getPartnerAudience('course-1')).resolves.toEqual({
+      audience: 'selected_partners',
+      partnerUserIds: ['partner-1'],
+    });
+    await academyCoursesApi.setPartnerAudience('course-1', {
+      audience: 'all_partners',
+      partnerUserIds: ['ignored-for-all'],
+    });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      '/academy/courses/course-1/partner-audience',
+    );
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({
+      audience: 'all_partners',
+      partnerUserIds: [],
+    });
+  });
+
   it('external outline uses public contract without internal Bearer', async () => {
     useAuthStore.getState().setAccessToken('internal-secret');
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse());
@@ -77,6 +106,45 @@ describe('Academy V2 HTTP contracts', () => {
       email: 'learner@example.com',
       deadlineDays: 3,
     });
+  });
+
+  it('forwards caller idempotency keys for every one-time admin token response', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await academyExternalAdminApi.createPersonalAccess(
+      'course',
+      'version',
+      { email: 'learner@example.com', deadlineDays: 3 },
+      { idempotencyKey: 'create-access-key' },
+    );
+    await academyExternalAdminApi.rotatePersonalAccess('access', {
+      idempotencyKey: 'rotate-access-key',
+    });
+    await academyExternalAdminApi.repeatPersonalAccess('access', {
+      idempotencyKey: 'repeat-access-key',
+    });
+    await academyExternalAdminApi.createCampaign(
+      'course',
+      'version',
+      { purpose: 'company_candidate', name: 'Кандидаты', deadlineDays: 3 },
+      { idempotencyKey: 'create-campaign-key' },
+    );
+    await academyExternalAdminApi.rotateCampaign('campaign', {
+      idempotencyKey: 'rotate-campaign-key',
+    });
+
+    expect(
+      fetchMock.mock.calls.map(([, init]) =>
+        new Headers((init as RequestInit).headers).get('Idempotency-Key'),
+      ),
+    ).toEqual([
+      'create-access-key',
+      'rotate-access-key',
+      'repeat-access-key',
+      'create-campaign-key',
+      'rotate-campaign-key',
+    ]);
   });
 
   it('campaign purpose is backend-defined and lifecycle paths are explicit', async () => {

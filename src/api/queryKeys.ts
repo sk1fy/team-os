@@ -84,6 +84,8 @@ export const queryKeys = {
     coursesRoot: ['academy-v2', 'courses'] as const,
     courses: (filters?: unknown) => ['academy-v2', 'courses', 'list', filters] as const,
     course: (courseId: ID | null | undefined) => ['academy-v2', 'course', courseId] as const,
+    partnerAudience: (courseId: ID | null | undefined) =>
+      ['academy-v2', 'partner-audience', courseId] as const,
     versions: (courseId: ID | null | undefined) => ['academy-v2', 'versions', courseId] as const,
     version: (courseId: ID | null | undefined, versionId: ID | null | undefined) =>
       ['academy-v2', 'version', courseId, versionId] as const,
@@ -91,8 +93,7 @@ export const queryKeys = {
     draftOutline: (draftVersionId: ID | null | undefined) =>
       ['academy-v2', 'draft-outline', draftVersionId] as const,
     templatesRoot: ['academy-v2', 'templates'] as const,
-    templates: (filters?: unknown) =>
-      ['academy-v2', 'templates', 'list', filters] as const,
+    templates: (filters?: unknown) => ['academy-v2', 'templates', 'list', filters] as const,
     template: (templateId: ID | null | undefined) =>
       ['academy-v2', 'template', templateId] as const,
     partnerCourses: (partnerId: ID | null | undefined, filters?: unknown) =>
@@ -101,8 +102,7 @@ export const queryKeys = {
     internalReport: (filters?: unknown) => ['academy-v2', 'internal-report', filters] as const,
     partnerExternalReport: (filters?: unknown) =>
       ['academy-v2', 'partner-external-report', filters] as const,
-    externalLearners: (filters?: unknown) =>
-      ['academy-v2', 'external-learners', filters] as const,
+    externalLearners: (filters?: unknown) => ['academy-v2', 'external-learners', filters] as const,
     externalLearner: (learnerId: ID | null | undefined) =>
       ['academy-v2', 'external-learner', learnerId] as const,
     personalAccesses: (courseId: ID | null | undefined, filters?: unknown) =>
@@ -113,10 +113,8 @@ export const queryKeys = {
       ['academy-v2', 'campaign-report', campaignId] as const,
     enrollment: (enrollmentId: ID | null | undefined) =>
       ['academy-v2', 'enrollment', enrollmentId] as const,
-    enrollmentLesson: (
-      enrollmentId: ID | null | undefined,
-      lessonId: ID | null | undefined,
-    ) => ['academy-v2', 'enrollment-lesson', enrollmentId, lessonId] as const,
+    enrollmentLesson: (enrollmentId: ID | null | undefined, lessonId: ID | null | undefined) =>
+      ['academy-v2', 'enrollment-lesson', enrollmentId, lessonId] as const,
     enrollmentReport: (enrollmentId: ID | null | undefined) =>
       ['academy-v2', 'enrollment-report', enrollmentId] as const,
     assignments: (courseId: ID | null | undefined) =>

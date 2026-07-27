@@ -11,11 +11,7 @@ import type {
   ExternalSessionState,
   ExternalVerificationChallenge,
 } from '@/types/academyExternal';
-import type {
-  CourseVersionLearnerDetail,
-  LessonLearner,
-  QuizAttemptAnswer,
-} from '@/types/academy';
+import type { CourseVersionLearnerDetail, LessonLearner, QuizAttemptAnswer } from '@/types/academy';
 import type { ID } from '@/types';
 import { createId } from '@/lib/id';
 import { encodeId, externalGet, externalMutate, type RequestOptions } from './httpHelpers';
@@ -50,7 +46,6 @@ export const academyExternalPublicApi = {
       email: string;
       firstName?: string;
       lastName?: string;
-      phone?: string;
     },
     options?: PublicOptions,
   ): Promise<ExternalVerificationChallenge> {
@@ -126,10 +121,7 @@ export const academyExternalPublicApi = {
     return normalizeExternalEnrollment(wire);
   },
 
-  async getOutline(
-    enrollmentId: ID,
-    options?: PublicOptions,
-  ): Promise<CourseVersionLearnerDetail> {
+  async getOutline(enrollmentId: ID, options?: PublicOptions): Promise<CourseVersionLearnerDetail> {
     const wire = await externalGet<unknown>(
       `/public/academy/enrollments/${encodeId(enrollmentId)}/outline`,
       {
@@ -140,11 +132,7 @@ export const academyExternalPublicApi = {
     return normalizeExternalOutline(wire);
   },
 
-  async getLesson(
-    enrollmentId: ID,
-    lessonId: ID,
-    options?: PublicOptions,
-  ): Promise<LessonLearner> {
+  async getLesson(enrollmentId: ID, lessonId: ID, options?: PublicOptions): Promise<LessonLearner> {
     const wire = await externalGet<unknown>(
       `/public/academy/enrollments/${encodeId(enrollmentId)}/lessons/${encodeId(lessonId)}`,
       { ...options, authMode: options?.authMode ?? 'external' },
@@ -203,10 +191,7 @@ export const academyExternalPublicApi = {
     return { attempt, enrollment };
   },
 
-  async getResults(
-    enrollmentId: ID,
-    options?: PublicOptions,
-  ): Promise<ExternalEnrollmentResults> {
+  async getResults(enrollmentId: ID, options?: PublicOptions): Promise<ExternalEnrollmentResults> {
     const [resultsWire, outline] = await Promise.all([
       externalGet<unknown>(`/public/academy/enrollments/${encodeId(enrollmentId)}/results`, {
         ...options,

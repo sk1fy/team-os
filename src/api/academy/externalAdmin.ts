@@ -8,6 +8,7 @@ import type {
 } from '@/types/academyExternal';
 import type { PaginatedResult } from '@/types/academy';
 import type { ID } from '@/types';
+import { createId } from '@/lib/id';
 import {
   academyGet,
   academyMutate,
@@ -79,7 +80,7 @@ export const academyExternalAdminApi = {
       `/academy/courses/${encodeId(courseId)}/versions/${encodeId(versionId)}/personal-accesses`,
       'POST',
       input,
-      options,
+      { ...options, idempotencyKey: options?.idempotencyKey ?? createId() },
     );
     return normalizePersonalAccessCreated(wire);
   },
@@ -92,7 +93,7 @@ export const academyExternalAdminApi = {
       `/academy/personal-accesses/${encodeId(accessId)}/rotate-token`,
       'POST',
       {},
-      options,
+      { ...options, idempotencyKey: options?.idempotencyKey ?? createId() },
     );
     return normalizePersonalAccessCreated(wire);
   },
@@ -131,7 +132,7 @@ export const academyExternalAdminApi = {
       `/academy/personal-accesses/${encodeId(accessId)}/repeat`,
       'POST',
       {},
-      options,
+      { ...options, idempotencyKey: options?.idempotencyKey ?? createId() },
     );
     return normalizePersonalAccessCreated(wire);
   },
@@ -169,7 +170,7 @@ export const academyExternalAdminApi = {
       `/academy/courses/${encodeId(courseId)}/versions/${encodeId(versionId)}/campaigns`,
       'POST',
       input,
-      options,
+      { ...options, idempotencyKey: options?.idempotencyKey ?? createId() },
     );
     return normalizeCampaignCreated(wire);
   },
@@ -201,7 +202,7 @@ export const academyExternalAdminApi = {
       `/academy/campaigns/${encodeId(campaignId)}/rotate-token`,
       'POST',
       {},
-      options,
+      { ...options, idempotencyKey: options?.idempotencyKey ?? createId() },
     );
     return normalizeCampaignCreated(wire);
   },

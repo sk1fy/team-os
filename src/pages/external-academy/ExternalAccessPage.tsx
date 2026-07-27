@@ -25,7 +25,6 @@ export function ExternalAccessPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -61,7 +60,6 @@ export function ExternalAccessPage() {
         email: (email ?? landing?.expectedEmail ?? '').trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
-        phone: phone.trim() || undefined,
       }),
     onSuccess: (challenge) => {
       setFlowError(null);
@@ -335,14 +333,6 @@ export function ExternalAccessPage() {
             }
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-          />
-          <Input
-            label="Телефон"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Необязательно"
-            autoComplete="tel"
           />
           <Button type="submit" className="w-full" loading={startVerify.isPending}>
             Получить код подтверждения

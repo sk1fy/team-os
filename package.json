@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "smoke:academy:v2:server": "node scripts/academy-v2-smoke-server.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "preview": "vite preview"
   },

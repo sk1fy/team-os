@@ -34,6 +34,18 @@ export type UpdateCourseInput = {
   coverUrl?: string | null;
 };
 
+export type CoursePartnerAudienceKind = 'none' | 'all_partners' | 'selected_partners';
+
+export type CoursePartnerAudience = {
+  audience: CoursePartnerAudienceKind;
+  partnerUserIds: ID[];
+};
+
+export type SetCoursePartnerAudienceInput = {
+  audience: CoursePartnerAudienceKind;
+  partnerUserIds?: ID[];
+};
+
 type CourseWire = Partial<AcademyCourseDetail> & {
   id?: ID;
   title?: string;
@@ -276,6 +288,26 @@ export const academyCoursesApi = {
 
   delete(courseId: ID, options?: RequestOptions): Promise<void> {
     return academyMutate(`/academy/courses/${encodeId(courseId)}`, 'DELETE', undefined, options);
+  },
+
+  getPartnerAudience(courseId: ID, options?: RequestOptions): Promise<CoursePartnerAudience> {
+    return academyGet(`/academy/courses/${encodeId(courseId)}/partner-audience`, options);
+  },
+
+  setPartnerAudience(
+    courseId: ID,
+    input: SetCoursePartnerAudienceInput,
+    options?: RequestOptions,
+  ): Promise<CoursePartnerAudience> {
+    return academyMutate(
+      `/academy/courses/${encodeId(courseId)}/partner-audience`,
+      'PUT',
+      {
+        audience: input.audience,
+        partnerUserIds: input.audience === 'selected_partners' ? (input.partnerUserIds ?? []) : [],
+      },
+      options,
+    );
   },
 
   pauseDistribution(

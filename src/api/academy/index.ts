@@ -6,6 +6,12 @@ export { academyDistributionApi } from './distribution';
 export { academyReportsApi } from './reports';
 export { academyExternalAdminApi } from './externalAdmin';
 export { academyExternalPublicApi } from './externalPublic';
-export type { CreateCourseInput, UpdateCourseInput } from './courses';
+export type {
+  CoursePartnerAudience,
+  CoursePartnerAudienceKind,
+  CreateCourseInput,
+  SetCoursePartnerAudienceInput,
+  UpdateCourseInput,
+} from './courses';
 export type { RequestOptions } from './httpHelpers';
 export type { EnrollmentProgressSnapshot, QuizSubmitResponse } from './learning';

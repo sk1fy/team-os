@@ -77,11 +77,7 @@ export function CourseWorkspacePage() {
 
   const lifecycle = useMutation({
     mutationFn: async (
-      action:
-        | 'archive'
-        | 'restore'
-        | 'delete'
-        | { type: 'resolve'; reason: string },
+      action: 'archive' | 'restore' | 'delete' | { type: 'resolve'; reason: string },
     ) => {
       if (action === 'archive') return academyCoursesApi.archive(courseId);
       if (action === 'restore') return academyCoursesApi.restore(courseId);
@@ -561,6 +557,10 @@ export function CourseDistributionPage() {
   const [extendAccessId, setExtendAccessId] = useState<string | null>(null);
   const [extendDays, setExtendDays] = useState('1');
   const [oneTimeSecretUrl, setOneTimeSecretUrl] = useState<string | null>(null);
+  const createAccessIdempotency = useRef<{ fingerprint: string; key: string } | null>(null);
+  const accessMutationIdempotency = useRef(new Map<string, string>());
+  const createCampaignIdempotency = useRef<{ fingerprint: string; key: string } | null>(null);
+  const campaignMutationIdempotency = useRef(new Map<string, string>());
   const createAccessResetRef = useRef<() => void>(() => undefined);
   const mutateAccessResetRef = useRef<() => void>(() => undefined);
   const createCampaignResetRef = useRef<() => void>(() => undefined);
@@ -638,18 +638,21 @@ export function CourseDistributionPage() {
       if (!publishedVersionId) throw new Error('no published version');
       const deadlineDays = parseDeadlineDays(accessDeadline);
       if (deadlineDays == null) throw new Error('invalid deadline');
-      return academyExternalAdminApi.createPersonalAccess(
-        courseId,
-        publishedVersionId,
-        {
-          email: accessEmail.trim(),
-          firstName: accessFirstName.trim() || undefined,
-          deadlineDays,
-        },
-        { idempotencyKey: createId() },
-      );
+      const input = {
+        email: accessEmail.trim(),
+        firstName: accessFirstName.trim() || undefined,
+        deadlineDays,
+      };
+      const fingerprint = JSON.stringify([courseId, publishedVersionId, input]);
+      if (createAccessIdempotency.current?.fingerprint !== fingerprint) {
+        createAccessIdempotency.current = { fingerprint, key: createId() };
+      }
+      return academyExternalAdminApi.createPersonalAccess(courseId, publishedVersionId, input, {
+        idempotencyKey: createAccessIdempotency.current.key,
+      });
     },
     onSuccess: async (access) => {
+      createAccessIdempotency.current = null;
       setAccessEmail('');
       setAccessFirstName('');
       void queryClient.invalidateQueries({
@@ -679,8 +682,11 @@ export function CourseDistributionPage() {
       extraDays?: number;
     }) => {
       if (input.action === 'rotate') {
+        const operation = `rotate:${input.accessId}`;
+        const key = accessMutationIdempotency.current.get(operation) ?? createId();
+        accessMutationIdempotency.current.set(operation, key);
         return academyExternalAdminApi.rotatePersonalAccess(input.accessId, {
-          idempotencyKey: createId(),
+          idempotencyKey: key,
         });
       }
       if (input.action === 'revoke') {
@@ -688,12 +694,19 @@ export function CourseDistributionPage() {
         return null;
       }
       if (input.action === 'repeat') {
+        const operation = `repeat:${input.accessId}`;
+        const key = accessMutationIdempotency.current.get(operation) ?? createId();
+        accessMutationIdempotency.current.set(operation, key);
         return academyExternalAdminApi.repeatPersonalAccess(input.accessId, {
-          idempotencyKey: createId(),
+          idempotencyKey: key,
         });
       }
       // OpenAPI extend uses deadlineDays (1–7), not extraDays delta.
-      if (!Number.isInteger(input.extraDays) || (input.extraDays ?? 0) < 1 || (input.extraDays ?? 0) > 7) {
+      if (
+        !Number.isInteger(input.extraDays) ||
+        (input.extraDays ?? 0) < 1 ||
+        (input.extraDays ?? 0) > 7
+      ) {
         throw new Error('invalid extension');
       }
       return academyExternalAdminApi.extendPersonalAccess(input.accessId, {
@@ -701,6 +714,9 @@ export function CourseDistributionPage() {
       });
     },
     onSuccess: async (result, input) => {
+      if (input.action === 'rotate' || input.action === 'repeat') {
+        accessMutationIdempotency.current.delete(`${input.action}:${input.accessId}`);
+      }
       void queryClient.invalidateQueries({
         queryKey: queryKeys.academyV2.personalAccesses(courseId, { page: 1, pageSize: 50 }),
       });
@@ -746,18 +762,23 @@ export function CourseDistributionPage() {
       if (!publishedVersionId) throw new Error('no published version');
       const deadlineDays = parseDeadlineDays(campaignDeadline);
       if (deadlineDays == null) throw new Error('invalid deadline');
-      return academyExternalAdminApi.createCampaign(
-        courseId,
-        publishedVersionId,
-        {
-          purpose: caps?.canCreateCandidateCampaign ? 'company_candidate' : 'partner_promo',
-          name: campaignName.trim(),
-          deadlineDays,
-        },
-        { idempotencyKey: createId() },
-      );
+      const input = {
+        purpose: caps?.canCreateCandidateCampaign
+          ? ('company_candidate' as const)
+          : ('partner_promo' as const),
+        name: campaignName.trim(),
+        deadlineDays,
+      };
+      const fingerprint = JSON.stringify([courseId, publishedVersionId, input]);
+      if (createCampaignIdempotency.current?.fingerprint !== fingerprint) {
+        createCampaignIdempotency.current = { fingerprint, key: createId() };
+      }
+      return academyExternalAdminApi.createCampaign(courseId, publishedVersionId, input, {
+        idempotencyKey: createCampaignIdempotency.current.key,
+      });
     },
     onSuccess: (campaign) => {
+      createCampaignIdempotency.current = null;
       setCampaignName('');
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.campaigns(courseId) });
       if (campaign.publicUrl) setOneTimeSecretUrl(campaign.publicUrl);
@@ -777,11 +798,17 @@ export function CourseDistributionPage() {
         return academyExternalAdminApi.resumeCampaign(input.campaignId);
       if (input.action === 'revoke')
         return academyExternalAdminApi.revokeCampaign(input.campaignId);
+      const operation = `rotate:${input.campaignId}`;
+      const key = campaignMutationIdempotency.current.get(operation) ?? createId();
+      campaignMutationIdempotency.current.set(operation, key);
       return academyExternalAdminApi.rotateCampaign(input.campaignId, {
-        idempotencyKey: createId(),
+        idempotencyKey: key,
       });
     },
     onSuccess: async (result, input) => {
+      if (input.action === 'rotate') {
+        campaignMutationIdempotency.current.delete(`rotate:${input.campaignId}`);
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.campaigns(courseId) });
       if (input.action === 'rotate' && result.publicUrl) {
         setOneTimeSecretUrl(result.publicUrl);
