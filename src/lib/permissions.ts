@@ -12,6 +12,20 @@ export function safeHomePath(role: UserRole | undefined): string {
   return '/auth/login';
 }
 
+/**
+ * Preserve an originally requested protected page only when the authenticated
+ * role may open it. Otherwise send the user to the role-specific landing page.
+ */
+export function resolvePostLoginPath(
+  role: UserRole | undefined,
+  requestedPath?: string,
+): string {
+  if (requestedPath && canAccessRoute(role, requestedPath)) {
+    return requestedPath;
+  }
+  return safeHomePath(role);
+}
+
 /** Explicit module matrix — never “allow all if not employee”. */
 export type AppModule =
   | 'dashboard'

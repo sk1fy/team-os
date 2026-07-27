@@ -76,6 +76,11 @@ export const queryKeys = {
     all: ['academy-v2'] as const,
     myLearning: ['academy-v2', 'my-learning'] as const,
     myEnrollments: (filters?: unknown) => ['academy-v2', 'my-enrollments', filters] as const,
+    /**
+     * Prefix-friendly catalog key. Publishing or changing course availability
+     * must invalidate every cached search/page combination.
+     */
+    catalogRoot: ['academy-v2', 'catalog'] as const,
     catalog: (filters?: unknown) => ['academy-v2', 'catalog', filters] as const,
     /**
      * Prefix-friendly list key: invalidate with queryKeys.academyV2.coursesRoot

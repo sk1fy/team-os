@@ -58,7 +58,12 @@ import { plural } from '@/lib/format';
 import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import type { RichTextContent } from '@/types';
-import type { CourseVersionAuthorDetail, LessonAuthor, QuizAuthor } from '@/types/academy';
+import type {
+  AcademyCourseDetail,
+  CourseVersionAuthorDetail,
+  LessonAuthor,
+  QuizAuthor,
+} from '@/types/academy';
 import { authApi } from '@/api';
 import { CourseSettingsDrawer } from './CourseSettingsDrawer';
 import { PublishDialog, type PublishValidationIssue } from './PublishDialog';
@@ -259,6 +264,9 @@ export function CourseBuilderPage() {
   const [content, setContent] = useState<RichTextContent>({ type: 'doc', content: [] });
   const [quiz, setQuiz] = useState<QuizAuthor | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [publishVisibility, setPublishVisibility] = useState<
+    AcademyCourseDetail['visibility'] | null
+  >(null);
   const [renameLesson, setRenameLesson] = useState<{
     id: string;
     currentTitle: string;
@@ -541,17 +549,63 @@ export function CourseBuilderPage() {
   });
 
   const publish = useMutation({
-    mutationFn: (idempotencyKey: string) =>
-      academyVersionsApi.publish(courseId, { idempotencyKey }),
+    mutationFn: async (input: {
+      idempotencyKey: string;
+      visibility: AcademyCourseDetail['visibility'];
+    }) => {
+      if (input.visibility !== course?.visibility) {
+        await academyCoursesApi.update(courseId, { visibility: input.visibility });
+        queryClient.setQueryData<AcademyCourseDetail>(
+          queryKeys.academyV2.course(courseId),
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  visibility: input.visibility,
+                }
+              : current,
+        );
+        void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.catalogRoot });
+      }
+      const result = await academyVersionsApi.publish(courseId, {
+        idempotencyKey: input.idempotencyKey,
+      });
+      return { ...result, visibility: input.visibility };
+    },
     onSuccess: (result) => {
       publishIdempotencyKey.current = null;
+      setPublishVisibility(null);
       setServerPublishIssues([]);
       setPublishOpen(false);
       toast.success(`Опубликована версия v${result.version.versionNumber}`);
+
+      // Publishing consumes the current draft. Reflect that transition
+      // synchronously so the still-mounted builder does not refetch the former
+      // draft endpoint and render its non-404 "draft is no longer editable"
+      // response as a page-level loading error.
+      queryClient.setQueryData<AcademyCourseDetail>(
+        queryKeys.academyV2.course(courseId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                draftVersion: undefined,
+                latestPublishedVersion: result.version,
+                visibility: result.visibility,
+                updatedAt: result.version.updatedAt || current.updatedAt,
+              }
+            : current,
+      );
+      queryClient.removeQueries({
+        queryKey: queryKeys.academyV2.draft(courseId),
+        exact: true,
+      });
+
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.course(courseId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.versions(courseId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.draft(courseId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.catalogRoot });
     },
     onError: (e) => {
       const err = e instanceof ApiError ? e : null;
@@ -590,6 +644,7 @@ export function CourseBuilderPage() {
 
   const openPublishDialog = () => {
     publishIdempotencyKey.current = createId();
+    setPublishVisibility(null);
     setServerPublishIssues([]);
     setPublishOpen(true);
   };
@@ -597,6 +652,7 @@ export function CourseBuilderPage() {
   const closePublishDialog = () => {
     if (publish.isPending) return;
     publishIdempotencyKey.current = null;
+    setPublishVisibility(null);
     setServerPublishIssues([]);
     setPublishOpen(false);
   };
@@ -917,14 +973,18 @@ export function CourseBuilderPage() {
         open={publishOpen}
         onClose={closePublishDialog}
         onConfirm={() => {
+          if (!publishVisibility) return;
           const key = publishIdempotencyKey.current ?? createId();
           publishIdempotencyKey.current = key;
-          publish.mutate(key);
+          publish.mutate({ idempotencyKey: key, visibility: publishVisibility });
         }}
         loading={publish.isPending}
         lessonCount={lessonCount}
         sectionCount={sections.length}
         issues={publishIssues}
+        currentVisibility={course.visibility}
+        visibility={publishVisibility}
+        onVisibilityChange={setPublishVisibility}
         onNavigateToIssue={(issue) => {
           closePublishDialog();
           if (issue.lessonId) {

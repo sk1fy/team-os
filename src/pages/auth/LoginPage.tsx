@@ -7,6 +7,7 @@ import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import { EMAIL_ERROR, isValidEmail } from '@/lib/formValidation';
+import { resolvePostLoginPath } from '@/lib/permissions';
 
 export function LoginPage() {
   useTitle('Вход — TeamOS');
@@ -36,8 +37,17 @@ export function LoginPage() {
         password: String(form.get('password') ?? ''),
       });
       queryClient.setQueryData(queryKeys.currentUser, session.user);
-      const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
-      navigate(from ?? '/', { replace: true });
+      const from = (
+        location.state as {
+          from?: { pathname?: string; search?: string; hash?: string };
+        } | null
+      )?.from;
+      const pathname = resolvePostLoginPath(session.user.role, from?.pathname);
+      const isAllowedReturnPath = from?.pathname === pathname;
+      navigate(
+        isAllowedReturnPath ? `${pathname}${from?.search ?? ''}${from?.hash ?? ''}` : pathname,
+        { replace: true },
+      );
     } catch (caught) {
       setError(
         caught instanceof ApiError ? caught.message : 'Не удалось войти. Попробуйте ещё раз.',

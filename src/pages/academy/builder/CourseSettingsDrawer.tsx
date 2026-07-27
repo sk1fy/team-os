@@ -82,6 +82,7 @@ export function CourseSettingsDrawer({
     onSuccess: (updated) => {
       queryClient.setQueryData(queryKeys.academyV2.course(course.id), updated);
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.catalogRoot });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.academyV2.partnerAudience(course.id),
       });

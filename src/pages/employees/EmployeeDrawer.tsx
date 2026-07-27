@@ -22,7 +22,12 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { authApi, orgApi, scheduleApi } from '@/api';
 import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
 import type {
@@ -74,6 +79,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   const [editOpen, setEditOpen] = useState(false);
   const [absenceOpen, setAbsenceOpen] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
+  const [customAccessPassword, setCustomAccessPassword] = useState('');
   const [view, setView] = useState<'side' | 'center'>('side');
   const [profileDraft, setProfileDraft] = useState({
     fullName: '',
@@ -200,6 +206,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
 
   useEffect(() => {
     setAccessOpen(false);
+    setCustomAccessPassword('');
   }, [userId]);
 
   useEffect(() => {
@@ -265,13 +272,27 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
         }),
         scheduleApi.saveSchedule({ userId: user.id, template }),
       ]);
-      return updated;
+
+      const password = customAccessPassword.trim();
+      if (password) {
+        await orgApi.setUserPasswordAccess(user.id, { password });
+      }
+
+      return { updated, passwordAccessEnabled: Boolean(password) };
     },
-    onSuccess: (updated) => {
+    onSuccess: ({ updated, passwordAccessEnabled }) => {
+      if (passwordAccessEnabled) {
+        updateEmployeeAccessCache(queryClient, updated.id, { mode: 'password' });
+        setCustomAccessPassword('');
+      }
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.users.byId(updated.id) });
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates });
-      toast.success('Панель сотрудника сохранена');
+      toast.success(
+        passwordAccessEnabled
+          ? 'Профиль сохранён, вход по паролю включён'
+          : 'Панель сотрудника сохранена',
+      );
       onClose();
     },
     onError: (error) =>
@@ -419,12 +440,23 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                     setPhoneError(PHONE_ERROR);
                     return;
                   }
+                  if (
+                    customAccessPassword.trim() &&
+                    accessQuery.data?.mode !== 'none' &&
+                    !confirm('Текущие сессии сотрудника будут завершены. Продолжить?')
+                  ) {
+                    return;
+                  }
                   setPhoneError(undefined);
                   savePanel.mutate();
                 }}
                 disabled={savePanel.isPending}
               >
-                {savePanel.isPending ? 'Сохраняю' : 'Сохранить'}
+                {savePanel.isPending
+                  ? 'Сохраняю'
+                  : customAccessPassword.trim()
+                    ? 'Сохранить и включить вход'
+                    : 'Сохранить'}
               </Button>
               <Button variant="ghost" onClick={onClose}>
                 Отмена
@@ -506,6 +538,8 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                   user={user}
                   access={accessQuery.data}
                   loading={accessQuery.isPending}
+                  customPassword={customAccessPassword}
+                  onCustomPasswordChange={setCustomAccessPassword}
                 />
               )}
 
@@ -759,24 +793,41 @@ function AccessToggle({
   );
 }
 
+function updateEmployeeAccessCache(
+  queryClient: QueryClient,
+  userId: ID,
+  access: EmployeeAccess,
+) {
+  queryClient.setQueryData(queryKeys.users.access(userId), access);
+  queryClient.setQueryData<User>(queryKeys.users.byId(userId), (cachedUser) =>
+    cachedUser ? { ...cachedUser, accessMode: access.mode } : cachedUser,
+  );
+  queryClient.setQueryData<User[]>(queryKeys.users.all, (cachedUsers) =>
+    cachedUsers?.map((cachedUser) =>
+      cachedUser.id === userId ? { ...cachedUser, accessMode: access.mode } : cachedUser,
+    ),
+  );
+
+  void queryClient.invalidateQueries({ queryKey: queryKeys.users.access(userId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+}
+
 function EmployeeAccessSection({
   user,
   access: loadedAccess,
   loading,
+  customPassword,
+  onCustomPasswordChange,
 }: {
   user: User;
   access?: EmployeeAccess;
   loading: boolean;
+  customPassword: string;
+  onCustomPasswordChange: (password: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const [customPassword, setCustomPassword] = useState('');
   const [shownPassword, setShownPassword] = useState<string>();
 
-  const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.users.access(user.id) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
-    queryClient.invalidateQueries({ queryKey: queryKeys.users.byId(user.id) });
-  };
   const copyAccessValue = async (value: string, kind: 'ссылка' | 'пароль') => {
     if (!value) return;
     const copied = await copyText(value);
@@ -792,17 +843,23 @@ function EmployeeAccessSection({
     mutationFn: (password?: string) => orgApi.setUserPasswordAccess(user.id, { password }),
     onSuccess: ({ password }) => {
       setShownPassword(password);
-      setCustomPassword('');
-      refresh();
+      onCustomPasswordChange('');
+      updateEmployeeAccessCache(queryClient, user.id, { mode: 'password' });
+      toast.success('Вход по email и паролю включён');
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось выдать пароль'),
   });
   const setLink = useMutation({
     mutationFn: () => orgApi.setUserLinkAccess(user.id),
-    onSuccess: async ({ token }) => {
+    onSuccess: async ({ token, createdAt }) => {
       setShownPassword(undefined);
-      refresh();
+      onCustomPasswordChange('');
+      updateEmployeeAccessCache(queryClient, user.id, {
+        mode: 'link',
+        linkToken: token,
+        linkCreatedAt: createdAt,
+      });
       await copyAccessValue(`${window.location.origin}/access/${token}`, 'ссылка');
     },
     onError: (error) =>
@@ -812,7 +869,8 @@ function EmployeeAccessSection({
     mutationFn: () => orgApi.revokeUserAccess(user.id),
     onSuccess: () => {
       setShownPassword(undefined);
-      refresh();
+      onCustomPasswordChange('');
+      updateEmployeeAccessCache(queryClient, user.id, { mode: 'none' });
       toast.success('Доступ отозван');
     },
     onError: (error) =>
@@ -877,9 +935,14 @@ function EmployeeAccessSection({
           label="Задать свой пароль"
           type="password"
           value={customPassword}
-          onChange={(event) => setCustomPassword(event.target.value)}
+          onChange={(event) => onCustomPasswordChange(event.target.value)}
           placeholder="Оставьте пустым для генерации"
         />
+        {customPassword.trim() && (
+          <p className="text-xs leading-relaxed text-slate-500">
+            Нажмите «Сохранить и включить вход» внизу панели или установите пароль сейчас.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
@@ -890,7 +953,7 @@ function EmployeeAccessSection({
             }
           >
             <KeyRound className="size-4" />
-            {customPassword.trim() ? 'Установить пароль' : 'Сгенерировать пароль'}
+            {customPassword.trim() ? 'Установить пароль сейчас' : 'Сгенерировать пароль'}
           </Button>
           <Button
             size="sm"

@@ -8,6 +8,7 @@ import {
   employeeHomePath,
   moduleForPath,
   modulesForRole,
+  resolvePostLoginPath,
   safeHomePath,
 } from './permissions';
 import { academyNavForRole, canAccessAcademyPath, legacyAcademyRedirects } from './academy/routes';
@@ -58,6 +59,15 @@ describe('permissions', () => {
     expect(safeHomePath('partner')).toBe('/academy');
     expect(safeHomePath('owner')).toBe('/');
     expect(safeHomePath(undefined)).toBe('/auth/login');
+  });
+
+  it('после входа направляет роль только на доступную страницу', () => {
+    expect(resolvePostLoginPath('partner')).toBe('/academy');
+    expect(resolvePostLoginPath('partner', '/')).toBe('/academy');
+    expect(resolvePostLoginPath('partner', '/employees')).toBe('/academy');
+    expect(resolvePostLoginPath('partner', '/academy/courses')).toBe('/academy/courses');
+    expect(resolvePostLoginPath('employee', '/')).toBe('/schedule');
+    expect(resolvePostLoginPath('owner', '/')).toBe('/');
   });
 });
 
