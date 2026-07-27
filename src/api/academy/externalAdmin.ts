@@ -39,7 +39,9 @@ export const academyExternalAdminApi = {
       options,
     );
     if (Array.isArray(payload)) {
-      const items = payload.map((item) => normalizePersonalAccess(item));
+      const items = payload
+        .map((item) => normalizePersonalAccess(item))
+        .filter((item) => !filters.status || item.status === filters.status);
       return paginateArray(items, filters);
     }
     const record =
@@ -248,7 +250,14 @@ export const academyExternalAdminApi = {
       PaginatedResult<ExternalLearnerSummary> | ExternalLearnerSummary[] | unknown
     >(`/academy/external-learners${buildQuery(filters)}`, options);
     if (Array.isArray(payload)) {
-      const items = payload.map((item) => normalizeExternalLearnerSummary(item));
+      const query = filters.q?.trim().toLocaleLowerCase('ru');
+      const items = payload
+        .map((item) => normalizeExternalLearnerSummary(item))
+        .filter(
+          (item) =>
+            !query ||
+            `${item.displayName ?? ''} ${item.email}`.toLocaleLowerCase('ru').includes(query),
+        );
       return paginateArray(items, filters);
     }
     const record =

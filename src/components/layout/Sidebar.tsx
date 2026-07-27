@@ -175,7 +175,7 @@ function SidebarContent({
         {visibleIntegrationItems.length > 0 && (
           <div className="mt-3 border-t border-slate-200 pt-3">
             {!collapsed && (
-              <p className="px-3 pb-1 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
+              <p className="px-3 pb-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">
                 Интеграции
               </p>
             )}

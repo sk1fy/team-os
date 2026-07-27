@@ -4,6 +4,7 @@
  */
 
 import type { ID, ISODate } from './index';
+import type { components } from '@/api/generated/teamos';
 import type {
   CourseVersionLearnerDetail,
   EnrollmentDetail,
@@ -14,19 +15,14 @@ import type {
 export type CampaignPurpose = 'company_candidate' | 'partner_promo';
 export type ExternalAccessPurpose = 'personal' | CampaignPurpose;
 
-export type ExternalLandingStatus =
-  | 'valid'
-  | 'expired'
-  | 'revoked'
-  | 'course_archived'
-  | 'course_deleted'
-  | 'course_blocked'
-  | 'distribution_paused'
-  | 'already_activated';
+export type ExternalUnavailableReason = components['schemas']['PublicAcademyUnavailableReason'];
+
+export type ExternalLandingStatus = 'valid' | ExternalUnavailableReason;
 
 export interface ExternalAccessLanding {
   tokenHint?: string;
   status: ExternalLandingStatus;
+  unavailableReason?: ExternalUnavailableReason;
   purpose: ExternalAccessPurpose;
   courseTitle: string;
   courseDescription?: string;

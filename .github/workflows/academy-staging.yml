@@ -1,0 +1,33 @@
+name: Academy staging browser QA
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 3 * * 1-5'
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    environment: academy-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e:academy:staging
+        env:
+          E2E_BASE_URL: ${{ vars.ACADEMY_BASE_URL }}
+          E2E_API_URL: ${{ vars.ACADEMY_API_URL }}
+          E2E_OWNER_EMAIL: ${{ secrets.ACADEMY_OWNER_EMAIL }}
+          E2E_OWNER_PASSWORD: ${{ secrets.ACADEMY_OWNER_PASSWORD }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-staging-playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore

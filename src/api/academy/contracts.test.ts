@@ -3,6 +3,8 @@ import { academyCoursesApi } from './courses';
 import { academyExternalAdminApi } from './externalAdmin';
 import { academyExternalPublicApi } from './externalPublic';
 import { academyLearningApi } from './learning';
+import { academyTemplatesApi } from './templates';
+import { academyVersionsApi } from './versions';
 import { useAuthStore } from '@/stores/auth';
 
 function jsonResponse(body: unknown = {}) {
@@ -44,6 +46,168 @@ describe('Academy V2 HTTP contracts', () => {
     expect(JSON.parse(String(init.body))).toEqual({
       audience: 'all_partners',
       partnerUserIds: [],
+    });
+  });
+
+  it('creates a course from selected knowledge-base articles', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: 'course-from-kb',
+        title: 'Регламенты',
+        ownerType: 'company',
+        currentDraftVersionId: 'draft-1',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await academyCoursesApi.createFromKb({
+      title: 'Регламенты',
+      mode: 'copy',
+      sectionIds: ['section-1'],
+      articleIds: ['article-1'],
+      visibility: 'restricted',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/academy/courses/from-kb');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      mode: 'copy',
+      sectionIds: ['section-1'],
+      articleIds: ['article-1'],
+    });
+  });
+
+  it('maps builder section ids to the versioned lesson wire contract', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 'lesson-1',
+          courseVersionId: 'version-1',
+          sectionVersionId: 'section-1',
+          title: 'Урок',
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 'lesson-1',
+          courseVersionId: 'version-1',
+          sectionVersionId: 'section-2',
+          title: 'Урок',
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await academyVersionsApi.createLesson('version-1', {
+      sectionId: 'section-1',
+      title: 'Урок',
+    });
+    await academyVersionsApi.moveLesson('lesson-1', {
+      sectionId: 'section-2',
+      order: 0,
+    });
+
+    expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).toEqual({
+      sectionVersionId: 'section-1',
+      title: 'Урок',
+    });
+    expect(JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body))).toEqual({
+      sectionVersionId: 'section-2',
+      order: 0,
+    });
+  });
+
+  it('normalizes the immutable published version number from backend wire', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: 'published-1',
+        courseId: 'course-1',
+        number: 2,
+        status: 'published',
+        title: 'Курс',
+        createdAt: '2026-07-27T12:00:00Z',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      academyVersionsApi.publish('course-1', { idempotencyKey: 'publish-key' }),
+    ).resolves.toMatchObject({
+      courseId: 'course-1',
+      version: { id: 'published-1', versionNumber: 2, status: 'published' },
+    });
+  });
+
+  it('sends complete corporate template content instead of metadata only', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: 'template-1',
+        templateId: 'template-1',
+        number: 1,
+        status: 'draft',
+        title: 'Шаблон',
+        content: { sections: [], lessons: [], quizzes: [] },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await academyTemplatesApi.updateDraft('template-1', {
+      title: 'Шаблон',
+      sequential: true,
+      content: {
+        sections: [
+          {
+            stableKey: 'section-1',
+            title: 'Раздел',
+            order: 0,
+            lessons: [
+              {
+                stableKey: 'lesson-1',
+                title: 'Урок',
+                order: 0,
+                content: {
+                  type: 'doc',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Текст' }] }],
+                },
+                quiz: {
+                  questions: [
+                    {
+                      id: 'question-1',
+                      type: 'single',
+                      text: 'Вопрос',
+                      required: true,
+                      options: [
+                        { id: 'answer-1', text: 'Да', correct: true },
+                        { id: 'answer-2', text: 'Нет', correct: false },
+                      ],
+                    },
+                  ],
+                  passingScore: 100,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/academy/templates/template-1/draft');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      content: {
+        sections: [
+          {
+            lessons: [
+              {
+                content: { type: 'doc' },
+                quiz: { passingScore: 100, questions: [{ type: 'single' }] },
+              },
+            ],
+          },
+        ],
+      },
     });
   });
 

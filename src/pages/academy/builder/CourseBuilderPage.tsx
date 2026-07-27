@@ -127,10 +127,10 @@ function validateDraftForPublish(
     }
     if (section.lessons.length === 0) {
       issues.push({
-        severity: 'warning',
+        severity: 'error',
         sectionId: section.id,
         sectionTitle: section.title,
-        message: 'В разделе пока нет уроков.',
+        message: 'Добавьте хотя бы один урок.',
       });
     }
 

@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { EditorContent, useEditor, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Table } from '@tiptap/extension-table';
 import TableCell from '@tiptap/extension-table-cell';
@@ -23,15 +22,19 @@ import {
   Video,
 } from 'lucide-react';
 import type { RichTextContent } from '@/types';
+import { filesApi } from '@/api/files';
+import { ApiError } from '@/api/client';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { normalizeVideoUrl, VideoEmbed } from './videoEmbed';
+import { FileImage } from './fileImages';
+import { useResolvedFileImages } from './useResolvedFileImages';
 
 const extensions = [
   StarterKit.configure({ link: { openOnClick: false } }),
-  Image.configure({ allowBase64: false }),
+  FileImage.configure({ allowBase64: false }),
   Youtube.configure({ controls: true, nocookie: true }),
   VideoEmbed,
   Placeholder.configure({ placeholder: 'Начните писать...' }),
@@ -95,13 +98,18 @@ export function RichTextEditor({
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
   const [imageError, setImageError] = useState<string>();
+  const [imageFile, setImageFile] = useState<File>();
+  const [imageFileId, setImageFileId] = useState<string>();
+  const [imageUploadProgress, setImageUploadProgress] = useState<number>();
+  const [imageUploading, setImageUploading] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
   const [videoTitle, setVideoTitle] = useState('');
   const [videoError, setVideoError] = useState<string>();
+  const resolvedValue = useResolvedFileImages(value) ?? value;
   const editor = useEditor({
     extensions,
-    content: value as JSONContent,
+    content: resolvedValue as JSONContent,
     immediatelyRender: false,
     onUpdate: ({ editor }) => onChange(editor.getJSON() as RichTextContent),
     editorProps: {
@@ -118,11 +126,11 @@ export function RichTextEditor({
   useEffect(() => {
     if (!editor) return;
     const current = JSON.stringify(editor.getJSON());
-    const next = JSON.stringify(value);
+    const next = JSON.stringify(resolvedValue);
     if (current !== next) {
-      editor.commands.setContent(value as JSONContent, { emitUpdate: false });
+      editor.commands.setContent(resolvedValue as JSONContent, { emitUpdate: false });
     }
-  }, [editor, value]);
+  }, [editor, resolvedValue]);
 
   if (!editor) return null;
 
@@ -147,12 +155,49 @@ export function RichTextEditor({
     editor
       .chain()
       .focus()
-      .setImage({ src, alt: imageAlt.trim() || undefined })
+      .insertContent({
+        type: 'image',
+        attrs: {
+          src,
+          alt: imageAlt.trim() || undefined,
+          fileId: imageFileId ?? null,
+        },
+      })
       .run();
     setImageOpen(false);
     setImageUrl('');
     setImageAlt('');
     setImageError(undefined);
+    setImageFile(undefined);
+    setImageFileId(undefined);
+    setImageUploadProgress(undefined);
+  };
+
+  const uploadImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setImageError('Выберите изображение.');
+      return;
+    }
+    setImageFile(file);
+    setImageFileId(undefined);
+    setImageUrl('');
+    setImageError(undefined);
+    setImageUploading(true);
+    try {
+      const uploaded = await filesApi.upload(file, 'attachment', {
+        onProgress: setImageUploadProgress,
+      });
+      const download = await filesApi.get(uploaded.id);
+      setImageFileId(uploaded.id);
+      setImageUrl(download.downloadUrl);
+      setImageUploadProgress(100);
+    } catch (error) {
+      setImageError(
+        error instanceof ApiError ? error.message : 'Не удалось загрузить изображение.',
+      );
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   const addVideo = () => {
@@ -252,6 +297,9 @@ export function RichTextEditor({
             setImageUrl('');
             setImageAlt('');
             setImageError(undefined);
+            setImageFile(undefined);
+            setImageFileId(undefined);
+            setImageUploadProgress(undefined);
             setImageOpen(true);
           }}
         >
@@ -308,24 +356,76 @@ export function RichTextEditor({
         open={imageOpen}
         onOpenChange={setImageOpen}
         title="Добавить изображение"
-        description="Вставьте прямую ссылку на изображение и при необходимости добавьте описание."
+        description="Загрузите изображение в TeamOS или вставьте прямую HTTPS-ссылку."
         footer={
           <>
             <Button variant="secondary" onClick={() => setImageOpen(false)}>
               Отмена
             </Button>
-            <Button disabled={!imageUrl.trim()} onClick={addImage}>
+            <Button disabled={!imageUrl.trim() || imageUploading} onClick={addImage}>
               Добавить
             </Button>
           </>
         }
       >
         <div className="space-y-4">
+          <div className="rounded-lg border border-dashed border-slate-300 p-3">
+            <label
+              className="block text-sm font-medium text-slate-700"
+              htmlFor="rich-text-image-file"
+            >
+              Файл изображения
+            </label>
+            <input
+              id="rich-text-image-file"
+              className="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-primary-50 file:px-3 file:py-2 file:font-medium file:text-primary-700"
+              type="file"
+              accept="image/*"
+              disabled={imageUploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadImage(file);
+              }}
+            />
+            {imageUploadProgress !== undefined ? (
+              <div className="mt-3">
+                <div
+                  className="h-2 overflow-hidden rounded-full bg-slate-100"
+                  role="progressbar"
+                  aria-label="Загрузка изображения"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={imageUploadProgress}
+                >
+                  <div
+                    className="h-full bg-primary-500 transition-[width]"
+                    style={{ width: `${imageUploadProgress}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {imageUploading ? `Загрузка: ${imageUploadProgress}%` : 'Изображение загружено'}
+                </p>
+              </div>
+            ) : null}
+            {imageFile && imageError ? (
+              <Button
+                className="mt-2"
+                size="sm"
+                variant="secondary"
+                loading={imageUploading}
+                onClick={() => void uploadImage(imageFile)}
+              >
+                Повторить загрузку
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-center text-xs text-slate-400">или</p>
           <Input
             label="Ссылка на изображение"
             value={imageUrl}
             onChange={(event) => {
               setImageUrl(event.target.value);
+              setImageFileId(undefined);
               setImageError(undefined);
             }}
             placeholder="https://example.com/image.jpg"

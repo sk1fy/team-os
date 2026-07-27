@@ -137,24 +137,29 @@ export function ExternalEnrollmentPlayerPage() {
   }, [currentLessonId]);
 
   const invalidatePlayerState = (lessonId: string | undefined) => {
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.externalAcademy.outline(enrollmentId),
-    });
+    const invalidations = [
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.externalAcademy.outline(enrollmentId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.externalAcademy.results(enrollmentId),
+      }),
+    ];
     if (lessonId) {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.externalAcademy.lesson(enrollmentId, lessonId),
-      });
+      invalidations.push(
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.externalAcademy.lesson(enrollmentId, lessonId),
+        }),
+      );
     }
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.externalAcademy.results(enrollmentId),
-    });
+    return Promise.all(invalidations);
   };
 
   const completeMutation = useMutation({
     mutationFn: () => academyExternalPublicApi.completeLesson(enrollmentId, currentLessonId!),
-    onSuccess: (updated) => {
+    onSuccess: async (updated) => {
       queryClient.setQueryData(queryKeys.externalAcademy.enrollment(enrollmentId), updated);
-      invalidatePlayerState(currentLessonId);
+      await invalidatePlayerState(currentLessonId);
       toast.success('Урок завершён');
       if (updated.currentLessonId && updated.currentLessonId !== currentLessonId) {
         setSearchParams({ lesson: updated.currentLessonId });
@@ -180,7 +185,7 @@ export function ExternalEnrollmentPlayerPage() {
     onSuccess: ({ attempt, enrollment: updated }) => {
       setQuizResult(attempt);
       queryClient.setQueryData(queryKeys.externalAcademy.enrollment(enrollmentId), updated);
-      invalidatePlayerState(currentLessonId);
+      void invalidatePlayerState(currentLessonId);
       if (attempt.passed) {
         toast.success(`Тест пройден · ${attempt.score}%`);
         setQuizContinueLessonId(

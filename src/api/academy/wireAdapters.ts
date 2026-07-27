@@ -151,43 +151,38 @@ function mapAccessPurpose(kind: unknown): ExternalAccessPurpose {
 }
 
 function mapUnavailableReason(reason: unknown): ExternalLandingStatus {
-  const value = asString(reason).toLowerCase();
-  if (!value) return 'revoked';
-  if (value.includes('already') || value.includes('activated')) return 'already_activated';
-  if (value.includes('expired') || value.includes('deadline')) return 'expired';
-  if (value.includes('revok')) return 'revoked';
-  if (value.includes('archiv')) return 'course_archived';
-  if (value.includes('delet')) return 'course_deleted';
-  if (value.includes('block')) return 'course_blocked';
-  if (value.includes('pause') || value.includes('distribution')) return 'distribution_paused';
-  if (
-    value === 'expired' ||
-    value === 'revoked' ||
-    value === 'course_archived' ||
-    value === 'course_deleted' ||
-    value === 'course_blocked' ||
-    value === 'distribution_paused' ||
-    value === 'already_activated' ||
-    value === 'valid'
-  ) {
-    return value as ExternalLandingStatus;
+  const value = asString(reason);
+  switch (value) {
+    case 'distribution_paused':
+    case 'course_blocked':
+    case 'course_archived':
+    case 'course_deleted':
+    case 'access_revoked':
+    case 'access_expired':
+    case 'campaign_paused':
+    case 'campaign_revoked':
+    case 'campaign_closed':
+    case 'already_activated':
+    case 'version_unavailable':
+    case 'unavailable':
+      return value;
+    default:
+      return 'unavailable';
   }
-  return 'revoked';
 }
 
 export function normalizeExternalLanding(wire: unknown): ExternalAccessLanding {
   const record = isRecord(wire) ? wire : {};
-  const available = record.available !== false && record.status !== 'invalid';
-  const status: ExternalLandingStatus =
-    typeof record.status === 'string' && record.status !== 'valid'
-      ? mapUnavailableReason(record.status)
-      : available
-        ? 'valid'
-        : mapUnavailableReason(record.unavailableReason ?? record.message);
+  const available = record.available === true;
+  const status: ExternalLandingStatus = available
+    ? 'valid'
+    : mapUnavailableReason(record.unavailableReason);
+  const unavailableReason = status === 'valid' ? undefined : status;
 
   return {
     tokenHint: asOptionalString(record.tokenHint),
     status,
+    unavailableReason,
     purpose: mapAccessPurpose(record.kind ?? record.purpose),
     courseTitle: asString(record.courseTitle ?? record.title, 'Курс'),
     courseDescription: asOptionalString(record.courseDescription ?? record.description),
@@ -208,7 +203,7 @@ export function normalizeExternalLanding(wire: unknown): ExternalAccessLanding {
     maskedEmail: asOptionalString(record.maskedEmail),
     emailLocked: record.emailLocked === true || Boolean(record.expectedEmail),
     existingEnrollmentId: asOptionalString(record.existingEnrollmentId ?? record.enrollmentId),
-    message: asOptionalString(record.message ?? record.unavailableReason),
+    message: asOptionalString(record.message),
   };
 }
 
@@ -788,10 +783,11 @@ export function paginateArray<T>(
   total: number;
   totalPages: number;
 } {
-  const page = filters.page ?? 1;
-  const pageSize = filters.pageSize ?? 25;
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = Math.max(1, filters.pageSize ?? 25);
+  const offset = (page - 1) * pageSize;
   return {
-    items,
+    items: items.slice(offset, offset + pageSize),
     page,
     pageSize,
     total: items.length,

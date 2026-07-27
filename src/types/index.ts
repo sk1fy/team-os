@@ -153,6 +153,11 @@ export interface Article {
   version: number;
   /** Требуется ли отметка «Ознакомлен». */
   requiresAcknowledgement: boolean;
+  partnerAccess?: {
+    mode: 'none' | 'all' | 'selected';
+    partnerIds: ID[];
+  };
+  partnerReusePolicy?: 'not_allowed' | 'copy_allowed';
   createdAt: ISODate;
   updatedAt: ISODate;
 }

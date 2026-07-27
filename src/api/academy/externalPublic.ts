@@ -13,6 +13,7 @@ import type {
 } from '@/types/academyExternal';
 import type { CourseVersionLearnerDetail, LessonLearner, QuizAttemptAnswer } from '@/types/academy';
 import type { ID } from '@/types';
+import type { components } from '@/api/generated/teamos';
 import { createId } from '@/lib/id';
 import { encodeId, externalGet, externalMutate, type RequestOptions } from './httpHelpers';
 import {
@@ -30,13 +31,17 @@ import {
 } from './wireAdapters';
 
 type PublicOptions = RequestOptions & { authMode?: 'external' | 'none' };
+type PublicAcademyAccessWire = components['schemas']['PublicAcademyAccess'];
 
 export const academyExternalPublicApi = {
   async getLanding(token: string, options?: PublicOptions): Promise<ExternalAccessLanding> {
-    const wire = await externalGet<unknown>(`/public/academy/access/${encodeId(token)}`, {
-      ...options,
-      authMode: options?.authMode ?? 'none',
-    });
+    const wire = await externalGet<PublicAcademyAccessWire>(
+      `/public/academy/access/${encodeId(token)}`,
+      {
+        ...options,
+        authMode: options?.authMode ?? 'none',
+      },
+    );
     return normalizeExternalLanding(wire);
   },
 

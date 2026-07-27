@@ -1,15 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
-import { FileStack } from 'lucide-react';
+import { FileStack, Plus } from 'lucide-react';
 import { academyTemplatesApi } from '@/api/academy';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { Button, Input } from '@/components/ui';
+import { Button, Input, Modal, Textarea } from '@/components/ui';
 import { academyRoutes } from '@/lib/academy';
 import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
@@ -24,6 +24,9 @@ export function AcademyTemplatesPage() {
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
 
   const filters = useMemo(
     () => ({ q: debouncedQ || undefined, page, pageSize: 50 }),
@@ -50,6 +53,28 @@ export function AcademyTemplatesPage() {
     },
     onError: (e) =>
       toast.error(e instanceof ApiError ? e.message : 'Не удалось создать курс из шаблона'),
+  });
+  const createTemplate = useMutation({
+    mutationFn: () =>
+      academyTemplatesApi.create(
+        {
+          title: createTitle.trim(),
+          description: createDescription.trim() || undefined,
+          sequential: true,
+          content: { sections: [] },
+        },
+        { idempotencyKey: createId() },
+      ),
+    onSuccess: ({ summary }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.templatesRoot });
+      setCreateOpen(false);
+      setCreateTitle('');
+      setCreateDescription('');
+      toast.success('Корпоративный шаблон создан');
+      navigate(academyRoutes.templateBuilder(summary.id));
+    },
+    onError: (error) =>
+      toast.error(error instanceof ApiError ? error.message : 'Не удалось создать шаблон'),
   });
 
   const items = useMemo(() => {
@@ -80,7 +105,54 @@ export function AcademyTemplatesPage() {
       <PageHeader
         title="Шаблоны"
         description="Системные и корпоративные шаблоны. Instantiation создаёт независимый draft."
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            Создать шаблон
+          </Button>
+        }
       />
+      <Modal
+        open={createOpen}
+        onOpenChange={(next) => {
+          if (!createTemplate.isPending) setCreateOpen(next);
+        }}
+        title="Новый корпоративный шаблон"
+        description="После создания откроется общий редактор структуры, уроков и тестов."
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={createTemplate.isPending}
+              onClick={() => setCreateOpen(false)}
+            >
+              Отмена
+            </Button>
+            <Button
+              loading={createTemplate.isPending}
+              disabled={!createTitle.trim()}
+              onClick={() => createTemplate.mutate()}
+            >
+              Создать и открыть
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Название"
+            value={createTitle}
+            onChange={(event) => setCreateTitle(event.target.value)}
+            autoFocus
+          />
+          <Textarea
+            label="Описание"
+            rows={3}
+            value={createDescription}
+            onChange={(event) => setCreateDescription(event.target.value)}
+          />
+        </div>
+      </Modal>
       <Input
         value={q}
         onChange={(e) => {

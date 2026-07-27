@@ -55,9 +55,46 @@ describe('Academy wire adapters (OpenAPI shapes)', () => {
       }),
     ).toMatchObject({
       status: 'distribution_paused',
+      unavailableReason: 'distribution_paused',
       purpose: 'partner_promo',
       courseTitle: 'Промо',
-      message: 'distribution_paused',
+    });
+  });
+
+  it.each([
+    'distribution_paused',
+    'course_blocked',
+    'course_archived',
+    'course_deleted',
+    'access_revoked',
+    'access_expired',
+    'campaign_paused',
+    'campaign_revoked',
+    'campaign_closed',
+    'already_activated',
+    'version_unavailable',
+  ])('maps the exact unavailableReason code %s', (unavailableReason) => {
+    expect(
+      normalizeExternalLanding({
+        available: false,
+        unavailableReason,
+      }),
+    ).toMatchObject({
+      status: unavailableReason,
+      unavailableReason,
+    });
+  });
+
+  it('does not infer a state from a localized message', () => {
+    expect(
+      normalizeExternalLanding({
+        available: false,
+        message: 'Курс находится в архиве',
+      }),
+    ).toMatchObject({
+      status: 'unavailable',
+      unavailableReason: 'unavailable',
+      message: 'Курс находится в архиве',
     });
   });
 

@@ -7,6 +7,7 @@ import type {
   PaginatedResult,
 } from '@/types/academy';
 import type { ID } from '@/types';
+import type { components } from '@/api/generated/teamos';
 import {
   academyGet,
   academyMutate,
@@ -24,6 +25,8 @@ export type CreateCourseInput = {
   templateId?: ID;
   templateVersionId?: ID;
 };
+
+export type CreateCourseFromKbInput = components['schemas']['CreateCourseFromKbInput'];
 
 export type UpdateCourseInput = {
   title?: string;
@@ -267,6 +270,15 @@ export const academyCoursesApi = {
 
   async create(input: CreateCourseInput, options?: RequestOptions): Promise<AcademyCourseDetail> {
     return (await academyCoursesApi.createDetailed(input, options)).course;
+  },
+
+  async createFromKb(
+    input: CreateCourseFromKbInput,
+    options?: RequestOptions,
+  ): Promise<AcademyCourseDetail> {
+    return normalizeCourse(
+      await academyMutate<CourseWire>('/academy/courses/from-kb', 'POST', input, options),
+    );
   },
 
   /** Patch draft metadata on the course. */

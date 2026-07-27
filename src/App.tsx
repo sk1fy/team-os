@@ -275,7 +275,7 @@ function AccessDenied({ homePath }: { homePath: string }) {
     <main className="flex min-h-dvh items-center justify-center bg-page p-6">
       <div className="max-w-md space-y-4 text-center">
         <h1 className="text-xl font-semibold text-slate-950">Недостаточно прав</h1>
-        <p className="text-sm text-slate-500">У вас нет доступа к этой странице.</p>
+        <p className="text-sm text-slate-600">У вас нет доступа к этой странице.</p>
         <a
           href={homePath}
           className="inline-flex rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"

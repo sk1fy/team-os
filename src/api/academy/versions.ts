@@ -20,6 +20,25 @@ type LessonAuthorWire = LessonAuthor & {
   courseVersionId?: ID;
 };
 
+type CourseVersionSummaryWire = Partial<CourseVersionSummary> & {
+  id: ID;
+  courseId: ID;
+  number?: number;
+};
+
+function normalizeVersionSummary(version: CourseVersionSummaryWire): CourseVersionSummary {
+  return {
+    ...version,
+    id: version.id,
+    courseId: version.courseId,
+    versionNumber: version.versionNumber ?? version.number ?? 1,
+    status: version.status ?? 'draft',
+    title: version.title ?? 'Курс',
+    createdAt: version.createdAt ?? '',
+    updatedAt: version.updatedAt ?? version.createdAt ?? '',
+  };
+}
+
 function normalizeSection(section: SectionAuthorWire): SectionAuthor {
   return {
     ...section,
@@ -40,7 +59,10 @@ function normalizeLesson(lesson: LessonAuthorWire): LessonAuthor {
 /** Paths aligned with backend-plan §11.1–11.2 (course-versions content). */
 export const academyVersionsApi = {
   list(courseId: ID, options?: RequestOptions): Promise<CourseVersionSummary[]> {
-    return academyGet(`/academy/courses/${encodeId(courseId)}/versions`, options);
+    return academyGet<CourseVersionSummaryWire[]>(
+      `/academy/courses/${encodeId(courseId)}/versions`,
+      options,
+    ).then((versions) => versions.map(normalizeVersionSummary));
   },
 
   getAuthor(
@@ -62,7 +84,12 @@ export const academyVersionsApi = {
     courseId: ID,
     options?: RequestOptions,
   ): Promise<{ courseId: ID; version: CourseVersionSummary }> {
-    return academyMutate(`/academy/courses/${encodeId(courseId)}/publish`, 'POST', {}, options);
+    return academyMutate<CourseVersionSummaryWire>(
+      `/academy/courses/${encodeId(courseId)}/publish`,
+      'POST',
+      {},
+      options,
+    ).then((version) => ({ courseId, version: normalizeVersionSummary(version) }));
   },
 
   createSection(
@@ -108,13 +135,26 @@ export const academyVersionsApi = {
       content?: RichTextContent;
       sourceArticleId?: ID;
       sourceMode?: 'link' | 'copy';
+      sourceArticleVersion?: number;
     },
     options?: RequestOptions,
   ): Promise<LessonAuthor> {
     return academyMutate<LessonAuthorWire>(
       `/academy/course-versions/${encodeId(versionId)}/lessons`,
       'POST',
-      input,
+      {
+        sectionVersionId: input.sectionId,
+        title: input.title,
+        content: input.content,
+        sourceType:
+          input.sourceMode === 'link'
+            ? 'kb_link'
+            : input.sourceMode === 'copy'
+              ? 'kb_snapshot'
+              : undefined,
+        sourceArticleId: input.sourceArticleId,
+        sourceArticleVersion: input.sourceArticleVersion,
+      },
       options,
     ).then(normalizeLesson);
   },
@@ -132,7 +172,19 @@ export const academyVersionsApi = {
     return academyMutate<LessonAuthorWire>(
       `/academy/course-version-lessons/${encodeId(lessonId)}`,
       'PATCH',
-      input,
+      {
+        title: input.title,
+        content: input.content,
+        sourceType:
+          input.sourceMode === 'link'
+            ? 'kb_link'
+            : input.sourceMode === 'copy'
+              ? 'kb_snapshot'
+              : input.sourceMode === null
+                ? 'manual'
+                : undefined,
+        sourceArticleId: input.sourceArticleId ?? undefined,
+      },
       options,
     ).then(normalizeLesson);
   },
@@ -154,7 +206,7 @@ export const academyVersionsApi = {
     return academyMutate<LessonAuthorWire>(
       `/academy/course-version-lessons/${encodeId(lessonId)}/move`,
       'POST',
-      input,
+      { sectionVersionId: input.sectionId, order: input.order },
       options,
     ).then(normalizeLesson);
   },

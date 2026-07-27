@@ -3,8 +3,10 @@ import type {
   AcademyTemplateSummary,
   CourseVersionAuthorDetail,
   PaginatedResult,
+  QuizQuestionAuthor,
 } from '@/types/academy';
 import type { ID } from '@/types';
+import type { RichTextContent } from '@/types';
 import {
   academyGet,
   academyMutate,
@@ -17,10 +19,13 @@ import { normalizeDraft } from './courses';
 
 type TemplateVersionWire = {
   id: ID;
+  templateId?: ID;
   number?: number;
   status?: string;
   title?: string;
   description?: string;
+  sequential?: boolean;
+  content?: TemplateVersionContentWire;
 };
 
 type TemplateWire = Partial<AcademyTemplateSummary> & {
@@ -31,6 +36,83 @@ type TemplateWire = Partial<AcademyTemplateSummary> & {
   latestPublishedVersionId?: ID;
   currentDraftVersionId?: ID;
   versions?: TemplateVersionWire[];
+  selectedVersion?: TemplateVersionWire;
+};
+
+export type TemplateDraftQuizInput = {
+  questions: QuizQuestionAuthor[];
+  passingScore: number;
+  maxAttempts?: number;
+};
+
+export type TemplateDraftLessonInput = {
+  stableKey: string;
+  title: string;
+  order: number;
+  content: RichTextContent;
+  sourceType?: 'manual' | 'kb_link' | 'kb_snapshot' | 'template_snapshot';
+  sourceArticleId?: ID;
+  sourceArticleVersion?: number;
+  estimatedMinutes?: number;
+  quiz?: TemplateDraftQuizInput;
+};
+
+export type TemplateDraftSectionInput = {
+  stableKey: string;
+  title: string;
+  order: number;
+  lessons: TemplateDraftLessonInput[];
+};
+
+export type TemplateDraftContentInput = {
+  sections: TemplateDraftSectionInput[];
+};
+
+type TemplateVersionContentWire = {
+  sections?: Array<{
+    id: ID;
+    templateVersionId: ID;
+    stableKey: string;
+    title: string;
+    order: number;
+  }>;
+  lessons?: Array<{
+    id: ID;
+    templateVersionId: ID;
+    sectionVersionId: ID;
+    stableKey: string;
+    title: string;
+    order: number;
+    content: RichTextContent;
+    sourceType?: TemplateDraftLessonInput['sourceType'];
+    sourceArticleId?: ID;
+    sourceArticleVersion?: number;
+    estimatedMinutes?: number;
+  }>;
+  quizzes?: Array<{
+    id: ID;
+    templateVersionId: ID;
+    lessonVersionId: ID;
+    questions: QuizQuestionAuthor[];
+    passingScore: number;
+    maxAttempts?: number;
+  }>;
+};
+
+export type TemplateVersionDetail = {
+  id: ID;
+  templateId: ID;
+  number: number;
+  status: 'draft' | 'published' | 'retired';
+  title: string;
+  description?: string;
+  sequential: boolean;
+  content: TemplateVersionContentWire;
+};
+
+export type TemplateDetail = {
+  summary: AcademyTemplateSummary;
+  selectedVersion?: TemplateVersionDetail;
 };
 
 type TemplateInstantiationWire = {
@@ -73,8 +155,14 @@ export function normalizeTemplate(template: TemplateWire): AcademyTemplateSummar
   const latestVersionId = template.latestVersionId ?? template.latestPublishedVersionId;
   const latestVersion =
     template.versions?.find((version) => version.id === latestVersionId) ??
-    template.versions?.find((version) => version.status === 'published');
+    template.versions?.find((version) => version.status === 'published') ??
+    template.selectedVersion;
   const ownerType = template.ownerType ?? (template.type === 'company' ? 'company' : 'system');
+  const draftVersionId =
+    template.draftVersionId ??
+    template.currentDraftVersionId ??
+    template.versions?.find((version) => version.status === 'draft')?.id ??
+    (template.selectedVersion?.status === 'draft' ? template.selectedVersion.id : undefined);
 
   return {
     ...template,
@@ -84,13 +172,31 @@ export function normalizeTemplate(template: TemplateWire): AcademyTemplateSummar
     description: template.description ?? latestVersion?.description,
     latestVersionId,
     latestVersionNumber: template.latestVersionNumber ?? latestVersion?.number,
-    draftVersionId: template.draftVersionId ?? template.currentDraftVersionId,
+    draftVersionId,
     archived: template.archived ?? template.lifecycleStatus === 'archived',
     capabilities: template.capabilities ?? {
       canInstantiate: Boolean(latestVersionId),
-      canEdit: false,
-      canArchive: false,
+      canEdit: ownerType === 'company',
+      canArchive: ownerType === 'company',
       canPreview: Boolean(latestVersionId),
+    },
+  };
+}
+
+function normalizeTemplateVersion(version: TemplateVersionWire): TemplateVersionDetail {
+  return {
+    id: version.id,
+    templateId: version.templateId ?? '',
+    number: version.number ?? 1,
+    status:
+      version.status === 'published' || version.status === 'retired' ? version.status : 'draft',
+    title: version.title ?? 'Шаблон курса',
+    description: version.description,
+    sequential: version.sequential !== false,
+    content: {
+      sections: version.content?.sections ?? [],
+      lessons: version.content?.lessons ?? [],
+      quizzes: version.content?.quizzes ?? [],
     },
   };
 }
@@ -137,25 +243,71 @@ export const academyTemplatesApi = {
     );
   },
 
+  async getDetail(
+    templateId: ID,
+    versionId?: ID,
+    options?: RequestOptions,
+  ): Promise<TemplateDetail> {
+    const payload = await academyGet<TemplateWire>(
+      `/academy/templates/${encodeId(templateId)}${buildQuery({ versionId })}`,
+      options,
+    );
+    return {
+      summary: normalizeTemplate(payload),
+      selectedVersion: payload.selectedVersion
+        ? normalizeTemplateVersion(payload.selectedVersion)
+        : undefined,
+    };
+  },
+
   getPreview(templateId: ID, options?: RequestOptions): Promise<CourseVersionAuthorDetail> {
     return academyGet(`/academy/templates/${encodeId(templateId)}/preview`, options);
   },
 
-  createDraft(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {
-    return academyMutate(`/academy/templates/${encodeId(templateId)}/draft`, 'POST', {}, options);
+  create(
+    input: {
+      title: string;
+      description?: string;
+      sequential?: boolean;
+      content?: TemplateDraftContentInput;
+    },
+    options?: RequestOptions,
+  ): Promise<TemplateDetail> {
+    return academyMutate<TemplateWire>('/academy/templates', 'POST', input, options).then(
+      (payload) => ({
+        summary: normalizeTemplate(payload),
+        selectedVersion: payload.selectedVersion
+          ? normalizeTemplateVersion(payload.selectedVersion)
+          : undefined,
+      }),
+    );
+  },
+
+  createDraft(templateId: ID, options?: RequestOptions): Promise<TemplateVersionDetail> {
+    return academyMutate<TemplateVersionWire>(
+      `/academy/templates/${encodeId(templateId)}/draft`,
+      'POST',
+      {},
+      options,
+    ).then(normalizeTemplateVersion);
   },
 
   updateDraft(
     templateId: ID,
-    input: { title?: string; description?: string },
+    input: {
+      title?: string;
+      description?: string;
+      sequential?: boolean;
+      content?: TemplateDraftContentInput;
+    },
     options?: RequestOptions,
-  ): Promise<AcademyTemplateSummary> {
-    return academyMutate(
+  ): Promise<TemplateVersionDetail> {
+    return academyMutate<TemplateVersionWire>(
       `/academy/templates/${encodeId(templateId)}/draft`,
       'PATCH',
       input,
       options,
-    );
+    ).then(normalizeTemplateVersion);
   },
 
   publish(templateId: ID, options?: RequestOptions): Promise<AcademyTemplateSummary> {

@@ -9,6 +9,7 @@ import { academyRoutes } from '@/lib/academy';
 import { saveExternalCourseMeta } from '@/lib/academy/externalCourseMeta';
 import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
+import type { ExternalUnavailableReason } from '@/types/academyExternal';
 import { AcademyStatusCallout } from '@/pages/academy/components/AcademyStatusCallout';
 import { presentExternalError, type ExternalErrorPresentation } from './externalErrorPresentation';
 
@@ -226,20 +227,26 @@ export function ExternalAccessPage() {
   }
 
   if (landing.status !== 'valid') {
-    const messages: Record<string, string> = {
-      expired: 'Срок ссылки истёк.',
-      revoked: 'Доступ отозван автором.',
+    const messages: Record<ExternalUnavailableReason, string> = {
+      already_activated: 'Этот доступ уже активирован.',
+      access_expired: 'Срок доступа истёк.',
+      access_revoked: 'Доступ отозван автором.',
       course_archived: 'Курс в архиве — новые активации закрыты.',
       course_deleted: 'Курс удалён.',
       course_blocked: 'Курс заблокирован администрацией.',
       distribution_paused: 'Распространение приостановлено.',
+      campaign_paused: 'Кампания временно приостановлена.',
+      campaign_revoked: 'Кампания отозвана.',
+      campaign_closed: 'Кампания закрыта.',
+      version_unavailable: 'Эта версия курса недоступна.',
+      unavailable: 'Доступ временно недоступен.',
     };
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-6">
         <AcademyStatusCallout
           tone="warning"
           title={landing.courseTitle}
-          description={landing.message ?? messages[landing.status] ?? 'Доступ недоступен'}
+          description={landing.message ?? messages[landing.status]}
         />
         {landing.existingEnrollmentId ? (
           <Button

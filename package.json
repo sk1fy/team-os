@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "contract:check": "node scripts/check-openapi-contract.mjs",
+    "contract:generate": "node scripts/check-openapi-contract.mjs --write",
+    "e2e:academy": "playwright test --project=academy-fixture",
+    "e2e:academy:install": "playwright install chromium",
+    "e2e:academy:staging": "playwright test --config=playwright.staging.config.ts",
+    "fixture:academy:v2": "node scripts/academy-v2-fixture-server.mjs",
     "lint": "eslint .",
-    "test": "vitest run",
-    "smoke:academy:v2:server": "node scripts/academy-v2-smoke-server.mjs",
+    "test": "vitest run --exclude \"e2e/**\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "preview": "vite preview"
   },
@@ -43,7 +48,9 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@eslint/js": "^9.19.0",
+    "@playwright/test": "^1.54.1",
     "@tailwindcss/vite": "^4.0.6",
     "@types/node": "^22.13.1",
     "@types/react": "^19.0.8",
@@ -54,6 +61,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",
+    "openapi-typescript": "^7.8.0",
     "prettier": "^3.4.2",
     "tailwindcss": "^4.0.6",
     "typescript": "~5.7.3",
