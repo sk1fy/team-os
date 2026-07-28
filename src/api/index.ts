@@ -24,6 +24,7 @@ import { pickDistributionMember } from '@/lib/dealDistribution';
 import { createId } from '@/lib/id';
 import { EMAIL_ERROR, PHONE_ERROR, isValidEmail, isValidPhone } from '@/lib/formValidation';
 import { canAccessCourse } from '@/lib/contentVisibility';
+import { canManageAccess } from '@/lib/permissions';
 import type {
   AppNotification,
   Article,
@@ -198,8 +199,8 @@ const mockOrgApi = {
   ): Promise<{ password: string }> =>
     mockRequest(() => {
       const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
-      if (actor?.role !== 'owner')
-        throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
+      if (!canManageAccess(actor?.role))
+        throw new ApiError('Управлять доступом сотрудников может владелец или администратор', 403);
       const user = employeeAccessTarget(userId);
       const password =
         input.password?.trim() ||
@@ -217,8 +218,8 @@ const mockOrgApi = {
   setUserLinkAccess: (userId: ID): Promise<{ token: string; createdAt: string }> =>
     mockRequest(() => {
       const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
-      if (actor?.role !== 'owner')
-        throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
+      if (!canManageAccess(actor?.role))
+        throw new ApiError('Управлять доступом сотрудников может владелец или администратор', 403);
       const user = employeeAccessTarget(userId);
       const bytes = crypto.getRandomValues(new Uint8Array(24));
       const token = btoa(String.fromCharCode(...bytes))
@@ -236,8 +237,8 @@ const mockOrgApi = {
   revokeUserAccess: (userId: ID): Promise<void> =>
     mockRequest(() => {
       const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
-      if (actor?.role !== 'owner')
-        throw new ApiError('Управлять доступом сотрудников может только владелец', 403);
+      if (!canManageAccess(actor?.role))
+        throw new ApiError('Управлять доступом сотрудников может владелец или администратор', 403);
       const user = employeeAccessTarget(userId);
       db.employeePasswords.delete(userId);
       db.employeeAccess.delete(userId);

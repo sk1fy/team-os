@@ -165,7 +165,7 @@ export function canManageContent(role: UserRole | undefined) {
 }
 
 export function canManageAccess(role: UserRole | undefined) {
-  return role === 'owner';
+  return role === 'owner' || role === 'admin';
 }
 
 export function canManageIntegrations(role: UserRole | undefined) {

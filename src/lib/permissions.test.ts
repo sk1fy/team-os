@@ -38,12 +38,15 @@ describe('permissions', () => {
     }
   });
 
-  it('разрешает управление контентом только owner/admin, доступом — только owner', () => {
+  it('разрешает управление контентом и доступом ролям owner/admin', () => {
     expect(canManageContent('owner')).toBe(true);
     expect(canManageContent('admin')).toBe(true);
     expect(canManageContent('employee')).toBe(false);
     expect(canManageAccess('owner')).toBe(true);
-    expect(canManageAccess('admin')).toBe(false);
+    expect(canManageAccess('admin')).toBe(true);
+    expect(canManageAccess('employee')).toBe(false);
+    expect(canManageAccess('partner')).toBe(false);
+    expect(canManageAccess(undefined)).toBe(false);
   });
 
   it('разрешает управление интеграциями только owner/admin', () => {
