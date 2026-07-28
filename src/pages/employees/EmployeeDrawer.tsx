@@ -16,7 +16,11 @@ import {
   KeyRound,
   Link2,
   Plus,
+  Power,
+  RotateCcw,
+  ShieldCheck,
   Trash2,
+  TriangleAlert,
   X,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -408,23 +412,27 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
             <div className="flex min-w-0 items-center gap-3">
               <Avatar name={user ? fullName(user) : 'Сотрудник'} src={user?.avatarUrl} size="md" />
-              <div className="min-w-0">
-                <h3 className="truncate text-[17px] font-bold text-ink">
-                  {user ? fullName(user) : 'Сотрудник'}
-                </h3>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <h3 className="min-w-0 truncate text-[17px] font-bold text-ink">
+                    {user ? fullName(user) : 'Сотрудник'}
+                  </h3>
+                  {user && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
+                      <Badge variant={userStatusVariants[user.status]}>
+                        {userStatusLabels[user.status]}
+                      </Badge>
+                      {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
+                      {primaryDepartment && (
+                        <Badge variant="neutral">{primaryDepartment.name}</Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="mt-0.5 truncate font-mono text-[13px] text-slate-500">
                   {user?.phone ?? user?.email ?? 'Загрузка данных'}
                 </div>
-                {user && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
-                    <Badge variant={userStatusVariants[user.status]}>
-                      {userStatusLabels[user.status]}
-                    </Badge>
-                    {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
-                    {primaryDepartment && <Badge variant="neutral">{primaryDepartment.name}</Badge>}
-                  </div>
-                )}
               </div>
             </div>
             <button
@@ -493,7 +501,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
             <div
               role="tablist"
               aria-label="Разделы карточки сотрудника"
-              className="mb-5 flex gap-1 overflow-x-auto rounded-md bg-surface-sunken p-1"
+              className="mb-5 inline-flex w-fit max-w-full gap-1 overflow-x-auto rounded-md bg-surface-sunken p-1"
             >
               {tabs.map((tab) => (
                 <button
@@ -652,7 +660,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                     onChange={(value) => setProfileDraft((draft) => ({ ...draft, hire: value }))}
                   />
                   <InfoRow
-                    icon={<span className="text-lg leading-none">🎉</span>}
+                    icon={<span className="text-base leading-none">🎉</span>}
                     text={
                       profileDraft.hire && hiredYears !== undefined
                         ? `Стаж: ${hiredYears} ${pluralRu(hiredYears, 'год', 'года', 'лет')}. Годовщина — ${formatHumanDate(profileDraft.hire)}.`
@@ -668,7 +676,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                     onChange={(value) => setProfileDraft((draft) => ({ ...draft, birth: value }))}
                   />
                   <InfoRow
-                    icon={<span className="text-lg leading-none">🎂</span>}
+                    icon={<span className="text-base leading-none">🎂</span>}
                     text={
                       profileDraft.birth && age !== undefined
                         ? `День рождения — ${formatHumanDate(profileDraft.birth)}. Исполнится ${age + 1}.`
@@ -689,7 +697,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                       step={1}
                       value={vacationNorm}
                       onChange={(event) => setVacationNorm(clampVacationNorm(event.target.value))}
-                      className="h-10 w-16 rounded-md border border-slate-200 bg-surface px-3 text-center font-mono text-sm font-semibold text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
+                      className="h-8 w-14 rounded-md border border-slate-200 bg-surface px-2 text-center font-mono text-xs font-semibold text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
                     />
                     <span className="text-sm text-slate-500">дней в год</span>
                   </div>
@@ -944,46 +952,85 @@ function EmployeeStatusSection({
   };
 
   return (
-    <div className="space-y-5">
-      <PanelSection title="Доступ сотрудника к системе">
-        <div className="flex items-center justify-between gap-4 rounded-md bg-slate-50 p-4">
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              {deactivated ? 'Сотрудник деактивирован' : 'Сотрудник активен'}
-            </p>
+    <PanelSection title="Управление аккаунтом">
+      <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            className={cn(
+              'flex size-9 shrink-0 items-center justify-center rounded-full',
+              deactivated ? 'bg-slate-100 text-slate-500' : 'bg-success-50 text-success-700',
+            )}
+          >
+            {deactivated ? <Power className="size-4" /> : <ShieldCheck className="size-4" />}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-ink">
+                {deactivated ? 'Сотрудник деактивирован' : 'Сотрудник активен'}
+              </p>
+              <Badge variant={deactivated ? 'neutral' : 'success'}>
+                {deactivated ? 'Доступ закрыт' : 'Активен'}
+              </Badge>
+            </div>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">
               {deactivated
-                ? 'Вход и активные сессии недоступны. Профиль и история сохранены.'
-                : 'Деактивация закроет вход, но сохранит профиль, график и историю работы.'}
+                ? 'Профиль и история сохранены. Можно восстановить доступ в любой момент.'
+                : 'Деактивация завершит сессии, но сохранит профиль, график и историю.'}
             </p>
           </div>
-          <Badge variant={deactivated ? 'danger' : 'success'}>
-            {deactivated ? 'Нет доступа' : 'Активен'}
-          </Badge>
         </div>
         <Button
-          variant={deactivated ? 'secondary' : 'danger'}
+          size="sm"
+          variant="secondary"
+          className={cn(
+            'shrink-0',
+            deactivated
+              ? 'border-success-100 text-success-700 hover:border-success-500 hover:bg-success-50 hover:text-success-700'
+              : 'border-danger-100 text-danger-600 hover:border-danger-500 hover:bg-danger-50 hover:text-danger-700',
+          )}
           loading={statusPending}
           onClick={changeStatus}
         >
-          {deactivated ? 'Восстановить сотрудника' : 'Деактивировать сотрудника'}
+          {deactivated ? <RotateCcw className="size-4" /> : <Power className="size-4" />}
+          {deactivated ? 'Восстановить' : 'Деактивировать'}
         </Button>
-      </PanelSection>
+      </div>
 
-      <PanelSection title="Удаление профиля">
+      <div className="h-px bg-slate-200" />
+
+      <div>
         {user.source === 'amo' ? (
-          <p className="rounded-md bg-warning-50 px-3 py-3 text-sm leading-relaxed text-warning-700">
-            Сотрудник импортирован из amoCRM, поэтому удалить его в TeamOS нельзя. Профиль исчезнет
-            после удаления сотрудника в amoCRM и следующей синхронизации.
-          </p>
+          <div className="flex items-start gap-3 rounded-md border border-warning-100 bg-warning-50/60 p-4">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning-100 text-warning-700">
+              <TriangleAlert className="size-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-warning-700">
+                Удаление управляется в amoCRM
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-warning-700">
+                Профиль исчезнет из TeamOS после удаления сотрудника в amoCRM и следующей
+                синхронизации.
+              </p>
+            </div>
+          </div>
         ) : (
-          <>
-            <p className="text-sm leading-relaxed text-slate-500">
-              Локально созданного сотрудника можно удалить безвозвратно. Сначала деактивируйте его,
-              если хотите сохранить профиль и историю.
-            </p>
+          <div className="flex flex-col gap-3 rounded-md border border-danger-100 bg-danger-50/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-danger-50 text-danger-600">
+                <Trash2 className="size-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-ink">Удалить профиль</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Профиль и связанные с ним данные будут удалены безвозвратно.
+                </p>
+              </div>
+            </div>
             <Button
-              variant="danger"
+              size="sm"
+              variant="ghost"
+              className="shrink-0 text-danger-600 hover:bg-danger-50 hover:text-danger-700"
               loading={deletePending}
               onClick={() => {
                 if (confirm(`Удалить сотрудника ${fullName(user)}? Это действие необратимо.`)) {
@@ -992,12 +1039,12 @@ function EmployeeStatusSection({
               }}
             >
               <Trash2 className="size-4" />
-              Удалить сотрудника
+              Удалить
             </Button>
-          </>
+          </div>
         )}
-      </PanelSection>
-    </div>
+      </div>
+    </PanelSection>
   );
 }
 
@@ -1851,8 +1898,8 @@ function VacationRangeList({ ranges, year }: { ranges: VacationRange[]; year: nu
 
 function InfoRow({ icon, text }: { icon: ReactNode; text: string }) {
   return (
-    <div className="flex gap-2.5 rounded-md border border-primary-200 bg-primary-50 px-3 py-3 text-[13px] leading-relaxed text-primary-900">
-      <span className="mt-0.5 shrink-0">{icon}</span>
+    <div className="flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-2 text-xs leading-snug text-primary-900">
+      <span className="shrink-0">{icon}</span>
       <span>{text}</span>
     </div>
   );

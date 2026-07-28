@@ -7,7 +7,13 @@ import { roleLabels } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
-import { EMAIL_ERROR, PHONE_ERROR, isValidEmail, isValidPhone } from '@/lib/formValidation';
+import {
+  EMAIL_ERROR,
+  PHONE_ERROR,
+  formatPhoneInput,
+  isValidEmail,
+  isValidPhone,
+} from '@/lib/formValidation';
 
 interface AddUserModalProps {
   open: boolean;
@@ -149,13 +155,17 @@ export function AddUserModal({ open, onClose, initialRole = 'employee' }: AddUse
           label="Телефон"
           ref={phoneRef}
           type="tel"
-          placeholder="+7 …"
+          inputMode="tel"
+          autoComplete="tel"
+          maxLength={18}
+          placeholder="+7 (999) 000-00-00"
           value={phone}
           onChange={(event) => {
-            setPhone(event.target.value);
+            setPhone(formatPhoneInput(event.target.value));
             setErrors((current) => ({ ...current, phone: undefined }));
           }}
           error={errors.phone}
+          hint="Только цифры — номер отформатируется автоматически"
         />
         <Select
           label="Роль"
