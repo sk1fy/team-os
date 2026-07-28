@@ -498,7 +498,7 @@ const mockOrgApi = {
       if (!user) notFound('Сотрудник');
       if (user.source === 'amo') {
         throw new ApiError(
-          'Нельзя удалить пользователя, импортированного из amoCRM. Сначала отключите интеграцию.',
+          'Нельзя удалить пользователя, импортированного из amoCRM. Удалите его в amoCRM и дождитесь синхронизации.',
           400,
         );
       }
@@ -517,9 +517,17 @@ const mockOrgApi = {
     role?: User['role'];
     status?: User['status'];
     positionIds?: ID[];
+    sectionAccess?: User['sectionAccess'];
   }): Promise<User> =>
     mockRequest(() => {
       const user = db.users.find((u) => u.id === input.id) ?? notFound('Сотрудник');
+      const actor = db.users.find((item) => item.id === db.CURRENT_USER_ID);
+      if (
+        input.sectionAccess !== undefined &&
+        (!canManageAccess(actor?.role) || user.role === 'partner')
+      ) {
+        throw new ApiError('Управлять доступом к разделам может владелец или администратор', 403);
+      }
       const guardError = validateUserUpdate(
         user,
         { role: input.role, status: input.status },
@@ -541,6 +549,23 @@ const mockOrgApi = {
       if (input.role !== undefined) user.role = input.role;
       if (input.status !== undefined) user.status = input.status;
       if (input.positionIds !== undefined) user.positionIds = input.positionIds;
+      if (input.sectionAccess !== undefined) {
+        if (user.role !== 'employee') {
+          throw new ApiError('Индивидуальные разделы настраиваются только для сотрудников', 400);
+        }
+        if (input.sectionAccess.length === 0) {
+          throw new ApiError('У сотрудника должен оставаться хотя бы один рабочий раздел', 400);
+        }
+        const uniqueSections = [...new Set(input.sectionAccess)];
+        if (uniqueSections.length !== input.sectionAccess.length) {
+          throw new ApiError('Разделы доступа не должны повторяться', 400);
+        }
+        const allowedSections = new Set(['schedule', 'knowledge', 'academy', 'distribution']);
+        if (uniqueSections.some((section) => !allowedSections.has(section))) {
+          throw new ApiError('Неизвестный раздел доступа', 400);
+        }
+        user.sectionAccess = uniqueSections;
+      }
 
       return user;
     }),

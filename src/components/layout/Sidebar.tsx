@@ -116,7 +116,9 @@ function SidebarContent({
     queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
-  const visibleNavItems = navItems.filter((item) => canAccessRoute(currentUser?.role, item.to));
+  const visibleNavItems = navItems.filter((item) =>
+    canAccessRoute(currentUser?.role, item.to, currentUser?.sectionAccess),
+  );
   const visibleIntegrationItems = canManageIntegrations(currentUser?.role) ? integrationItems : [];
 
   const logoutButton = (

@@ -182,6 +182,7 @@ export const httpOrgApi = {
     role?: User['role'];
     status?: User['status'];
     positionIds?: ID[];
+    sectionAccess?: User['sectionAccess'];
   }): Promise<User> => {
     const { id: userId, ...body } = input;
     return request(`/org/users/${id(userId)}`, 'PATCH', body);

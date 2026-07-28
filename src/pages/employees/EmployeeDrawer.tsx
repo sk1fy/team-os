@@ -15,24 +15,16 @@ import {
   Image as ImageIcon,
   KeyRound,
   Link2,
-  LockKeyhole,
-  PanelRight,
   Plus,
-  Square,
   Trash2,
   X,
 } from 'lucide-react';
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type QueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { authApi, orgApi, scheduleApi } from '@/api';
 import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
 import type {
   EmployeeAccess,
-  EmployeeAccessMode,
+  EmployeeSection,
   ID,
   ScheduleTemplate,
   ShiftException,
@@ -50,11 +42,10 @@ import { cn } from '@/lib/cn';
 import { MONTH_LABELS, MONTH_LABELS_GENITIVE } from '@/lib/schedule';
 import { toast } from '@/stores/toast';
 import { Avatar, Badge, Button, Drawer, Input, Modal, Select } from '@/components/ui';
-import { EmployeeEditModal } from './EmployeeEditModal';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
 import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
-import { canManageAccess } from '@/lib/permissions';
+import { canManageAccess, defaultEmployeeSections } from '@/lib/permissions';
 import { copyText } from '@/lib/clipboard';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -73,14 +64,42 @@ const monthShortNames = [
   'дек',
 ];
 
+type EmployeeCardTab = 'schedule' | 'profile' | 'absence' | 'login' | 'sections' | 'status';
+
+const employeeSectionOptions: Array<{
+  id: EmployeeSection;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: 'schedule',
+    label: 'График работ',
+    description: 'Личный график, смены, отпуска и рабочее время.',
+  },
+  {
+    id: 'knowledge',
+    label: 'База знаний',
+    description: 'Регламенты, инструкции и внутренние материалы компании.',
+  },
+  {
+    id: 'academy',
+    label: 'Академия',
+    description: 'Назначенные курсы, каталог и личный прогресс обучения.',
+  },
+  {
+    id: 'distribution',
+    label: 'Распределение',
+    description: 'Очереди и правила распределения сделок.',
+  },
+];
+
 export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose: () => void }) {
   const open = Boolean(userId);
   const queryClient = useQueryClient();
-  const [editOpen, setEditOpen] = useState(false);
   const [absenceOpen, setAbsenceOpen] = useState(false);
-  const [accessOpen, setAccessOpen] = useState(false);
   const [customAccessPassword, setCustomAccessPassword] = useState('');
-  const [view, setView] = useState<'side' | 'center'>('side');
+  const [activeTab, setActiveTab] = useState<EmployeeCardTab>('schedule');
+  const [sectionDraft, setSectionDraft] = useState<EmployeeSection[]>(defaultEmployeeSections);
   const [profileDraft, setProfileDraft] = useState({
     fullName: '',
     positionId: NO_POSITION_VALUE,
@@ -125,6 +144,10 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   });
   const accessVisible =
     canManageAccess(currentUserQuery.data?.role) && Boolean(userQuery.data?.role !== 'owner');
+  const sectionsVisible =
+    canManageAccess(currentUserQuery.data?.role) && userQuery.data?.role !== 'partner';
+  const statusVisible =
+    canManageAccess(currentUserQuery.data?.role) && userQuery.data?.role !== 'owner';
   const accessQuery = useQuery({
     queryKey: queryKeys.users.access(userId),
     queryFn: () => orgApi.getUserAccess(userId!),
@@ -202,10 +225,11 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       birth: user.birthDate ?? '',
     });
     setVacationNorm(user.vacationAllowance ?? 28);
+    setSectionDraft(user.sectionAccess ?? defaultEmployeeSections);
   }, [open, user, primaryPosition?.id]);
 
   useEffect(() => {
-    setAccessOpen(false);
+    setActiveTab('schedule');
     setCustomAccessPassword('');
   }, [userId]);
 
@@ -269,6 +293,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
           status: user.status,
           positionIds:
             profileDraft.positionId === NO_POSITION_VALUE ? [] : [profileDraft.positionId],
+          sectionAccess: user.role === 'employee' ? sectionDraft : undefined,
         }),
         scheduleApi.saveSchedule({ userId: user.id, template }),
       ]);
@@ -315,6 +340,22 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       toast.error(error instanceof Error ? error.message : 'Не удалось удалить сотрудника'),
   });
 
+  const statusMutation = useMutation({
+    mutationFn: (status: User['status']) => {
+      if (!user) throw new Error('Сотрудник не выбран');
+      return orgApi.updateUser({ id: user.id, status });
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(queryKeys.users.byId(updated.id), updated);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      toast.success(
+        updated.status === 'deactivated' ? 'Сотрудник деактивирован' : 'Доступ восстановлен',
+      );
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось изменить статус сотрудника'),
+  });
+
   const addVacation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error('Сотрудник не выбран');
@@ -343,6 +384,15 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       toast.error(error instanceof Error ? error.message : 'Не удалось добавить отпуск'),
   });
 
+  const tabs: Array<{ id: EmployeeCardTab; label: string }> = [
+    { id: 'schedule', label: 'График' },
+    { id: 'profile', label: 'Профиль' },
+    { id: 'absence', label: 'Отсутствия' },
+    ...(accessVisible ? [{ id: 'login' as const, label: 'Вход' }] : []),
+    ...(sectionsVisible ? [{ id: 'sections' as const, label: 'Разделы' }] : []),
+    ...(statusVisible ? [{ id: 'status' as const, label: 'Статус' }] : []),
+  ];
+
   return (
     <>
       <Drawer
@@ -350,9 +400,9 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
         onOpenChange={(next) => !next && onClose()}
         title={user ? fullName(user) : 'Сотрудник'}
         description={user ? user.email : undefined}
-        size={view === 'center' ? 'employeeCenter' : 'employee'}
-        placement={view === 'center' ? 'center' : 'side'}
-        bodyClassName={cn('px-5 py-5', view === 'center' && 'grid gap-5 md:grid-cols-2 md:gap-x-8')}
+        size="employeeCenter"
+        placement="center"
+        bodyClassName="px-5 py-5"
         footerClassName="items-center justify-between"
         header={
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
@@ -365,75 +415,34 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 <div className="mt-0.5 truncate font-mono text-[13px] text-slate-500">
                   {user?.phone ?? user?.email ?? 'Загрузка данных'}
                 </div>
+                {user && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
+                    <Badge variant={userStatusVariants[user.status]}>
+                      {userStatusLabels[user.status]}
+                    </Badge>
+                    {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
+                    {primaryDepartment && <Badge variant="neutral">{primaryDepartment.name}</Badge>}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <div className="hidden rounded-md bg-surface-sunken p-1 sm:flex">
-                <button
-                  type="button"
-                  title="Показать справа"
-                  onClick={() => setView('side')}
-                  className={cn(
-                    'flex size-8 cursor-pointer items-center justify-center rounded-[7px] transition-colors',
-                    view === 'side'
-                      ? 'bg-surface text-primary-600 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-700',
-                  )}
-                >
-                  <PanelRight className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  title="Показать по центру"
-                  onClick={() => setView('center')}
-                  className={cn(
-                    'flex size-8 cursor-pointer items-center justify-center rounded-[7px] transition-colors',
-                    view === 'center'
-                      ? 'bg-surface text-primary-600 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-700',
-                  )}
-                >
-                  <Square className="size-4" />
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex size-8 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                aria-label="Закрыть"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              aria-label="Закрыть"
+            >
+              <X className="size-5" />
+            </button>
           </div>
         }
         footer={
           user && (
             <>
-              <div className="mr-auto flex items-center gap-2">
-                <Button
-                  variant={user.status === 'deactivated' ? 'secondary' : 'danger'}
-                  onClick={() => setEditOpen(true)}
-                >
-                  {user.status === 'deactivated' ? 'Восстановить' : 'Уволить'}
-                </Button>
-                {user.source !== 'amo' && (
-                  <Button
-                    variant="danger"
-                    onClick={() => {
-                      if (
-                        confirm(`Удалить сотрудника ${fullName(user)}? Это действие необратимо.`)
-                      ) {
-                        deleteMutation.mutate();
-                      }
-                    }}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="size-4" />
-                    {deleteMutation.isPending ? 'Удаляю' : 'Удалить'}
-                  </Button>
-                )}
-              </div>
+              <span className="mr-auto text-xs text-slate-500">
+                Изменения профиля, графика и разделов сохраняются вместе
+              </span>
               <Button
                 onClick={() => {
                   if (!isValidPhone(profileDraft.phone)) {
@@ -475,65 +484,98 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
 
         {user && (
           <>
-            <div className="flex flex-col gap-5">
-              {user.status === 'deactivated' && (
-                <div className="rounded-md border border-danger-100 bg-danger-50 px-3 py-2 text-sm font-semibold text-danger-700">
-                  Сотрудник деактивирован. Чтобы вернуть доступ, откройте редактирование и смените
-                  статус.
-                </div>
+            {user.status === 'deactivated' && (
+              <div className="mb-4 rounded-md border border-danger-100 bg-danger-50 px-3 py-2 text-sm font-semibold text-danger-700">
+                Сотрудник деактивирован и не может войти в систему.
+              </div>
+            )}
+
+            <div
+              role="tablist"
+              aria-label="Разделы карточки сотрудника"
+              className="mb-5 flex gap-1 overflow-x-auto rounded-md bg-surface-sunken p-1"
+            >
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  id={`employee-tab-trigger-${tab.id}`}
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={`employee-tab-${tab.id}`}
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  onClick={() => setActiveTab(tab.id)}
+                  onKeyDown={(event) => {
+                    const currentIndex = tabs.findIndex((item) => item.id === tab.id);
+                    const nextIndex =
+                      event.key === 'ArrowRight'
+                        ? (currentIndex + 1) % tabs.length
+                        : event.key === 'ArrowLeft'
+                          ? (currentIndex - 1 + tabs.length) % tabs.length
+                          : event.key === 'Home'
+                            ? 0
+                            : event.key === 'End'
+                              ? tabs.length - 1
+                              : currentIndex;
+                    if (nextIndex === currentIndex) return;
+                    event.preventDefault();
+                    setActiveTab(tabs[nextIndex].id);
+                    document.getElementById(`employee-tab-trigger-${tabs[nextIndex].id}`)?.focus();
+                  }}
+                  className={cn(
+                    'shrink-0 cursor-pointer rounded-[9px] px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary-600',
+                    activeTab === tab.id
+                      ? 'bg-surface text-primary-600 shadow-[0_1px_2px_rgba(10,19,20,0.08)]'
+                      : 'text-slate-500 hover:text-slate-700',
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div
+              id={`employee-tab-${activeTab}`}
+              role="tabpanel"
+              aria-labelledby={`employee-tab-trigger-${activeTab}`}
+              tabIndex={0}
+              className="flex flex-col gap-5"
+            >
+              {activeTab === 'profile' && (
+                <PanelSection title="Профиль сотрудника">
+                  <PanelInput
+                    label="Имя"
+                    value={profileDraft.fullName}
+                    onChange={(value) =>
+                      setProfileDraft((draft) => ({ ...draft, fullName: value }))
+                    }
+                  />
+                  <Select
+                    label="Должность"
+                    options={positionOptions}
+                    value={profileDraft.positionId}
+                    onValueChange={(positionId) =>
+                      setProfileDraft((draft) => ({ ...draft, positionId }))
+                    }
+                  />
+                  <PanelInput
+                    label="Телефон"
+                    value={profileDraft.phone}
+                    placeholder="+7 900 000-00-00"
+                    error={phoneError}
+                    onChange={(value) => {
+                      setProfileDraft((draft) => ({ ...draft, phone: value }));
+                      setPhoneError(undefined);
+                    }}
+                  />
+                  <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
+                    <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />
+                    <span>Фото подтягивается автоматически из amoCRM</span>
+                  </div>
+                </PanelSection>
               )}
 
-              <PanelSection
-                title="Профиль сотрудника"
-                action={
-                  accessVisible ? (
-                    <AccessToggle
-                      mode={accessQuery.data?.mode ?? 'none'}
-                      loading={accessQuery.isPending}
-                      open={accessOpen}
-                      onClick={() => setAccessOpen((value) => !value)}
-                    />
-                  ) : undefined
-                }
-              >
-                <PanelInput
-                  label="Имя"
-                  value={profileDraft.fullName}
-                  onChange={(value) => setProfileDraft((draft) => ({ ...draft, fullName: value }))}
-                />
-                <Select
-                  label="Должность"
-                  options={positionOptions}
-                  value={profileDraft.positionId}
-                  onValueChange={(positionId) =>
-                    setProfileDraft((draft) => ({ ...draft, positionId }))
-                  }
-                />
-                <PanelInput
-                  label="Телефон"
-                  value={profileDraft.phone}
-                  placeholder="+7 900 000-00-00"
-                  error={phoneError}
-                  onChange={(value) => {
-                    setProfileDraft((draft) => ({ ...draft, phone: value }));
-                    setPhoneError(undefined);
-                  }}
-                />
-                <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
-                  <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />
-                  <span>Фото подтягивается автоматически из amoCRM</span>
-                </div>
-                <div className="flex flex-wrap gap-2 pt-0.5">
-                  <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
-                  <Badge variant={userStatusVariants[user.status]}>
-                    {userStatusLabels[user.status]}
-                  </Badge>
-                  {user.source === 'amo' && <Badge variant="warning">amoCRM</Badge>}
-                  {primaryDepartment && <Badge variant="neutral">{primaryDepartment.name}</Badge>}
-                </div>
-              </PanelSection>
-
-              {accessVisible && accessOpen && (
+              {activeTab === 'login' && accessVisible && (
                 <EmployeeAccessSection
                   user={user}
                   access={accessQuery.data}
@@ -543,192 +585,220 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 />
               )}
 
-              <PanelSection title="Рабочий шаблон">
-                <p className="text-[13px] leading-relaxed text-slate-500">
-                  Выберите базовый режим, который будет применён к календарю сотрудника.
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <ScheduleModeCard
-                    active={scheduleType === 'week'}
-                    onClick={() => setScheduleType('week')}
-                    badge="5/2"
-                    title="Рабочая неделя"
-                    description="Настройка дней недели вручную"
-                  />
-                  <ScheduleModeCard
-                    active={scheduleType === 'cycle'}
-                    onClick={() => setScheduleType('cycle')}
-                    badge={scheduleType === 'cycle' ? `${cycleDraft.on}/${cycleDraft.off}` : '2/2'}
-                    title="Сменный график"
-                    description="Цикл рабочих и выходных дней"
-                  />
-                </div>
-                {scheduleType === 'week' ? (
-                  <WeekTemplateEditor draft={weekDraft} onChange={setWeekDraft} />
-                ) : (
-                  <CycleTemplateEditor
-                    draft={cycleDraft}
-                    onChange={setCycleDraft}
-                    ym={cycleYm}
-                    onYmChange={setCycleYm}
-                    todayYear={now.getFullYear()}
-                    todayMonth={now.getMonth() + 1}
-                  />
-                )}
-              </PanelSection>
-            </div>
+              {activeTab === 'sections' && sectionsVisible && (
+                <EmployeeSectionsSection
+                  user={user}
+                  value={sectionDraft}
+                  onChange={setSectionDraft}
+                />
+              )}
 
-            <div className="flex flex-col gap-5">
-              <PanelSection title="Важные даты">
-                <PanelInput
-                  label="Дата найма"
-                  value={profileDraft.hire}
-                  type="date"
-                  placeholder="дд.мм.гггг"
-                  icon={<Calendar className="size-4" />}
-                  onChange={(value) => setProfileDraft((draft) => ({ ...draft, hire: value }))}
+              {activeTab === 'status' && statusVisible && (
+                <EmployeeStatusSection
+                  user={user}
+                  statusPending={statusMutation.isPending}
+                  deletePending={deleteMutation.isPending}
+                  onStatusChange={(status) => statusMutation.mutate(status)}
+                  onDelete={() => deleteMutation.mutate()}
                 />
-                <InfoRow
-                  icon={<span className="text-lg leading-none">🎉</span>}
-                  text={
-                    profileDraft.hire && hiredYears !== undefined
-                      ? `Стаж: ${hiredYears} ${pluralRu(hiredYears, 'год', 'года', 'лет')}. Годовщина — ${formatHumanDate(profileDraft.hire)}.`
-                      : 'Дата найма пока не указана.'
-                  }
-                />
-                <PanelInput
-                  label="Дата рождения"
-                  value={profileDraft.birth}
-                  type="date"
-                  placeholder="дд.мм.гггг"
-                  icon={<Calendar className="size-4" />}
-                  onChange={(value) => setProfileDraft((draft) => ({ ...draft, birth: value }))}
-                />
-                <InfoRow
-                  icon={<span className="text-lg leading-none">🎂</span>}
-                  text={
-                    profileDraft.birth && age !== undefined
-                      ? `День рождения — ${formatHumanDate(profileDraft.birth)}. Исполнится ${age + 1}.`
-                      : 'Дата рождения пока не указана.'
-                  }
-                />
-              </PanelSection>
+              )}
 
-              <PanelSection title="Отпуска">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-700">Базовая норма:</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={60}
-                    step={1}
-                    value={vacationNorm}
-                    onChange={(event) => setVacationNorm(clampVacationNorm(event.target.value))}
-                    className="h-10 w-16 rounded-md border border-slate-200 bg-surface px-3 text-center font-mono text-sm font-semibold text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
-                  />
-                  <span className="text-sm text-slate-500">дней в год</span>
-                </div>
-                <VacationLedger rows={vacationLedgerRows} currentYear={now.getFullYear()} />
-                <div className="flex gap-2">
-                  {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((year) => (
-                    <button
-                      type="button"
-                      onClick={() => setVacationYear(year)}
-                      key={year}
-                      className={cn(
-                        'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold',
-                        year === vacationYear
-                          ? 'border-primary-600 bg-primary-600 text-white'
-                          : 'border-slate-200 bg-surface text-slate-500',
-                      )}
-                    >
-                      {year}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-600">
-                  <span>
-                    🌴 {vacationYear}: использовано{' '}
-                    <b className="font-mono text-ink">{selectedVacationRow.used}</b> из{' '}
-                    {selectedVacationRow.available} дн
-                    {selectedVacationRow.carry ? (
-                      <span className="text-slate-500">
-                        {' '}
-                        (норма {selectedVacationRow.norm} + перенос {selectedVacationRow.carry})
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="h-1.5 w-10 rounded-full bg-slate-200">
-                    <span
-                      className="block h-full rounded-full bg-primary-600"
-                      style={{
-                        width: `${Math.min(100, selectedVacationRow.available ? (selectedVacationRow.used / selectedVacationRow.available) * 100 : 0)}%`,
-                      }}
+              {activeTab === 'schedule' && (
+                <PanelSection title="Рабочий шаблон">
+                  <p className="text-[13px] leading-relaxed text-slate-500">
+                    Выберите базовый режим, который будет применён к календарю сотрудника.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <ScheduleModeCard
+                      active={scheduleType === 'week'}
+                      onClick={() => setScheduleType('week')}
+                      badge="5/2"
+                      title="Рабочая неделя"
+                      description="Настройка дней недели вручную"
                     />
-                  </span>
-                </div>
-                {vacationRanges.length ? (
-                  <VacationRangeList ranges={vacationRanges} year={vacationYear} />
-                ) : (
-                  <div className="py-3 text-center text-sm text-slate-500">
-                    За {vacationYear} год отпусков нет
+                    <ScheduleModeCard
+                      active={scheduleType === 'cycle'}
+                      onClick={() => setScheduleType('cycle')}
+                      badge={
+                        scheduleType === 'cycle' ? `${cycleDraft.on}/${cycleDraft.off}` : '2/2'
+                      }
+                      title="Сменный график"
+                      description="Цикл рабочих и выходных дней"
+                    />
                   </div>
-                )}
-                <div className="text-sm font-semibold text-slate-700">
-                  Запланировать новый отпуск
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <PanelInput
-                    value={vacationDraft.from}
-                    type="date"
-                    placeholder="дд.мм.гггг"
-                    icon={<Calendar className="size-4" />}
-                    onChange={(value) => setVacationDraft((draft) => ({ ...draft, from: value }))}
-                  />
-                  <PanelInput
-                    value={vacationDraft.to}
-                    type="date"
-                    placeholder="дд.мм.гггг"
-                    icon={<Calendar className="size-4" />}
-                    onChange={(value) => setVacationDraft((draft) => ({ ...draft, to: value }))}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addVacation.mutate()}
-                  disabled={addVacation.isPending}
-                  className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-semibold text-slate-700 transition-colors hover:border-primary-200 hover:text-primary-600"
-                >
-                  <Plus className="size-4" />
-                  {addVacation.isPending ? 'Добавляю' : 'Добавить в график'}
-                </button>
-              </PanelSection>
+                  {scheduleType === 'week' ? (
+                    <WeekTemplateEditor draft={weekDraft} onChange={setWeekDraft} />
+                  ) : (
+                    <CycleTemplateEditor
+                      draft={cycleDraft}
+                      onChange={setCycleDraft}
+                      ym={cycleYm}
+                      onYmChange={setCycleYm}
+                      todayYear={now.getFullYear()}
+                      todayMonth={now.getMonth() + 1}
+                    />
+                  )}
+                </PanelSection>
+              )}
 
-              <PanelSection title="Больничные и командировки">
-                <button
-                  type="button"
-                  onClick={() => setAbsenceOpen(true)}
-                  className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-surface px-3 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="text-lg">😉</span>
-                    <span className="text-lg">✈️</span>
-                    <span className="block text-sm font-semibold text-ink">
-                      Открыть сводку по годам
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+              {activeTab === 'profile' && (
+                <PanelSection title="Важные даты">
+                  <PanelInput
+                    label="Дата найма"
+                    value={profileDraft.hire}
+                    type="date"
+                    placeholder="дд.мм.гггг"
+                    icon={<Calendar className="size-4" />}
+                    onChange={(value) => setProfileDraft((draft) => ({ ...draft, hire: value }))}
+                  />
+                  <InfoRow
+                    icon={<span className="text-lg leading-none">🎉</span>}
+                    text={
+                      profileDraft.hire && hiredYears !== undefined
+                        ? `Стаж: ${hiredYears} ${pluralRu(hiredYears, 'год', 'года', 'лет')}. Годовщина — ${formatHumanDate(profileDraft.hire)}.`
+                        : 'Дата найма пока не указана.'
+                    }
+                  />
+                  <PanelInput
+                    label="Дата рождения"
+                    value={profileDraft.birth}
+                    type="date"
+                    placeholder="дд.мм.гггг"
+                    icon={<Calendar className="size-4" />}
+                    onChange={(value) => setProfileDraft((draft) => ({ ...draft, birth: value }))}
+                  />
+                  <InfoRow
+                    icon={<span className="text-lg leading-none">🎂</span>}
+                    text={
+                      profileDraft.birth && age !== undefined
+                        ? `День рождения — ${formatHumanDate(profileDraft.birth)}. Исполнится ${age + 1}.`
+                        : 'Дата рождения пока не указана.'
+                    }
+                  />
+                </PanelSection>
+              )}
+
+              {activeTab === 'absence' && (
+                <PanelSection title="Отпуска">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-700">Базовая норма:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={60}
+                      step={1}
+                      value={vacationNorm}
+                      onChange={(event) => setVacationNorm(clampVacationNorm(event.target.value))}
+                      className="h-10 w-16 rounded-md border border-slate-200 bg-surface px-3 text-center font-mono text-sm font-semibold text-ink focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
+                    />
+                    <span className="text-sm text-slate-500">дней в год</span>
+                  </div>
+                  <VacationLedger rows={vacationLedgerRows} currentYear={now.getFullYear()} />
+                  <div className="flex gap-2">
+                    {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(
+                      (year) => (
+                        <button
+                          type="button"
+                          onClick={() => setVacationYear(year)}
+                          key={year}
+                          className={cn(
+                            'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold',
+                            year === vacationYear
+                              ? 'border-primary-600 bg-primary-600 text-white'
+                              : 'border-slate-200 bg-surface text-slate-500',
+                          )}
+                        >
+                          {year}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-600">
                     <span>
-                      😉 <span className="font-mono">{sickDays.length}</span>
+                      🌴 {vacationYear}: использовано{' '}
+                      <b className="font-mono text-ink">{selectedVacationRow.used}</b> из{' '}
+                      {selectedVacationRow.available} дн
+                      {selectedVacationRow.carry ? (
+                        <span className="text-slate-500">
+                          {' '}
+                          (норма {selectedVacationRow.norm} + перенос {selectedVacationRow.carry})
+                        </span>
+                      ) : null}
                     </span>
-                    <span>
-                      ✈️ <span className="font-mono">{trips.length}</span>
+                    <span className="h-1.5 w-10 rounded-full bg-slate-200">
+                      <span
+                        className="block h-full rounded-full bg-primary-600"
+                        style={{
+                          width: `${Math.min(100, selectedVacationRow.available ? (selectedVacationRow.used / selectedVacationRow.available) * 100 : 0)}%`,
+                        }}
+                      />
                     </span>
-                    <span className="text-xs text-slate-400">за {now.getFullYear()}</span>
-                    <ChevronRight className="size-4 text-slate-400" />
-                  </span>
-                </button>
-              </PanelSection>
+                  </div>
+                  {vacationRanges.length ? (
+                    <VacationRangeList ranges={vacationRanges} year={vacationYear} />
+                  ) : (
+                    <div className="py-3 text-center text-sm text-slate-500">
+                      За {vacationYear} год отпусков нет
+                    </div>
+                  )}
+                  <div className="text-sm font-semibold text-slate-700">
+                    Запланировать новый отпуск
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <PanelInput
+                      value={vacationDraft.from}
+                      type="date"
+                      placeholder="дд.мм.гггг"
+                      icon={<Calendar className="size-4" />}
+                      onChange={(value) => setVacationDraft((draft) => ({ ...draft, from: value }))}
+                    />
+                    <PanelInput
+                      value={vacationDraft.to}
+                      type="date"
+                      placeholder="дд.мм.гггг"
+                      icon={<Calendar className="size-4" />}
+                      onChange={(value) => setVacationDraft((draft) => ({ ...draft, to: value }))}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addVacation.mutate()}
+                    disabled={addVacation.isPending}
+                    className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-semibold text-slate-700 transition-colors hover:border-primary-200 hover:text-primary-600"
+                  >
+                    <Plus className="size-4" />
+                    {addVacation.isPending ? 'Добавляю' : 'Добавить в график'}
+                  </button>
+                </PanelSection>
+              )}
+
+              {activeTab === 'absence' && (
+                <PanelSection title="Больничные и командировки">
+                  <button
+                    type="button"
+                    onClick={() => setAbsenceOpen(true)}
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-slate-200 bg-surface px-3 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="text-lg">😉</span>
+                      <span className="text-lg">✈️</span>
+                      <span className="block text-sm font-semibold text-ink">
+                        Открыть сводку по годам
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                      <span>
+                        😉 <span className="font-mono">{sickDays.length}</span>
+                      </span>
+                      <span>
+                        ✈️ <span className="font-mono">{trips.length}</span>
+                      </span>
+                      <span className="text-xs text-slate-400">за {now.getFullYear()}</span>
+                      <ChevronRight className="size-4 text-slate-400" />
+                    </span>
+                  </button>
+                </PanelSection>
+              )}
             </div>
           </>
         )}
@@ -744,8 +814,6 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
           trips={trips}
         />
       )}
-
-      <EmployeeEditModal user={user ?? null} open={editOpen} onClose={() => setEditOpen(false)} />
     </>
   );
 }
@@ -756,48 +824,184 @@ const accessLabels = {
   link: 'По ссылке',
 } as const;
 
-function AccessToggle({
-  mode,
-  loading,
-  open,
-  onClick,
+function EmployeeSectionsSection({
+  user,
+  value,
+  onChange,
 }: {
-  mode: EmployeeAccessMode;
-  loading: boolean;
-  open: boolean;
-  onClick: () => void;
+  user: User;
+  value: EmployeeSection[];
+  onChange: (value: EmployeeSection[]) => void;
 }) {
-  const Icon = mode === 'password' ? KeyRound : mode === 'link' ? Link2 : LockKeyhole;
-  const label = loading ? 'Загрузка режима доступа' : accessLabels[mode];
+  const editable = user.role === 'employee';
+  const selected = editable ? value : employeeSectionOptions.map((section) => section.id);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={open}
-      aria-label={`${label}. ${open ? 'Скрыть' : 'Показать'} настройки доступа`}
-      title={`${label} — ${open ? 'скрыть' : 'показать'} настройки`}
-      className={cn(
-        'flex size-8 cursor-pointer items-center justify-center rounded-md border transition-colors',
-        mode === 'none'
-          ? 'border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300 hover:text-slate-600'
-          : mode === 'password'
-            ? 'border-primary-200 bg-primary-50 text-primary-600 hover:border-primary-300'
-            : 'border-success-200 bg-success-50 text-success-700 hover:border-success-300',
-        open && 'ring-2 ring-primary-100',
-        loading && 'animate-pulse',
+    <PanelSection title="Доступ к разделам">
+      <p className="text-sm leading-relaxed text-slate-500">
+        {editable
+          ? 'Выберите разделы, которые сотрудник увидит в меню и сможет открыть по прямой ссылке.'
+          : 'Владельцу и администратору всегда доступны все разделы системы.'}
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {employeeSectionOptions.map((section) => {
+          const checked = selected.includes(section.id);
+          return (
+            <label
+              key={section.id}
+              className={cn(
+                'flex gap-3 rounded-md border p-3 transition-colors',
+                editable ? 'cursor-pointer' : 'cursor-default',
+                checked ? 'border-primary-200 bg-primary-50' : 'border-slate-200 bg-surface',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={!editable || (checked && value.length === 1)}
+                onChange={(event) =>
+                  onChange(
+                    event.target.checked
+                      ? [...value, section.id]
+                      : value.filter((item) => item !== section.id),
+                  )
+                }
+                className="mt-0.5 size-4 accent-primary-600"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-ink">{section.label}</span>
+                <span className="mt-1 block text-xs leading-relaxed text-slate-500">
+                  {section.description}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+        {!editable &&
+          [
+            {
+              label: 'Контроль активности',
+              description: 'Мониторинг работы сотрудников и уведомления об активности.',
+            },
+            {
+              label: 'Автопоиск дубликатов',
+              description: 'Поиск и обработка дублей данных amoCRM.',
+            },
+          ].map((section) => (
+            <div
+              key={section.label}
+              className="flex gap-3 rounded-md border border-primary-200 bg-primary-50 p-3"
+            >
+              <input
+                type="checkbox"
+                checked
+                disabled
+                aria-label={`${section.label}: доступно по роли`}
+                className="mt-0.5 size-4 accent-primary-600"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-ink">{section.label}</span>
+                <span className="mt-1 block text-xs leading-relaxed text-slate-500">
+                  {section.description}
+                </span>
+              </span>
+            </div>
+          ))}
+      </div>
+      {editable && (
+        <p className="text-xs text-slate-500">
+          У сотрудника должен оставаться хотя бы один рабочий раздел.
+        </p>
       )}
-    >
-      <Icon className="size-4" />
-    </button>
+      {(user.role === 'owner' || user.role === 'admin') && (
+        <p className="text-xs text-slate-500">
+          Этот набор закреплён за ролью и не требует индивидуальной настройки.
+        </p>
+      )}
+    </PanelSection>
   );
 }
 
-function updateEmployeeAccessCache(
-  queryClient: QueryClient,
-  userId: ID,
-  access: EmployeeAccess,
-) {
+function EmployeeStatusSection({
+  user,
+  statusPending,
+  deletePending,
+  onStatusChange,
+  onDelete,
+}: {
+  user: User;
+  statusPending: boolean;
+  deletePending: boolean;
+  onStatusChange: (status: User['status']) => void;
+  onDelete: () => void;
+}) {
+  const deactivated = user.status === 'deactivated';
+  const changeStatus = () => {
+    const action = deactivated ? 'восстановить доступ' : 'деактивировать сотрудника';
+    if (confirm(`Вы уверены, что хотите ${action}?`)) {
+      onStatusChange(deactivated ? 'active' : 'deactivated');
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <PanelSection title="Доступ сотрудника к системе">
+        <div className="flex items-center justify-between gap-4 rounded-md bg-slate-50 p-4">
+          <div>
+            <p className="text-sm font-semibold text-ink">
+              {deactivated ? 'Сотрудник деактивирован' : 'Сотрудник активен'}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              {deactivated
+                ? 'Вход и активные сессии недоступны. Профиль и история сохранены.'
+                : 'Деактивация закроет вход, но сохранит профиль, график и историю работы.'}
+            </p>
+          </div>
+          <Badge variant={deactivated ? 'danger' : 'success'}>
+            {deactivated ? 'Нет доступа' : 'Активен'}
+          </Badge>
+        </div>
+        <Button
+          variant={deactivated ? 'secondary' : 'danger'}
+          loading={statusPending}
+          onClick={changeStatus}
+        >
+          {deactivated ? 'Восстановить сотрудника' : 'Деактивировать сотрудника'}
+        </Button>
+      </PanelSection>
+
+      <PanelSection title="Удаление профиля">
+        {user.source === 'amo' ? (
+          <p className="rounded-md bg-warning-50 px-3 py-3 text-sm leading-relaxed text-warning-700">
+            Сотрудник импортирован из amoCRM, поэтому удалить его в TeamOS нельзя. Профиль исчезнет
+            после удаления сотрудника в amoCRM и следующей синхронизации.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm leading-relaxed text-slate-500">
+              Локально созданного сотрудника можно удалить безвозвратно. Сначала деактивируйте его,
+              если хотите сохранить профиль и историю.
+            </p>
+            <Button
+              variant="danger"
+              loading={deletePending}
+              onClick={() => {
+                if (confirm(`Удалить сотрудника ${fullName(user)}? Это действие необратимо.`)) {
+                  onDelete();
+                }
+              }}
+            >
+              <Trash2 className="size-4" />
+              Удалить сотрудника
+            </Button>
+          </>
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
+function updateEmployeeAccessCache(queryClient: QueryClient, userId: ID, access: EmployeeAccess) {
   queryClient.setQueryData(queryKeys.users.access(userId), access);
   queryClient.setQueryData<User>(queryKeys.users.byId(userId), (cachedUser) =>
     cachedUser ? { ...cachedUser, accessMode: access.mode } : cachedUser,

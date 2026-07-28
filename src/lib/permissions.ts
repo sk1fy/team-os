@@ -1,12 +1,25 @@
-import type { UserRole } from '@/types';
+import type { EmployeeSection, UserRole } from '@/types';
 import { canAccessAcademyPath } from '@/lib/academy/routes';
 import { isAcademyV2Enabled } from '@/lib/academy/featureFlag';
 
 export const employeeHomePath = '/schedule';
 
 /** A destination that is guaranteed to be available to the role. */
-export function safeHomePath(role: UserRole | undefined): string {
-  if (role === 'employee') return employeeHomePath;
+export const defaultEmployeeSections: EmployeeSection[] = ['schedule', 'knowledge', 'academy'];
+
+export function safeHomePath(
+  role: UserRole | undefined,
+  sectionAccess?: EmployeeSection[],
+): string {
+  if (role === 'employee') {
+    const sections = sectionAccess ?? defaultEmployeeSections;
+    const firstAvailable = sections[0];
+    if (firstAvailable === 'knowledge') return '/knowledge';
+    if (firstAvailable === 'academy') return '/academy';
+    if (firstAvailable === 'distribution') return '/distribution';
+    if (firstAvailable === 'schedule') return employeeHomePath;
+    return '/settings';
+  }
   if (role === 'partner') return '/academy';
   if (role === 'owner' || role === 'admin') return '/';
   return '/auth/login';
@@ -19,11 +32,12 @@ export function safeHomePath(role: UserRole | undefined): string {
 export function resolvePostLoginPath(
   role: UserRole | undefined,
   requestedPath?: string,
+  sectionAccess?: EmployeeSection[],
 ): string {
-  if (requestedPath && canAccessRoute(role, requestedPath)) {
+  if (requestedPath && canAccessRoute(role, requestedPath, sectionAccess)) {
     return requestedPath;
   }
-  return safeHomePath(role);
+  return safeHomePath(role, sectionAccess);
 }
 
 /** Explicit module matrix — never “allow all if not employee”. */
@@ -66,7 +80,8 @@ export function moduleForPath(pathname: string): AppModule | null {
   if (pathname.startsWith('/schedule')) return 'schedule';
   if (pathname.startsWith('/tasks')) return 'tasks';
   if (pathname.startsWith('/distribution')) return 'distribution';
-  if (pathname.startsWith('/knowledge') || pathname.startsWith('/share/article/')) return 'knowledge';
+  if (pathname.startsWith('/knowledge') || pathname.startsWith('/share/article/'))
+    return 'knowledge';
   if (
     pathname.startsWith('/academy') ||
     pathname.startsWith('/learn') ||
@@ -109,18 +124,48 @@ function matchesPrefixList(pathname: string, routes: readonly string[]): boolean
  * Route-level access. Partner and employee use explicit matrices;
  * owner/admin get full product access (integrations still gated separately).
  */
-export function canAccessRoute(role: UserRole | undefined, pathname: string) {
+export function canAccessRoute(
+  role: UserRole | undefined,
+  pathname: string,
+  sectionAccess?: EmployeeSection[],
+) {
   if (!role) return false;
 
   if (role === 'owner' || role === 'admin') return true;
 
   if (role === 'employee') {
+    const allowedSections = sectionAccess ?? defaultEmployeeSections;
+    if (pathname === '/distribution' || pathname.startsWith('/distribution/')) {
+      return allowedSections.includes('distribution');
+    }
     // Keep legacy experimental academy routes until cutover.
     if (!isAcademyV2Enabled()) {
-      return matchesPrefixList(pathname, legacyEmployeeRoutes);
+      if (!matchesPrefixList(pathname, legacyEmployeeRoutes)) return false;
+      if (
+        pathname.startsWith('/academy') ||
+        pathname.startsWith('/learn') ||
+        pathname.startsWith('/academy-opus') ||
+        pathname.startsWith('/academy-grok') ||
+        pathname.startsWith('/learn-opus') ||
+        pathname.startsWith('/learn-grok')
+      ) {
+        return allowedSections.includes('academy');
+      }
+      if (pathname.startsWith('/schedule')) return allowedSections.includes('schedule');
+      if (pathname.startsWith('/knowledge') || pathname.startsWith('/share/article/')) {
+        return allowedSections.includes('knowledge');
+      }
+      return true;
     }
     const module = moduleForPath(pathname);
-    if (!module || !canAccessModule(role, module)) return false;
+    if (!module) return false;
+    if (module === 'schedule' || module === 'knowledge' || module === 'academy') {
+      if (!allowedSections.includes(module)) return false;
+    } else if (module === 'distribution') {
+      return allowedSections.includes('distribution');
+    } else if (!canAccessModule(role, module)) {
+      return false;
+    }
     if (module === 'academy') {
       // Employee may still open legacy experiment paths until Phase 9 cutover.
       if (

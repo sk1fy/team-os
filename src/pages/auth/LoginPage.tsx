@@ -42,7 +42,11 @@ export function LoginPage() {
           from?: { pathname?: string; search?: string; hash?: string };
         } | null
       )?.from;
-      const pathname = resolvePostLoginPath(session.user.role, from?.pathname);
+      const pathname = resolvePostLoginPath(
+        session.user.role,
+        from?.pathname,
+        session.user.sectionAccess,
+      );
       const isAllowedReturnPath = from?.pathname === pathname;
       navigate(
         isAllowedReturnPath ? `${pathname}${from?.search ?? ''}${from?.hash ?? ''}` : pathname,

@@ -31,7 +31,7 @@ describe('источник сотрудников', () => {
     const result = expect(orgApi.deleteUser('user-3')).rejects.toMatchObject({
       status: 400,
       message:
-        'Нельзя удалить пользователя, импортированного из amoCRM. Сначала отключите интеграцию.',
+        'Нельзя удалить пользователя, импортированного из amoCRM. Удалите его в amoCRM и дождитесь синхронизации.',
     });
     await vi.runAllTimersAsync();
     await result;

@@ -72,6 +72,31 @@ describe('permissions', () => {
     expect(resolvePostLoginPath('employee', '/')).toBe('/schedule');
     expect(resolvePostLoginPath('owner', '/')).toBe('/');
   });
+
+  it('применяет индивидуальный набор разделов сотрудника к меню и прямым ссылкам', () => {
+    const scheduleOnly = ['schedule'] as const;
+    expect(canAccessRoute('employee', '/schedule', [...scheduleOnly])).toBe(true);
+    expect(canAccessRoute('employee', '/knowledge', [...scheduleOnly])).toBe(false);
+    expect(canAccessRoute('employee', '/share/article/a-1', [...scheduleOnly])).toBe(false);
+    expect(canAccessRoute('employee', '/academy', [...scheduleOnly])).toBe(false);
+    expect(canAccessRoute('employee', '/learn/enrollment-1', [...scheduleOnly])).toBe(false);
+    expect(canAccessRoute('employee', '/distribution', [...scheduleOnly])).toBe(false);
+    expect(canAccessRoute('employee', '/settings', [...scheduleOnly])).toBe(true);
+  });
+
+  it('разрешает сотруднику явно выданное распределение и выбирает доступный home', () => {
+    expect(canAccessRoute('employee', '/distribution/group-1', ['distribution'])).toBe(true);
+    expect(safeHomePath('employee', ['distribution'])).toBe('/distribution');
+    expect(safeHomePath('employee', [])).toBe('/settings');
+    expect(resolvePostLoginPath('employee', '/schedule', ['academy'])).toBe('/academy');
+  });
+
+  it('не применяет индивидуальный набор к владельцу, администратору и партнёру', () => {
+    expect(canAccessRoute('owner', '/activity-control', [])).toBe(true);
+    expect(canAccessRoute('admin', '/duplicate-search', [])).toBe(true);
+    expect(canAccessRoute('partner', '/academy', [])).toBe(true);
+    expect(canAccessRoute('partner', '/distribution', ['distribution'])).toBe(false);
+  });
 });
 
 describe('module matrix', () => {

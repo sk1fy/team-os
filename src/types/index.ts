@@ -38,6 +38,7 @@ export type UserRole = 'owner' | 'admin' | 'employee' | 'partner';
 export type UserStatus = 'active' | 'invited' | 'deactivated';
 export type UserSource = 'local' | 'amo';
 export type EmployeeAccessMode = 'none' | 'password' | 'link';
+export type EmployeeSection = 'schedule' | 'knowledge' | 'academy' | 'distribution';
 
 export interface EmployeeAccess {
   mode: EmployeeAccessMode;
@@ -66,6 +67,11 @@ export interface User {
   source?: UserSource;
   /** Способ входа сотрудника, если доступ уже выдан владельцем. */
   accessMode?: EmployeeAccessMode;
+  /**
+   * Доступные продуктовые разделы для роли employee.
+   * Для owner/admin используется полный доступ, для partner — собственная ролевая матрица.
+   */
+  sectionAccess?: EmployeeSection[];
   createdAt: ISODate;
 }
 

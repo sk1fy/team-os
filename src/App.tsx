@@ -325,8 +325,8 @@ function RequireModule({ children }: { children: ReactNode }) {
     queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
-  if (currentUser && !canAccessRoute(currentUser.role, pathname)) {
-    return <AccessDenied homePath={safeHomePath(currentUser.role)} />;
+  if (currentUser && !canAccessRoute(currentUser.role, pathname, currentUser.sectionAccess)) {
+    return <AccessDenied homePath={safeHomePath(currentUser.role, currentUser.sectionAccess)} />;
   }
   return children;
 }
