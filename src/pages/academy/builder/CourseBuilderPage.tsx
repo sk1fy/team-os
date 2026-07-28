@@ -644,6 +644,7 @@ export function CourseBuilderPage() {
   }, [course, dirty, draft, serverPublishIssues]);
 
   const openPublishDialog = () => {
+    if (!caps?.canPublish) return;
     publishIdempotencyKey.current = createId();
     setPublishVisibility(null);
     setServerPublishIssues([]);
@@ -810,11 +811,7 @@ export function CourseBuilderPage() {
             <Eye className="size-4" />
             Предпросмотр
           </Button>
-          <Button
-            size="sm"
-            disabled={!caps?.canPublish && caps !== null}
-            onClick={openPublishDialog}
-          >
+          <Button size="sm" disabled={!caps?.canPublish} onClick={openPublishDialog}>
             Опубликовать
           </Button>
         </div>
@@ -982,7 +979,7 @@ export function CourseBuilderPage() {
         open={publishOpen}
         onClose={closePublishDialog}
         onConfirm={() => {
-          if (!publishVisibility) return;
+          if (!caps?.canPublish || !publishVisibility) return;
           const key = publishIdempotencyKey.current ?? createId();
           publishIdempotencyKey.current = key;
           publish.mutate({ idempotencyKey: key, visibility: publishVisibility });

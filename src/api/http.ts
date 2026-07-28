@@ -72,6 +72,8 @@ export const httpAuthApi = {
     rememberSession(await publicRequest('/auth/login', 'POST', input)),
   loginWithAccessLink: async (token: string): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest(`/auth/access-link/${id(token)}`, 'POST')),
+  impersonateUser: async (userId: ID): Promise<AuthSession<User>> =>
+    rememberSession(await request('/auth/impersonate', 'POST', { userId })),
   refresh: async (): Promise<boolean> => refreshAccessToken<User>(),
   logout: async (): Promise<void> => {
     try {

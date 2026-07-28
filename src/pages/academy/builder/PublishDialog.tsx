@@ -1,14 +1,12 @@
 import { AlertTriangle, CircleAlert } from 'lucide-react';
 import { Button, Modal, Select } from '@/components/ui';
 import type { AcademyCourseDetail } from '@/types/academy';
+import {
+  getControlledPublishVisibilityValue,
+  getPublishVisibilityDescription,
+} from './publishDialogVisibility';
 
 type CourseVisibility = AcademyCourseDetail['visibility'];
-
-const visibilityLabels: Record<CourseVisibility, string> = {
-  restricted: 'Только по назначению',
-  company: 'Вся компания',
-  public: 'Публичный',
-};
 
 export interface PublishValidationIssue {
   severity: 'error' | 'warning';
@@ -80,7 +78,9 @@ export function PublishDialog({
               </>
             );
             return (
-              <li key={`${severity}-${issue.lessonId ?? issue.sectionId ?? index}-${issue.message}`}>
+              <li
+                key={`${severity}-${issue.lessonId ?? issue.sectionId ?? index}-${issue.message}`}
+              >
                 {(issue.lessonId || issue.sectionId) && onNavigateToIssue ? (
                   <button
                     type="button"
@@ -109,9 +109,7 @@ export function PublishDialog({
     >
       <div className="space-y-4 text-sm text-slate-600">
         <ul className="list-inside list-disc space-y-1">
-          <li>
-            Разделов: {sectionCount}
-          </li>
+          <li>Разделов: {sectionCount}</li>
           <li>Уроков: {lessonCount}</li>
           <li>Для следующих правок потребуется создать новый черновик</li>
           <li>Начатые прохождения не переключатся автоматически</li>
@@ -119,7 +117,7 @@ export function PublishDialog({
         <section className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <Select
             label="Кому будет доступен курс после публикации"
-            value={visibility ?? undefined}
+            value={getControlledPublishVisibilityValue(visibility)}
             disabled={loading}
             placeholder="Выберите режим доступа"
             onValueChange={(value) => onVisibilityChange(value as CourseVisibility)}
@@ -139,8 +137,7 @@ export function PublishDialog({
             ]}
           />
           <p className="text-xs text-slate-500">
-            Текущая настройка: {visibilityLabels[currentVisibility]}. Выбор обязателен, чтобы курс
-            не остался скрытым или публичным случайно.
+            {getPublishVisibilityDescription(currentVisibility, visibility)}
           </p>
         </section>
         {renderIssues('Ошибки, блокирующие публикацию', errors, 'error')}

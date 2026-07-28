@@ -132,6 +132,23 @@ const mockAuthApi = {
       return { accessToken: 'mock-access-token', user };
     }),
 
+  impersonateUser: (userId: ID): Promise<AuthSession<User>> =>
+    mockRequest(() => {
+      const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
+      if (actor?.role !== 'owner') {
+        throw new ApiError('Войти под пользователем может только владелец компании', 403);
+      }
+      const user = db.users.find((item) => item.id === userId) ?? notFound('Сотрудник');
+      if (user.role === 'owner') {
+        throw new ApiError('Нельзя войти под владельцем компании', 400);
+      }
+      if (user.status !== 'active') {
+        throw new ApiError('Войти можно только под активным пользователем', 400);
+      }
+      db.setCurrentUserId(user.id);
+      return { accessToken: 'mock-impersonation-token', user };
+    }),
+
   refresh: (): Promise<boolean> => mockRequest(() => true, { noFail: true }),
 
   logout: (): Promise<void> => mockRequest(() => undefined, { noFail: true }),

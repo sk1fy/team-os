@@ -25,6 +25,7 @@ import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
 import { toast } from '@/stores/toast';
 import { cn } from '@/lib/cn';
 import { createId } from '@/lib/id';
+import { PublicCourseLinkCard } from './PublicCourseLinkCard';
 
 const personalAccessStatusLabels = {
   issued: 'Ссылка выпущена',
@@ -297,6 +298,11 @@ export function CourseWorkspacePage() {
           description={course.restrictionReason}
         />
       ) : null}
+
+      <PublicCourseLinkCard
+        course={course}
+        canManage={Boolean(caps?.canCreateCandidateCampaign || caps?.canCreatePromoCampaign)}
+      />
 
       <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 text-sm">
         <WorkspaceTab to={academyRoutes.course(course.id)} label="Обзор" />
@@ -860,6 +866,13 @@ export function CourseDistributionPage() {
           </Link>
         }
       />
+
+      {courseQuery.data ? (
+        <PublicCourseLinkCard
+          course={courseQuery.data}
+          canManage={Boolean(caps?.canCreateCandidateCampaign || caps?.canCreatePromoCampaign)}
+        />
+      ) : null}
 
       {caps?.canAssignInternally ? (
         <section className="space-y-3 rounded-xl border border-slate-200 bg-surface p-4">

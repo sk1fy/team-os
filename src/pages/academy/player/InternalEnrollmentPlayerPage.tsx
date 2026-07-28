@@ -130,7 +130,7 @@ export function InternalEnrollmentPlayerPage() {
 
   const enrollmentQuery = useQuery({
     queryKey: queryKeys.academyV2.enrollment(enrollmentId),
-    queryFn: ({ signal }) => academyLearningApi.getEnrollment(enrollmentId, { signal }),
+    queryFn: ({ signal }) => academyLearningApi.openEnrollment(enrollmentId, { signal }),
     enabled: Boolean(enrollmentId),
   });
 
@@ -449,7 +449,7 @@ export function LearnRouteEntry() {
 
   const enrollmentProbe = useQuery({
     queryKey: queryKeys.academyV2.enrollment(id),
-    queryFn: ({ signal }) => academyLearningApi.getEnrollment(id, { signal }),
+    queryFn: ({ signal }) => academyLearningApi.openEnrollment(id, { signal }),
     enabled: Boolean(id) && mode === 'enrollment',
     retry: false,
   });

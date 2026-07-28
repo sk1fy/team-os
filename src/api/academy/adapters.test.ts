@@ -340,6 +340,94 @@ describe('Academy deployed-contract adapters', () => {
     ]);
   });
 
+  it('активирует новое прохождение и повторно загружает открытый первый урок', async () => {
+    const readyOutline = {
+      enrollment: {
+        ...enrollmentWire,
+        progressStatus: 'not_started',
+        accessStatus: 'ready',
+        progressPercent: 0,
+        currentLessonVersionId: 'lesson-1',
+      },
+      sections: [
+        {
+          id: 'section-1',
+          title: 'Раздел',
+          order: 0,
+          lessons: [
+            {
+              id: 'lesson-1',
+              title: 'Первый',
+              order: 0,
+              status: 'locked',
+              lockReason: 'Урок ещё не открыт',
+            },
+          ],
+        },
+      ],
+    };
+    const activeOutline = {
+      ...readyOutline,
+      enrollment: {
+        ...readyOutline.enrollment,
+        progressStatus: 'in_progress',
+        accessStatus: 'active',
+      },
+      sections: [
+        {
+          ...readyOutline.sections[0],
+          lessons: [{ id: 'lesson-1', title: 'Первый', order: 0, status: 'current' }],
+        },
+      ],
+    };
+    let outlineReads = 0;
+    let resumeInit: RequestInit | undefined;
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/outline')) {
+        outlineReads += 1;
+        return jsonResponse(outlineReads === 1 ? readyOutline : activeOutline);
+      }
+      if (url.includes('/resume')) {
+        resumeInit = init;
+        return jsonResponse({ enrollment: activeOutline.enrollment });
+      }
+      if (url.includes('/course-versions/version-1/learner')) return jsonResponse(versionWire);
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const enrollment = await academyLearningApi.openEnrollment('enrollment-1');
+
+    expect(enrollment).toMatchObject({
+      accessStatus: 'active',
+      progressStatus: 'in_progress',
+      currentLessonId: 'lesson-1',
+    });
+    expect(enrollment.outline.sections[0]?.lessons[0]).toMatchObject({
+      id: 'lesson-1',
+      locked: false,
+    });
+    const resumeCall = fetchMock.mock.calls.find(([input]) => String(input).includes('/resume'));
+    expect(resumeCall).toBeDefined();
+    expect(resumeInit?.method).toBe('POST');
+    expect(resumeInit?.body).toBeUndefined();
+  });
+
+  it('не вызывает resume для уже активного прохождения', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/outline')) return jsonResponse(outlineWire);
+      if (url.includes('/course-versions/version-1/learner')) return jsonResponse(versionWire);
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await academyLearningApi.openEnrollment('enrollment-1');
+
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/resume'))).toBe(false);
+  });
+
   it('возвращает атомарный snapshot завершения урока без дополнительного GET', async () => {
     const snapshot = {
       enrollment: {

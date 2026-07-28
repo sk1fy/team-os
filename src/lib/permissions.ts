@@ -205,6 +205,21 @@ export function canAccessRoute(
   return false;
 }
 
+/**
+ * Protected routes fail closed while the current user is unknown.
+ * This keeps privileged page chrome and data queries out of the first render.
+ */
+export function protectedRouteState(
+  role: UserRole | undefined,
+  pathname: string,
+  sectionAccess: EmployeeSection[] | undefined,
+  queryState: { isPending: boolean; isError: boolean },
+): 'checking' | 'allowed' | 'denied' {
+  if (queryState.isPending) return 'checking';
+  if (queryState.isError || !role) return 'denied';
+  return canAccessRoute(role, pathname, sectionAccess) ? 'allowed' : 'denied';
+}
+
 export function canManageContent(role: UserRole | undefined) {
   return role === 'owner' || role === 'admin';
 }

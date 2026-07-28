@@ -8,6 +8,7 @@ import {
   employeeHomePath,
   moduleForPath,
   modulesForRole,
+  protectedRouteState,
   resolvePostLoginPath,
   safeHomePath,
 } from './permissions';
@@ -96,6 +97,36 @@ describe('permissions', () => {
     expect(canAccessRoute('admin', '/duplicate-search', [])).toBe(true);
     expect(canAccessRoute('partner', '/academy', [])).toBe(true);
     expect(canAccessRoute('partner', '/distribution', ['distribution'])).toBe(false);
+  });
+
+  it('не рендерит защищённый раздел до завершения проверки роли', () => {
+    expect(
+      protectedRouteState(undefined, '/employees', undefined, {
+        isPending: true,
+        isError: false,
+      }),
+    ).toBe('checking');
+    expect(
+      protectedRouteState('partner', '/employees', undefined, {
+        isPending: false,
+        isError: false,
+      }),
+    ).toBe('denied');
+    expect(
+      protectedRouteState('owner', '/employees', undefined, {
+        isPending: false,
+        isError: false,
+      }),
+    ).toBe('allowed');
+  });
+
+  it('закрывает маршрут при ошибке загрузки текущего пользователя', () => {
+    expect(
+      protectedRouteState(undefined, '/employees', undefined, {
+        isPending: false,
+        isError: true,
+      }),
+    ).toBe('denied');
   });
 });
 

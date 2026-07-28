@@ -58,6 +58,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/impersonate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Войти под пользователем от имени владельца компании */
+        post: operations["impersonateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -347,11 +364,17 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Получить способ доступа сотрудника */
+        /**
+         * Получить способ доступа сотрудника
+         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании. Управление доступом владельца запрещено.
+         */
         get: operations["getUserAccess"];
         put?: never;
         post?: never;
-        /** Полностью отозвать доступ сотрудника */
+        /**
+         * Полностью отозвать доступ сотрудника
+         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании. Удаляет пароль и ссылку доступа и завершает активные сессии сотрудника. Управление доступом владельца запрещено.
+         */
         delete: operations["revokeUserAccess"];
         options?: never;
         head?: never;
@@ -368,7 +391,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Выдать сотруднику доступ по паролю */
+        /**
+         * Выдать сотруднику доступ по паролю
+         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании для активного сотрудника, кроме владельца. Удаляет ссылку доступа и завершает активные сессии сотрудника.
+         */
         put: operations["setUserPasswordAccess"];
         post?: never;
         delete?: never;
@@ -387,7 +413,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Выдать сотруднику доступ по постоянной ссылке */
+        /**
+         * Выдать сотруднику доступ по постоянной ссылке
+         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании для активного сотрудника, кроме владельца. Аннулирует прежнюю ссылку и пароль и завершает активные сессии сотрудника.
+         */
         put: operations["setUserLinkAccess"];
         post?: never;
         delete?: never;
@@ -906,7 +935,13 @@ export interface paths {
         delete: operations["deleteCourse"];
         options?: never;
         head?: never;
-        /** Обновить курс */
+        /**
+         * Обновить настройки курса
+         * @description Изменяет настройки самого курса, включая видимость в каталоге. Видимость может менять
+         *     владелец курса, администратор или пользователь с соответствующей capability.
+         *     Метаданные версии-черновика изменяются отдельной операцией `updateCourseDraft`.
+         *
+         */
         patch: operations["updateCourse"];
         trace?: never;
     };
@@ -1254,7 +1289,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Обновить метаданные черновика курса */
+        /**
+         * Обновить метаданные черновика курса
+         * @description Изменяет только метаданные текущей версии-черновика. Настройки курса, в том числе
+         *     `visibility`, этой операцией не изменяются. Неизвестные и неправильно названные поля
+         *     отклоняются с ошибкой валидации.
+         *
+         */
         patch: operations["updateCourseDraft"];
         trace?: never;
     };
@@ -2895,6 +2936,9 @@ export interface components {
     schemas: {
         /** Format: uuid */
         ID: string;
+        ImpersonateUserInput: {
+            userId: components["schemas"]["ID"];
+        };
         /** Format: date-time */
         ISODateTime: string;
         /** Format: date */
@@ -2934,10 +2978,12 @@ export interface components {
         /** @enum {string} */
         UserStatus: "active" | "invited" | "deactivated";
         /**
-         * @description Источник сотрудника. `amo` означает однократный импорт из amoCRM; после импорта профиль, статус и доступ сотрудника управляются только в TeamOS.
+         * @description Источник сотрудника. Профиль, роль, статус и доступ управляются в TeamOS. Для `amo` факт наличия сотрудника периодически сверяется с amoCRM.
          * @enum {string}
          */
         UserSource: "local" | "amo";
+        /** @enum {string} */
+        EmployeeSection: "schedule" | "knowledge" | "academy" | "distribution";
         /** @enum {string} */
         InviteStatus: "pending" | "accepted" | "expired";
         /** @enum {string} */
@@ -2979,12 +3025,14 @@ export interface components {
             status: components["schemas"]["UserStatus"];
             source?: components["schemas"]["UserSource"];
             accessMode?: components["schemas"]["UserAccessMode"];
+            sectionAccess?: components["schemas"]["EmployeeSection"][];
             positionIds: components["schemas"]["ID"][];
             birthDate?: components["schemas"]["LocalDate"];
             hiredAt?: components["schemas"]["LocalDate"];
             vacationAllowance?: number;
             createdAt: components["schemas"]["ISODateTime"];
         };
+        /** @description Фактический способ входа сотрудника. Поля `linkToken` и `linkCreatedAt` возвращаются только для режима `link`. */
         EmployeeAccess: {
             mode: components["schemas"]["UserAccessMode"];
             linkToken?: string;
@@ -3125,6 +3173,7 @@ export interface components {
             role?: components["schemas"]["UserRole"];
             status?: components["schemas"]["UserStatus"];
             positionIds?: components["schemas"]["ID"][];
+            sectionAccess?: components["schemas"]["EmployeeSection"][];
         };
         InviteUserInput: {
             email?: components["schemas"]["Email"];
@@ -3368,7 +3417,12 @@ export interface components {
         };
         /** @enum {string} */
         CourseStatus: "draft" | "published";
-        /** @enum {string} */
+        /**
+         * @description `public` — публичный курс; `company` — доступен сотрудникам компании;
+         *     `restricted` — доступен только через назначение.
+         *
+         * @enum {string}
+         */
         CourseVisibility: "public" | "company" | "restricted";
         /** @enum {string} */
         CourseOwnerType: "company" | "partner";
@@ -3498,6 +3552,7 @@ export interface components {
             articleIds: components["schemas"]["ID"][];
             visibility?: components["schemas"]["CourseVisibility"];
         };
+        /** @description Настройки курса. Не изменяет метаданные версии-черновика. */
         UpdateCourseInput: {
             title?: string;
             description?: string;
@@ -3831,6 +3886,9 @@ export interface components {
             passingScore: number;
             maxAttempts?: number;
         };
+        /** @description Метаданные версии-черновика. Поля настроек курса (например, `visibility`)
+         *     не поддерживаются и отклоняются.
+         *      */
         UpdateCourseDraftInput: {
             title?: string;
             description?: string;
@@ -5811,6 +5869,27 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    impersonateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpersonateUserInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AuthSession"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
     refresh: {
         parameters: {
             query?: never;
@@ -7067,6 +7146,8 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["Course"];
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             "4XX": components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
@@ -7536,6 +7617,7 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["CourseVersion"];
+            400: components["responses"]["BadRequest"];
             "4XX": components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

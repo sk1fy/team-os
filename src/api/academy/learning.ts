@@ -189,6 +189,31 @@ function normalizeLesson(payload: unknown): LessonLearner {
   };
 }
 
+async function getEnrollmentDetail(
+  enrollmentId: ID,
+  options?: RequestOptions,
+): Promise<EnrollmentDetail> {
+  const outlinePayload = await academyGet<EnrollmentOutlineWire | EnrollmentDetail>(
+    `/academy/enrollments/${encodeId(enrollmentId)}/outline`,
+    options,
+  );
+  if ('outline' in outlinePayload && isRecord(outlinePayload.outline)) {
+    return outlinePayload;
+  }
+
+  const wirePayload = outlinePayload as EnrollmentOutlineWire;
+  const wire = isEnrollmentLike(wirePayload.enrollment)
+    ? wirePayload.enrollment
+    : await academyGet<EnrollmentWire>(`/academy/enrollments/${encodeId(enrollmentId)}`, options);
+  const sections = Array.isArray(wirePayload.sections) ? wirePayload.sections : [];
+  const version = await academyGet<CourseVersionLearnerDetail>(
+    `/academy/course-versions/${encodeId(wire.courseVersionId)}/learner`,
+    options,
+  ).catch(() => null);
+
+  return buildEnrollmentDetail(wire, sections, version);
+}
+
 export const academyLearningApi = {
   myLearning(options?: RequestOptions): Promise<MyLearningSummary> {
     return academyGet('/academy/learning/me', options);
@@ -222,26 +247,26 @@ export const academyLearningApi = {
     );
   },
 
-  async getEnrollment(enrollmentId: ID, options?: RequestOptions): Promise<EnrollmentDetail> {
-    const outlinePayload = await academyGet<EnrollmentOutlineWire | EnrollmentDetail>(
-      `/academy/enrollments/${encodeId(enrollmentId)}/outline`,
+  getEnrollment(enrollmentId: ID, options?: RequestOptions): Promise<EnrollmentDetail> {
+    return getEnrollmentDetail(enrollmentId, options);
+  },
+
+  /**
+   * Opening a ready/invited internal enrollment is a server-side transition:
+   * it activates the enrollment and seeds the first available lesson.
+   */
+  async openEnrollment(enrollmentId: ID, options?: RequestOptions): Promise<EnrollmentDetail> {
+    const enrollment = await getEnrollmentDetail(enrollmentId, options);
+    if (enrollment.accessStatus !== 'ready' && enrollment.accessStatus !== 'invited') {
+      return enrollment;
+    }
+    await academyMutate(
+      `/academy/enrollments/${encodeId(enrollmentId)}/resume`,
+      'POST',
+      undefined,
       options,
     );
-    if ('outline' in outlinePayload && isRecord(outlinePayload.outline)) {
-      return outlinePayload;
-    }
-
-    const wirePayload = outlinePayload as EnrollmentOutlineWire;
-    const wire = isEnrollmentLike(wirePayload.enrollment)
-      ? wirePayload.enrollment
-      : await academyGet<EnrollmentWire>(`/academy/enrollments/${encodeId(enrollmentId)}`, options);
-    const sections = Array.isArray(wirePayload.sections) ? wirePayload.sections : [];
-    const version = await academyGet<CourseVersionLearnerDetail>(
-      `/academy/course-versions/${encodeId(wire.courseVersionId)}/learner`,
-      options,
-    ).catch(() => null);
-
-    return buildEnrollmentDetail(wire, sections, version);
+    return getEnrollmentDetail(enrollmentId, options);
   },
 
   getLesson(enrollmentId: ID, lessonId: ID, options?: RequestOptions): Promise<LessonLearner> {

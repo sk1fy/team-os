@@ -6,7 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireAuth } from '@/components/auth/AuthBootstrap';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { authApi } from '@/api';
-import { canAccessRoute, canManageIntegrations, safeHomePath } from '@/lib/permissions';
+import { canManageIntegrations, protectedRouteState, safeHomePath } from '@/lib/permissions';
 import { isAcademyV2Enabled } from '@/lib/academy';
 
 const DashboardPage = lazy(() =>
@@ -321,12 +321,30 @@ function AcademyLearnEntry() {
 
 function RequireModule({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  const { data: currentUser } = useQuery({
+  const currentUserQuery = useQuery({
     queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
   });
-  if (currentUser && !canAccessRoute(currentUser.role, pathname, currentUser.sectionAccess)) {
-    return <AccessDenied homePath={safeHomePath(currentUser.role, currentUser.sectionAccess)} />;
+  const currentUser = currentUserQuery.data;
+  const accessState = protectedRouteState(
+    currentUser?.role,
+    pathname,
+    currentUser?.sectionAccess,
+    currentUserQuery,
+  );
+
+  if (accessState === 'checking') {
+    return (
+      <main
+        className="flex min-h-dvh items-center justify-center bg-page text-sm text-slate-500"
+        aria-busy="true"
+      >
+        Проверяем доступ…
+      </main>
+    );
+  }
+  if (accessState === 'denied') {
+    return <AccessDenied homePath={safeHomePath(currentUser?.role, currentUser?.sectionAccess)} />;
   }
   return children;
 }

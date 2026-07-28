@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   KeyRound,
   Link2,
+  LogIn,
   Plus,
   Power,
   RotateCcw,
@@ -23,6 +24,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { authApi, orgApi, scheduleApi } from '@/api';
 import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
@@ -49,7 +51,7 @@ import { Avatar, Badge, Button, Drawer, Input, Modal, Select } from '@/component
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
 import { PHONE_ERROR, formatPhoneInput, isValidPhone } from '@/lib/formValidation';
-import { canManageAccess, defaultEmployeeSections } from '@/lib/permissions';
+import { canManageAccess, defaultEmployeeSections, safeHomePath } from '@/lib/permissions';
 import { copyText } from '@/lib/clipboard';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -100,7 +102,9 @@ const employeeSectionOptions: Array<{
 export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose: () => void }) {
   const open = Boolean(userId);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [absenceOpen, setAbsenceOpen] = useState(false);
+  const [impersonateOpen, setImpersonateOpen] = useState(false);
   const [customAccessPassword, setCustomAccessPassword] = useState('');
   const [activeTab, setActiveTab] = useState<EmployeeCardTab>('schedule');
   const [sectionDraft, setSectionDraft] = useState<EmployeeSection[]>(defaultEmployeeSections);
@@ -235,6 +239,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   useEffect(() => {
     setActiveTab('schedule');
     setCustomAccessPassword('');
+    setImpersonateOpen(false);
   }, [userId]);
 
   useEffect(() => {
@@ -360,6 +365,23 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       toast.error(error instanceof Error ? error.message : 'Не удалось изменить статус сотрудника'),
   });
 
+  const impersonateMutation = useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error('Сотрудник не выбран');
+      return authApi.impersonateUser(user.id);
+    },
+    onSuccess: (session) => {
+      queryClient.clear();
+      queryClient.setQueryData(queryKeys.currentUser, session.user);
+      toast.success(`Вы вошли как ${fullName(session.user)}`);
+      setImpersonateOpen(false);
+      onClose();
+      navigate(safeHomePath(session.user.role, session.user.sectionAccess), { replace: true });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось войти под пользователем'),
+  });
+
   const addVacation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error('Сотрудник не выбран');
@@ -435,6 +457,21 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 </div>
               </div>
             </div>
+            {currentUserQuery.data?.role === 'owner' &&
+              user &&
+              user.role !== 'owner' &&
+              user.status === 'active' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  loading={impersonateMutation.isPending}
+                  onClick={() => setImpersonateOpen(true)}
+                >
+                  <LogIn className="size-4" />
+                  Войти под пользователем
+                </Button>
+              )}
             <button
               type="button"
               onClick={onClose}
@@ -815,6 +852,39 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
           </>
         )}
       </Drawer>
+
+      {user && (
+        <Modal
+          open={impersonateOpen}
+          onOpenChange={setImpersonateOpen}
+          title="Войти под пользователем?"
+          description={`Вы переключитесь на аккаунт ${fullName(user)}.`}
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="ghost"
+                disabled={impersonateMutation.isPending}
+                onClick={() => setImpersonateOpen(false)}
+              >
+                Отмена
+              </Button>
+              <Button
+                loading={impersonateMutation.isPending}
+                onClick={() => impersonateMutation.mutate()}
+              >
+                <LogIn className="size-4" />
+                Войти
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm leading-relaxed text-slate-600">
+            Текущая сессия владельца в этом браузере будет заменена. Режим входа, пароль и ссылка
+            доступа пользователя не изменятся.
+          </p>
+        </Modal>
+      )}
 
       {user && (
         <AbsenceSummaryModal
