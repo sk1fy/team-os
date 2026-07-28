@@ -20,6 +20,59 @@ afterEach(() => {
 });
 
 describe('Academy V2 HTTP contracts', () => {
+  it('updates course visibility separately from draft metadata', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 'course-1',
+          title: 'Курс',
+          visibility: 'company',
+          sequential: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 'draft-1',
+          courseId: 'course-1',
+          number: 2,
+          status: 'draft',
+          title: 'Новая версия курса',
+          sequential: false,
+          defaultInternalDeadlineDays: 14,
+          createdById: 'user-1',
+          createdAt: '2026-07-28T09:00:00Z',
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const course = await academyCoursesApi.update('course-1', { visibility: 'company' });
+    const draft = await academyCoursesApi.updateDraft('course-1', {
+      title: 'Новая версия курса',
+      description: 'Описание',
+      sequential: false,
+      defaultInternalDeadlineDays: 14,
+    });
+
+    const [courseUrl, courseInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(courseUrl).toContain('/academy/courses/course-1');
+    expect(courseUrl).not.toContain('/draft');
+    expect(courseInit.method).toBe('PATCH');
+    expect(JSON.parse(String(courseInit.body))).toEqual({ visibility: 'company' });
+
+    const [draftUrl, draftInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(draftUrl).toContain('/academy/courses/course-1/draft');
+    expect(draftInit.method).toBe('PATCH');
+    expect(JSON.parse(String(draftInit.body))).toEqual({
+      title: 'Новая версия курса',
+      description: 'Описание',
+      sequential: false,
+      defaultInternalDeadlineDays: 14,
+    });
+    expect(course).toMatchObject({ id: 'course-1', visibility: 'company' });
+    expect(draft).toMatchObject({ id: 'draft-1', courseId: 'course-1' });
+  });
+
   it('reads and updates the company course partner audience', async () => {
     const fetchMock = vi
       .fn()

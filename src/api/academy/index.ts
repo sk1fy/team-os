@@ -10,8 +10,10 @@ export type {
   CoursePartnerAudience,
   CoursePartnerAudienceKind,
   CreateCourseInput,
+  CourseVersionWire,
   SetCoursePartnerAudienceInput,
   UpdateCourseInput,
+  UpdateCourseDraftInput,
 } from './courses';
 export type { RequestOptions } from './httpHelpers';
 export type { EnrollmentProgressSnapshot, QuizSubmitResponse } from './learning';

@@ -28,14 +28,9 @@ export type CreateCourseInput = {
 
 export type CreateCourseFromKbInput = components['schemas']['CreateCourseFromKbInput'];
 
-export type UpdateCourseInput = {
-  title?: string;
-  description?: string;
-  sequential?: boolean;
-  deadlineDays?: number;
-  visibility?: 'public' | 'company' | 'restricted';
-  coverUrl?: string | null;
-};
+export type UpdateCourseInput = components['schemas']['UpdateCourseInput'];
+export type UpdateCourseDraftInput = components['schemas']['UpdateCourseDraftInput'];
+export type CourseVersionWire = components['schemas']['CourseVersion'];
 
 export type CoursePartnerAudienceKind = 'none' | 'all_partners' | 'selected_partners';
 
@@ -170,8 +165,15 @@ type SectionAuthorWire = Omit<CourseVersionAuthorDetail['sections'][number], 'le
   lessons?: LessonAuthorWire[] | null;
 };
 
-type DraftWire = Omit<CourseVersionAuthorDetail, 'sections'> & {
+type DraftWire = Omit<
+  CourseVersionAuthorDetail,
+  'sections' | 'versionNumber' | 'deadlineDays'
+> & {
   courseVersionId?: ID;
+  versionNumber?: number;
+  number?: number;
+  deadlineDays?: number;
+  defaultInternalDeadlineDays?: number;
   sections?: SectionAuthorWire[] | null;
 };
 
@@ -180,6 +182,8 @@ export function normalizeDraft(draft: DraftWire): CourseVersionAuthorDetail {
   return {
     ...draft,
     id: versionId,
+    versionNumber: draft.versionNumber ?? draft.number ?? 1,
+    deadlineDays: draft.deadlineDays ?? draft.defaultInternalDeadlineDays,
     sections: (draft.sections ?? []).map((section) => ({
       ...section,
       id: section.sectionVersionId ?? section.id,
@@ -281,13 +285,34 @@ export const academyCoursesApi = {
     );
   },
 
-  /** Patch draft metadata on the course. */
-  update(
+  /** Patch course-level settings such as catalog visibility. */
+  async update(
     courseId: ID,
     input: UpdateCourseInput,
     options?: RequestOptions,
   ): Promise<AcademyCourseDetail> {
-    return academyMutate(`/academy/courses/${encodeId(courseId)}/draft`, 'PATCH', input, options);
+    return normalizeCourse(
+      await academyMutate<CourseWire>(
+        `/academy/courses/${encodeId(courseId)}`,
+        'PATCH',
+        input,
+        options,
+      ),
+    );
+  },
+
+  /** Patch mutable metadata of the current draft version. */
+  updateDraft(
+    courseId: ID,
+    input: UpdateCourseDraftInput,
+    options?: RequestOptions,
+  ): Promise<CourseVersionWire> {
+    return academyMutate(
+      `/academy/courses/${encodeId(courseId)}/draft`,
+      'PATCH',
+      input,
+      options,
+    );
   },
 
   archive(courseId: ID, options?: RequestOptions): Promise<AcademyCourseDetail> {

@@ -974,6 +974,7 @@ export function CourseBuilderPage() {
 
       <CourseSettingsDrawer
         course={course}
+        draft={draft}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />

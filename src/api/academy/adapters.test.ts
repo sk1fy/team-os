@@ -205,9 +205,10 @@ describe('Academy deployed-contract adapters', () => {
           return jsonResponse({
             id: 'draft-1',
             courseId: 'course-1',
-            versionNumber: 1,
+            number: 2,
             status: 'draft',
             title: 'Тестовый курс',
+            defaultInternalDeadlineDays: 14,
             sections: [{ id: 'section-1', title: 'Раздел', order: 0, lessons: null }],
           });
         }
@@ -232,6 +233,7 @@ describe('Academy deployed-contract adapters', () => {
       draftVersion: { id: 'draft-1', status: 'draft' },
       latestPublishedVersion: { id: 'published-1', status: 'published' },
     });
+    expect(draft).toMatchObject({ versionNumber: 2, deadlineDays: 14 });
     expect(draft.sections[0]?.lessons).toEqual([]);
   });
 

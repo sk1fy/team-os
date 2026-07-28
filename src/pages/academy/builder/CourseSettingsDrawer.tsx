@@ -6,24 +6,31 @@ import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Drawer, Input, MultiSelect, Select, Switch, Textarea } from '@/components/ui';
 import { toast } from '@/stores/toast';
-import type { AcademyCourseDetail } from '@/types/academy';
+import type { AcademyCourseDetail, CourseVersionAuthorDetail } from '@/types/academy';
+import {
+  courseSettingsErrorMessage,
+  courseSettingsInvalidationKeys,
+  saveCourseSettings,
+} from './courseSettings';
 
 export function CourseSettingsDrawer({
   course,
+  draft,
   open,
   onClose,
 }: {
   course: AcademyCourseDetail;
+  draft: CourseVersionAuthorDetail;
   open: boolean;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    title: course.title,
-    description: course.description ?? '',
+    title: draft.title,
+    description: draft.description ?? '',
     visibility: course.visibility,
-    sequential: course.sequential,
-    deadlineDays: course.deadlineDays != null ? String(course.deadlineDays) : '',
+    sequential: draft.sequential,
+    deadlineDays: draft.deadlineDays != null ? String(draft.deadlineDays) : '',
   });
   const [partnerAudience, setPartnerAudience] = useState<CoursePartnerAudienceKind>('none');
   const [partnerUserIds, setPartnerUserIds] = useState<string[]>([]);
@@ -48,13 +55,13 @@ export function CourseSettingsDrawer({
 
   useEffect(() => {
     setForm({
-      title: course.title,
-      description: course.description ?? '',
+      title: draft.title,
+      description: draft.description ?? '',
       visibility: course.visibility,
-      sequential: course.sequential,
-      deadlineDays: course.deadlineDays != null ? String(course.deadlineDays) : '',
+      sequential: draft.sequential,
+      deadlineDays: draft.deadlineDays != null ? String(draft.deadlineDays) : '',
     });
-  }, [course]);
+  }, [course.visibility, draft]);
 
   useEffect(() => {
     if (!partnerAudienceQuery.data) return;
@@ -63,29 +70,35 @@ export function CourseSettingsDrawer({
   }, [partnerAudienceQuery.data]);
 
   const save = useMutation({
-    mutationFn: async () => {
-      const updated = await academyCoursesApi.update(course.id, {
-        title: form.title.trim(),
-        description: form.description.trim() || undefined,
+    mutationFn: () =>
+      saveCourseSettings({
+        courseId: course.id,
         visibility: form.visibility,
-        sequential: form.sequential,
-        deadlineDays: form.deadlineDays ? Number(form.deadlineDays) : undefined,
-      });
-      if (managesPartnerAudience) {
-        await academyCoursesApi.setPartnerAudience(course.id, {
-          audience: partnerAudience,
-          partnerUserIds,
-        });
+        draft: {
+          title: form.title.trim(),
+          description: form.description.trim() || undefined,
+          sequential: form.sequential,
+          defaultInternalDeadlineDays: form.deadlineDays
+            ? Number(form.deadlineDays)
+            : undefined,
+        },
+        partnerAudience: managesPartnerAudience
+          ? {
+              audience: partnerAudience,
+              partnerUserIds,
+            }
+          : undefined,
+      }),
+    onSuccess: (result) => {
+      void Promise.all(
+        courseSettingsInvalidationKeys(course.id).map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey }),
+        ),
+      );
+      if (result.failed.length > 0) {
+        toast.error(courseSettingsErrorMessage(result));
+        return;
       }
-      return updated;
-    },
-    onSuccess: (updated) => {
-      queryClient.setQueryData(queryKeys.academyV2.course(course.id), updated);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.catalogRoot });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.academyV2.partnerAudience(course.id),
-      });
       toast.success('Настройки сохранены');
       onClose();
     },
