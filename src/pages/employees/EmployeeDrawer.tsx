@@ -48,7 +48,7 @@ import { toast } from '@/stores/toast';
 import { Avatar, Badge, Button, Drawer, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
-import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
+import { PHONE_ERROR, formatPhoneInput, isValidPhone } from '@/lib/formValidation';
 import { canManageAccess, defaultEmployeeSections } from '@/lib/permissions';
 import { copyText } from '@/lib/clipboard';
 
@@ -224,7 +224,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     setProfileDraft({
       fullName: fullName(user),
       positionId: primaryPosition?.id ?? NO_POSITION_VALUE,
-      phone: user.phone ?? '',
+      phone: formatPhoneInput(user.phone ?? ''),
       hire: user.hiredAt ?? '',
       birth: user.birthDate ?? '',
     });
@@ -568,11 +568,15 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                   />
                   <PanelInput
                     label="Телефон"
+                    type="tel"
                     value={profileDraft.phone}
-                    placeholder="+7 900 000-00-00"
+                    placeholder="+7 (999) 000-00-00"
                     error={phoneError}
                     onChange={(value) => {
-                      setProfileDraft((draft) => ({ ...draft, phone: value }));
+                      setProfileDraft((draft) => ({
+                        ...draft,
+                        phone: formatPhoneInput(value),
+                      }));
                       setPhoneError(undefined);
                     }}
                   />
@@ -1378,7 +1382,7 @@ function PanelInput({
   value: string;
   placeholder?: string;
   icon?: ReactNode;
-  type?: 'text' | 'date' | 'time' | 'number';
+  type?: 'text' | 'tel' | 'date' | 'time' | 'number';
   error?: string;
   onChange?: (value: string) => void;
 }) {
@@ -1391,6 +1395,9 @@ function PanelInput({
         <input
           readOnly={!onChange}
           type={type}
+          inputMode={type === 'tel' ? 'tel' : undefined}
+          autoComplete={type === 'tel' ? 'tel' : undefined}
+          maxLength={type === 'tel' ? 18 : undefined}
           value={value}
           placeholder={placeholder}
           onChange={(event) => onChange?.(event.target.value)}
