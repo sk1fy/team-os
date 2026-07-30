@@ -722,6 +722,28 @@ export function KnowledgePage() {
       toast.error(error instanceof Error ? error.message : 'Не удалось удалить раздел'),
   });
 
+  const deleteArticle = useMutation({
+    mutationFn: kbApi.deleteArticle,
+    onSuccess: (_, deletedArticleId) => {
+      queryClient.setQueryData<Article[]>(queryKeys.kb.articles, (current = []) =>
+        current.filter((article) => article.id !== deletedArticleId),
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.kb.articles });
+      toast.success('Статья удалена');
+      setActiveArticleId(null);
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params);
+          next.delete('article');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить статью'),
+  });
+
   const acknowledge = useMutation({
     mutationFn: kbApi.acknowledgeArticle,
     onSuccess: () => {
@@ -900,14 +922,26 @@ export function KnowledgePage() {
                         Версии
                       </Button>
                       {canEdit && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setArticleDrawer('edit')}
-                        >
-                          <Pencil className="size-4" />
-                          Изменить
-                        </Button>
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setArticleDrawer('edit')}
+                          >
+                            <Pencil className="size-4" />
+                            Изменить
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            loading={deleteArticle.isPending}
+                            onClick={() => deleteArticle.mutate(activeArticle.id)}
+                            aria-label="Удалить статью"
+                            title="Удалить статью"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </>
                       )}
                       {activeArticle.requiresAcknowledgement &&
                         currentUser &&

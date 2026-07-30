@@ -730,6 +730,21 @@ const mockKbApi = {
       return article;
     }),
 
+  deleteArticle: (id: ID): Promise<void> =>
+    mockRequest(() => {
+      const index = db.articles.findIndex((article) => article.id === id);
+      if (index === -1) notFound('Статья');
+      db.articles.splice(index, 1);
+
+      const versions = db.articleVersions.filter((version) => version.articleId !== id);
+      db.articleVersions.splice(0, db.articleVersions.length, ...versions);
+
+      const acknowledgements = db.acknowledgements.filter(
+        (acknowledgement) => acknowledgement.articleId !== id,
+      );
+      db.acknowledgements.splice(0, db.acknowledgements.length, ...acknowledgements);
+    }),
+
   rollbackArticle: (input: { articleId: ID; versionId: ID }): Promise<Article> =>
     mockRequest(() => {
       const article = db.articles.find((a) => a.id === input.articleId) ?? notFound('Статья');

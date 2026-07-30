@@ -237,6 +237,8 @@ export const httpKbApi = {
     const { id: articleId, ...body } = input;
     return request(`/kb/articles/${id(articleId)}`, 'PATCH', body);
   },
+  deleteArticle: (articleId: ID): Promise<void> =>
+    request(`/kb/articles/${id(articleId)}`, 'DELETE'),
   rollbackArticle: (input: { articleId: ID; versionId: ID }): Promise<Article> =>
     request(`/kb/articles/${id(input.articleId)}/rollback`, 'POST', { versionId: input.versionId }),
   acknowledgeArticle: (articleId: ID): Promise<void> =>
