@@ -1,8 +1,9 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import { CheckCircle2, Clock3, FileText, List } from 'lucide-react';
-import { RichTextView } from '@/components/ui';
+import { parseLessonBlocks } from '@/lib/academy/lessonBlocks';
 import type { LessonLearner } from '@/types/academy';
 import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
+import { LessonBlocksView } from './LessonBlocksView';
 
 interface RichTextNode {
   type?: string;
@@ -49,16 +50,22 @@ export function LessonArticle({
   sectionTitle,
   lessonNumber,
   totalLessons,
+  quizContent,
 }: {
   lesson?: LessonLearner | null;
   loading?: boolean;
   sectionTitle?: string;
   lessonNumber?: number;
   totalLessons?: number;
+  quizContent?: ReactNode;
 }) {
   const articleRef = useRef<HTMLElement>(null);
   const headings = useMemo(() => (lesson ? lessonHeadings(lesson.content) : []), [lesson]);
   const includesVideo = useMemo(() => (lesson ? hasVideo(lesson.content) : false), [lesson]);
+  const blocks = useMemo(
+    () => parseLessonBlocks(lesson?.content, Boolean(quizContent)),
+    [lesson?.content, quizContent],
+  );
 
   if (loading) {
     return (
@@ -159,7 +166,9 @@ export function LessonArticle({
         </nav>
       ) : null}
 
-      <RichTextView content={lesson.content} className="lesson-rich-text mt-7 max-w-none sm:mt-9" />
+      <div className="mt-7 sm:mt-9">
+        <LessonBlocksView blocks={blocks} quizContent={quizContent} />
+      </div>
     </article>
   );
 }

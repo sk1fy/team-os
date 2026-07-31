@@ -41,19 +41,15 @@ import {
 import { academyCoursesApi, academyVersionsApi } from '@/api/academy';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
-import {
-  Button,
-  Badge,
-  Drawer,
-  Dropdown,
-  type DropdownItem,
-  Input,
-  Modal,
-  RichTextEditor,
-} from '@/components/ui';
+import { Button, Badge, Drawer, Dropdown, type DropdownItem, Input, Modal } from '@/components/ui';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { academyRoutes, resolveCourseCapabilities } from '@/lib/academy';
+import {
+  lessonBlocksHaveMeaningfulContent,
+  parseLessonBlocks,
+  serializeLessonBlocks,
+} from '@/lib/academy/lessonBlocks';
 import { cn } from '@/lib/cn';
 import { plural } from '@/lib/format';
 import { createId } from '@/lib/id';
@@ -68,7 +64,8 @@ import type {
 import { authApi } from '@/api';
 import { CourseSettingsDrawer } from './CourseSettingsDrawer';
 import { PublishDialog, type PublishValidationIssue } from './PublishDialog';
-import { QuizEditor, createEmptyQuiz, validateQuiz } from './QuizEditor';
+import { LessonBlocksEditor } from './LessonBlocksEditor';
+import { validateQuiz } from './QuizEditor';
 import { useUnsavedChanges } from './useUnsavedChanges';
 
 function countLessons(draft: CourseVersionAuthorDetail | undefined): number {
@@ -76,25 +73,7 @@ function countLessons(draft: CourseVersionAuthorDetail | undefined): number {
 }
 
 function hasLessonContent(content: RichTextContent | undefined): boolean {
-  const nodes = content?.content;
-  if (!nodes?.length) return false;
-
-  const hasMeaningfulNode = (value: unknown): boolean => {
-    if (typeof value === 'string') return value.trim().length > 0;
-    if (Array.isArray(value)) return value.some(hasMeaningfulNode);
-    if (!value || typeof value !== 'object') return false;
-    const node = value as Record<string, unknown>;
-    if (
-      typeof node.type === 'string' &&
-      ['image', 'video', 'videoEmbed', 'table', 'codeBlock', 'horizontalRule'].includes(node.type)
-    ) {
-      return true;
-    }
-    if (typeof node.text === 'string' && node.text.trim()) return true;
-    return hasMeaningfulNode(node.content);
-  };
-
-  return nodes.some(hasMeaningfulNode);
+  return lessonBlocksHaveMeaningfulContent(parseLessonBlocks(content));
 }
 
 function validateDraftForPublish(
@@ -322,6 +301,7 @@ export function CourseBuilderPage() {
     }
     return undefined;
   }, [sections, selectedLessonId]);
+  const lessonBlocks = useMemo(() => parseLessonBlocks(content, Boolean(quiz)), [content, quiz]);
 
   const isEditorDirty = (
     nextTitle: string,
@@ -853,7 +833,7 @@ export function CourseBuilderPage() {
 
         <main className="overflow-y-auto p-4 sm:p-6">
           {selectedLesson ? (
-            <div className="mx-auto max-w-3xl space-y-5">
+            <div className="mx-auto max-w-4xl space-y-5">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <Input
                   label="Название урока"
@@ -892,39 +872,17 @@ export function CourseBuilderPage() {
                 </div>
               </div>
 
-              <RichTextEditor
-                value={content}
-                onChange={(next) => {
-                  setContent(next);
-                  setDirty(isEditorDirty(title, next, quiz));
+              <LessonBlocksEditor
+                lessonId={selectedLesson.id}
+                blocks={lessonBlocks}
+                quiz={quiz}
+                onChange={(nextBlocks, nextQuiz) => {
+                  const nextContent = serializeLessonBlocks(nextBlocks);
+                  setContent(nextContent);
+                  setQuiz(nextQuiz);
+                  setDirty(isEditorDirty(title, nextContent, nextQuiz));
                 }}
               />
-
-              {quiz ? (
-                <QuizEditor
-                  quiz={quiz}
-                  onChange={(next) => {
-                    setQuiz(next);
-                    setDirty(isEditorDirty(title, content, next));
-                  }}
-                  onRemove={() => {
-                    setQuiz(null);
-                    setDirty(isEditorDirty(title, content, null));
-                  }}
-                />
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    const nextQuiz = createEmptyQuiz(selectedLesson.id);
-                    setQuiz(nextQuiz);
-                    setDirty(isEditorDirty(title, content, nextQuiz));
-                  }}
-                >
-                  Добавить тест
-                </Button>
-              )}
             </div>
           ) : (
             <EmptyState

@@ -369,29 +369,33 @@ export function ExternalEnrollmentPlayerPage() {
               sectionTitle={currentSection?.title}
               lessonNumber={lessonIndex >= 0 ? lessonIndex + 1 : undefined}
               totalLessons={flatLessons.length}
-            />
-          )}
-          {visibleLesson?.quiz && !visibleLesson.locked ? (
-            <QuizRunner
-              quiz={visibleLesson.quiz}
-              disabled={readOnly || !enrollment.canSubmitQuiz || lessonCompleted}
-              submitting={quizMutation.isPending}
-              lastResult={quizResult}
-              onSubmit={(a) => quizMutation.mutate(a)}
-              onRetry={() => {
-                setQuizResult(null);
-                setQuizContinueLessonId(null);
-              }}
-              onContinue={
-                quizResult?.passed
-                  ? () => {
-                      if (quizContinueLessonId) selectLesson(quizContinueLessonId);
-                      else navigate(academyRoutes.externalResults(enrollmentId));
+              quizContent={
+                visibleLesson?.quiz && !visibleLesson.locked ? (
+                  <QuizRunner
+                    quiz={visibleLesson.quiz}
+                    embedded
+                    completed={lessonCompleted}
+                    disabled={readOnly || !enrollment.canSubmitQuiz || lessonCompleted}
+                    submitting={quizMutation.isPending}
+                    lastResult={quizResult}
+                    onSubmit={(a) => quizMutation.mutate(a)}
+                    onRetry={() => {
+                      setQuizResult(null);
+                      setQuizContinueLessonId(null);
+                    }}
+                    onContinue={
+                      quizResult?.passed
+                        ? () => {
+                            if (quizContinueLessonId) selectLesson(quizContinueLessonId);
+                            else navigate(academyRoutes.externalResults(enrollmentId));
+                          }
+                        : undefined
                     }
-                  : undefined
+                  />
+                ) : undefined
               }
             />
-          ) : null}
+          )}
         </div>
       }
       footer={

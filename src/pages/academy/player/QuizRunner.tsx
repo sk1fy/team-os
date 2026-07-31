@@ -45,6 +45,8 @@ export function QuizRunner({
   onSubmit,
   onRetry,
   onContinue,
+  embedded,
+  completed,
 }: {
   quiz: QuizLearner;
   disabled?: boolean;
@@ -53,6 +55,8 @@ export function QuizRunner({
   onSubmit: (answers: QuizAttemptAnswer[]) => void;
   onRetry?: () => void;
   onContinue?: () => void;
+  embedded?: boolean;
+  completed?: boolean;
 }) {
   const [draft, setDraft] = useState<QuizDraftAnswers>(() => emptyQuizDraft(quiz));
   const summaryRef = useRef<HTMLDivElement>(null);
@@ -85,11 +89,13 @@ export function QuizRunner({
     [draft, quiz.questions],
   );
   const showResult = Boolean(lastResult);
+  const maxAttempts = lastResult?.maxAttempts ?? quiz.maxAttempts;
+  const attemptsUsed = lastResult?.attemptsUsed ?? quiz.attemptsUsed ?? 0;
   const canRetry =
     lastResult &&
     !lastResult.passed &&
     !lastResult.pendingReview &&
-    (lastResult.maxAttempts == null || lastResult.attemptsUsed < lastResult.maxAttempts);
+    (maxAttempts == null || attemptsUsed < maxAttempts);
 
   const toggleOption = (question: QuizQuestionLearner, optionId: string) => {
     if (disabled || showResult) return;
@@ -111,8 +117,24 @@ export function QuizRunner({
     });
   };
 
+  if (completed && !lastResult) {
+    return (
+      <section className={cn(!embedded && 'mx-auto max-w-4xl px-4 pb-10 sm:px-8')}>
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" aria-hidden />
+          <div>
+            <h3 className="font-semibold">Тест пройден</h3>
+            <p className="mt-1 text-sm text-emerald-800">
+              Результат уже сохранён, повторно отвечать на вопросы не нужно.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="mx-auto max-w-4xl px-4 pb-10 sm:px-8">
+    <section className={cn(!embedded && 'mx-auto max-w-4xl px-4 pb-10 sm:px-8')}>
       <div className="rounded-2xl border border-slate-200 bg-surface p-4 shadow-card sm:p-6">
         <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
@@ -144,9 +166,9 @@ export function QuizRunner({
                 }}
               />
             </div>
-            {quiz.maxAttempts != null ? (
+            {maxAttempts != null ? (
               <p className="mt-1.5 text-[11px] text-slate-500">
-                Использовано попыток: {quiz.attemptsUsed ?? 0} из {quiz.maxAttempts}
+                Использовано попыток: {attemptsUsed} из {maxAttempts}
               </p>
             ) : null}
           </div>
@@ -192,9 +214,7 @@ export function QuizRunner({
                         : '. Результат сохранён.'
                       : canRetry
                         ? `. Осталось попыток: ${
-                            lastResult.maxAttempts == null
-                              ? 'без ограничений'
-                              : lastResult.maxAttempts - lastResult.attemptsUsed
+                            maxAttempts == null ? 'без ограничений' : maxAttempts - attemptsUsed
                           }.`
                         : '. Попытки исчерпаны.'}
                 </p>

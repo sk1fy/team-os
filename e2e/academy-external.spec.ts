@@ -48,6 +48,9 @@ test('external learner verifies email, activates access, completes lessons and s
   await expect(page).toHaveURL(/\/training\/enrollments\/44444444-/);
   await expect(page.getByRole('heading', { name: 'Добро пожаловать' })).toBeVisible();
   await expect(page.getByText('Это настоящий browser E2E')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Перед началом' })).toBeVisible();
+  await expect(page.getByText('Действовать по памяти')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Перед продолжением' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Завершить урок' }).click();
   await expect(page.getByText('Урок завершён', { exact: true }).first()).toBeVisible();

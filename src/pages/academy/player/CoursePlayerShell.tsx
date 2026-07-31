@@ -509,6 +509,16 @@ export function CoursePreviewPage() {
               selected ? lessons.findIndex((lesson) => lesson.id === selected.id) + 1 : undefined
             }
             totalLessons={lessons.length}
+            quizContent={
+              selectedLesson?.quiz ? (
+                <QuizRunner
+                  quiz={selectedLesson.quiz}
+                  embedded
+                  disabled
+                  onSubmit={() => undefined}
+                />
+              ) : undefined
+            }
           />
           {selected && !selected.content ? (
             <div className="mx-auto max-w-3xl px-4 pb-4 sm:px-6">
@@ -518,9 +528,6 @@ export function CoursePreviewPage() {
                 description="Программа версии загружена, но сервер не вернул безопасное содержимое выбранного урока для предпросмотра."
               />
             </div>
-          ) : null}
-          {selectedLesson?.quiz ? (
-            <QuizRunner quiz={selectedLesson.quiz} disabled onSubmit={() => undefined} />
           ) : null}
         </div>
       }

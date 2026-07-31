@@ -136,19 +136,73 @@ function lesson(lessonId) {
       status: completedLessonIds.includes(lessonId) ? 'completed' : 'current',
       content: {
         type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [
+        content: isFirst
+          ? [
               {
-                type: 'text',
-                text: isFirst
-                  ? 'Это настоящий browser E2E с навигацией, OTP и assertions.'
-                  : 'Второй урок открыт серверным состоянием.',
+                type: 'lessonBlock',
+                attrs: { id: 'fixture-intro', kind: 'richText' },
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'Это настоящий browser E2E с навигацией, OTP и assertions.',
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'lessonBlock',
+                attrs: {
+                  id: 'fixture-warning',
+                  kind: 'callout',
+                  data: {
+                    tone: 'warning',
+                    title: 'Перед началом',
+                    body: 'Проверьте исходные данные и только потом переходите к действию.',
+                  },
+                },
+              },
+              {
+                type: 'lessonBlock',
+                attrs: {
+                  id: 'fixture-comparison',
+                  kind: 'comparison',
+                  data: {
+                    eyebrow: 'Частые ошибки',
+                    rows: [
+                      {
+                        id: 'fixture-comparison-row',
+                        avoid: 'Действовать по памяти',
+                        prefer: 'Свериться с актуальным регламентом',
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                type: 'lessonBlock',
+                attrs: {
+                  id: 'fixture-checklist',
+                  kind: 'checklist',
+                  data: {
+                    title: 'Перед продолжением',
+                    items: [
+                      { id: 'fixture-check-1', text: 'Материал прочитан' },
+                      { id: 'fixture-check-2', text: 'Главный риск понятен' },
+                    ],
+                  },
+                },
+              },
+            ]
+          : [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Второй урок открыт серверным состоянием.' }],
               },
             ],
-          },
-        ],
       },
     },
     enrollment: enrollment(),

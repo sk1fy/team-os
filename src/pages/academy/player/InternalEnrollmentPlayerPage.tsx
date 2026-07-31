@@ -395,23 +395,27 @@ export function InternalEnrollmentPlayerPage() {
               sectionTitle={currentSection?.title}
               lessonNumber={lessonIndex >= 0 ? lessonIndex + 1 : undefined}
               totalLessons={flatLessons.length}
-            />
-          )}
-          {lesson?.quiz && !lesson.locked ? (
-            <QuizRunner
-              quiz={lesson.quiz}
-              disabled={readOnly || !enrollment.canSubmitQuiz || lessonCompleted}
-              submitting={quizMutation.isPending}
-              lastResult={quizResult}
-              onSubmit={(answers) => quizMutation.mutate(answers)}
-              onRetry={() => setQuizResult(null)}
-              onContinue={
-                quizResult?.passed && quizContinueLessonId
-                  ? () => selectLesson(quizContinueLessonId)
-                  : undefined
+              quizContent={
+                lesson?.quiz && !lesson.locked ? (
+                  <QuizRunner
+                    quiz={lesson.quiz}
+                    embedded
+                    completed={lessonCompleted}
+                    disabled={readOnly || !enrollment.canSubmitQuiz || lessonCompleted}
+                    submitting={quizMutation.isPending}
+                    lastResult={quizResult}
+                    onSubmit={(answers) => quizMutation.mutate(answers)}
+                    onRetry={() => setQuizResult(null)}
+                    onContinue={
+                      quizResult?.passed && quizContinueLessonId
+                        ? () => selectLesson(quizContinueLessonId)
+                        : undefined
+                    }
+                  />
+                ) : undefined
               }
             />
-          ) : null}
+          )}
           {quizBlocksComplete && !readOnly ? (
             <div className="mx-auto max-w-3xl px-4 pb-4 sm:px-6">
               <AcademyStatusCallout
