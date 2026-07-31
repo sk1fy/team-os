@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, RotateCcw, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, CircleHelp, RotateCcw, XCircle } from 'lucide-react';
 import { Button, Checkbox, Textarea } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import type {
@@ -73,6 +73,17 @@ export function QuizRunner({
   }, [lastResult?.attemptId]);
 
   const complete = useMemo(() => isQuizDraftComplete(quiz, draft), [quiz, draft]);
+  const answeredCount = useMemo(
+    () =>
+      quiz.questions.filter((question) => {
+        const answer = draft[question.id];
+        if (!answer) return false;
+        return question.type === 'open'
+          ? answer.openText.trim().length > 0
+          : answer.optionIds.length > 0;
+      }).length,
+    [draft, quiz.questions],
+  );
   const showResult = Boolean(lastResult);
   const canRetry =
     lastResult &&
@@ -101,185 +112,253 @@ export function QuizRunner({
   };
 
   return (
-    <section className="mx-auto max-w-3xl space-y-6 border-t border-slate-200 p-4 sm:p-6">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900">Проверка знаний</h3>
-        <p className="mt-1 text-sm text-slate-500">
-          Проходной балл {quiz.passingScore}%
-          {quiz.maxAttempts != null
-            ? ` · попыток: ${quiz.attemptsUsed ?? 0}/${quiz.maxAttempts}`
-            : null}
-        </p>
-      </div>
-
-      {lastResult ? (
-        <div
-          ref={summaryRef}
-          id={summaryId}
-          tabIndex={-1}
-          role="status"
-          aria-live="polite"
-          className={cn(
-            'rounded-xl border px-4 py-3 outline-none',
-            lastResult.passed
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
-              : lastResult.pendingReview
-                ? 'border-amber-200 bg-amber-50 text-amber-950'
-                : 'border-red-200 bg-red-50 text-red-950',
-          )}
-        >
-          <div className="flex items-start gap-2">
-            {lastResult.passed ? (
-              <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
-            ) : (
-              <XCircle className="mt-0.5 size-5 shrink-0" />
-            )}
+    <section className="mx-auto max-w-4xl px-4 pb-10 sm:px-8">
+      <div className="rounded-2xl border border-slate-200 bg-surface p-4 shadow-card sm:p-6">
+        <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+              <CircleHelp className="size-5" aria-hidden />
+            </span>
             <div>
-              <p className="font-semibold">
-                {lastResult.passed
-                  ? 'Тест пройден'
-                  : lastResult.pendingReview
-                    ? 'Ответы на проверке'
-                    : 'Тест не пройден'}
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-700">
+                Закрепите материал
               </p>
-              <p className="mt-1 text-sm opacity-90">
-                Результат: {lastResult.score}%
-                {lastResult.pendingReview
-                  ? '. Открытые ответы ждут проверки — урок нельзя завершить до решения.'
-                  : lastResult.passed
-                    ? onContinue
-                      ? '. Результат сохранён. Можно перейти к следующему уроку.'
-                      : '. Результат сохранён.'
-                    : canRetry
-                      ? `. Осталось попыток: ${
-                          lastResult.maxAttempts == null
-                            ? 'без ограничений'
-                            : lastResult.maxAttempts - lastResult.attemptsUsed
-                        }.`
-                      : '. Попытки исчерпаны.'}
+              <h3 className="mt-1 text-xl font-semibold text-slate-950">Проверка знаний</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Для завершения урока нужно набрать {quiz.passingScore}%
               </p>
             </div>
           </div>
-        </div>
-      ) : null}
-
-      <ol className="space-y-6">
-        {quiz.questions.map((question, index) => {
-          const feedback = lastResult?.feedback.find((f) => f.questionId === question.id);
-          const answer = draft[question.id] ?? { optionIds: [], openText: '' };
-          return (
-            <li key={question.id} className="rounded-xl border border-slate-200 bg-surface p-4">
-              <p className="text-sm font-semibold text-slate-900">
-                {index + 1}. {question.text}
+          <div className="min-w-36 rounded-xl bg-slate-50 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3 text-xs font-medium text-slate-600">
+              <span>Отвечено</span>
+              <span className="tabular-nums">
+                {answeredCount} / {quiz.questions.length}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-primary-500 transition-[width] duration-200"
+                style={{
+                  width: `${quiz.questions.length ? (answeredCount / quiz.questions.length) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            {quiz.maxAttempts != null ? (
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                Использовано попыток: {quiz.attemptsUsed ?? 0} из {quiz.maxAttempts}
               </p>
-              {question.type === 'open' ? (
-                <Textarea
-                  className="mt-3"
-                  value={answer.openText}
-                  disabled={disabled || showResult}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      [question.id]: {
-                        ...(prev[question.id] ?? { optionIds: [], openText: '' }),
-                        openText: e.target.value,
-                      },
-                    }))
-                  }
-                  placeholder="Ваш ответ…"
-                  rows={3}
-                />
+            ) : null}
+          </div>
+        </div>
+
+        {lastResult ? (
+          <div
+            ref={summaryRef}
+            id={summaryId}
+            tabIndex={-1}
+            role="status"
+            aria-live="polite"
+            className={cn(
+              'rounded-xl border px-4 py-3 outline-none',
+              lastResult.passed
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                : lastResult.pendingReview
+                  ? 'border-amber-200 bg-amber-50 text-amber-950'
+                  : 'border-red-200 bg-red-50 text-red-950',
+            )}
+          >
+            <div className="flex items-start gap-2">
+              {lastResult.passed ? (
+                <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
               ) : (
-                <ul
-                  className="mt-3 space-y-2"
-                  role={question.type === 'single' ? 'radiogroup' : undefined}
-                  aria-label={question.type === 'single' ? question.text : undefined}
-                >
-                  {question.options.map((option) => {
-                    const checked = answer.optionIds.includes(option.id);
-                    const isCorrectOption = feedback?.correctOptionIds?.includes(option.id);
-                    const isWrongSelected =
-                      feedback && !feedback.correct && feedback.selectedOptionIds?.includes(option.id);
-                    return (
-                      <li key={option.id}>
-                        <div
-                          className={cn(
-                            'flex items-start gap-2 rounded-lg border px-3 py-2 text-sm',
-                            checked && !feedback && 'border-primary-300 bg-primary-50',
-                            isCorrectOption && 'border-emerald-300 bg-emerald-50',
-                            isWrongSelected && 'border-red-300 bg-red-50',
-                          )}
-                        >
-                          {question.type === 'single' ? (
-                            <label className="flex w-full cursor-pointer items-center gap-2 text-sm text-slate-700">
-                              <input
-                                type="radio"
-                                name={`quiz-${quiz.id}-question-${question.id}`}
+                <XCircle className="mt-0.5 size-5 shrink-0" />
+              )}
+              <div>
+                <p className="font-semibold">
+                  {lastResult.passed
+                    ? 'Тест пройден'
+                    : lastResult.pendingReview
+                      ? 'Ответы на проверке'
+                      : 'Тест не пройден'}
+                </p>
+                <p className="mt-1 text-sm opacity-90">
+                  Результат: {lastResult.score}%
+                  {lastResult.pendingReview
+                    ? '. Открытые ответы ждут проверки — урок нельзя завершить до решения.'
+                    : lastResult.passed
+                      ? onContinue
+                        ? '. Результат сохранён. Можно перейти к следующему уроку.'
+                        : '. Результат сохранён.'
+                      : canRetry
+                        ? `. Осталось попыток: ${
+                            lastResult.maxAttempts == null
+                              ? 'без ограничений'
+                              : lastResult.maxAttempts - lastResult.attemptsUsed
+                          }.`
+                        : '. Попытки исчерпаны.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <ol className="mt-6 space-y-4">
+          {quiz.questions.map((question, index) => {
+            const feedback = lastResult?.feedback.find((f) => f.questionId === question.id);
+            const answer = draft[question.id] ?? { optionIds: [], openText: '' };
+            return (
+              <li
+                key={question.id}
+                className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5"
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                      feedback?.correct
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : feedback
+                          ? 'bg-red-100 text-red-700'
+                          : answer.openText.trim() || answer.optionIds.length
+                            ? 'bg-primary-100 text-primary-700'
+                            : 'bg-slate-200 text-slate-600',
+                    )}
+                  >
+                    {feedback?.correct ? <Check className="size-4" aria-hidden /> : index + 1}
+                  </span>
+                  <p className="pt-0.5 text-sm font-semibold leading-6 text-slate-900">
+                    {question.text}
+                  </p>
+                </div>
+                {question.type === 'open' ? (
+                  <Textarea
+                    className="mt-4"
+                    value={answer.openText}
+                    disabled={disabled || showResult}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        [question.id]: {
+                          ...(prev[question.id] ?? { optionIds: [], openText: '' }),
+                          openText: e.target.value,
+                        },
+                      }))
+                    }
+                    placeholder="Ваш ответ…"
+                    rows={3}
+                  />
+                ) : (
+                  <ul
+                    className="mt-4 space-y-2"
+                    role={question.type === 'single' ? 'radiogroup' : undefined}
+                    aria-label={question.type === 'single' ? question.text : undefined}
+                  >
+                    {question.options.map((option) => {
+                      const checked = answer.optionIds.includes(option.id);
+                      const isCorrectOption = feedback?.correctOptionIds?.includes(option.id);
+                      const isWrongSelected =
+                        feedback &&
+                        !feedback.correct &&
+                        feedback.selectedOptionIds?.includes(option.id);
+                      return (
+                        <li key={option.id}>
+                          <div
+                            className={cn(
+                              'flex items-start gap-2 rounded-lg border bg-surface px-3 py-3 text-sm transition-colors',
+                              checked && !feedback && 'border-primary-300 bg-primary-50',
+                              isCorrectOption && 'border-emerald-300 bg-emerald-50',
+                              isWrongSelected && 'border-red-300 bg-red-50',
+                            )}
+                          >
+                            {question.type === 'single' ? (
+                              <label className="flex w-full cursor-pointer items-center gap-2 text-sm text-slate-700">
+                                <input
+                                  type="radio"
+                                  name={`quiz-${quiz.id}-question-${question.id}`}
+                                  checked={checked}
+                                  disabled={disabled || showResult}
+                                  onChange={() => toggleOption(question, option.id)}
+                                  className="size-4 accent-primary-600"
+                                />
+                                <span>{option.text}</span>
+                              </label>
+                            ) : (
+                              <Checkbox
                                 checked={checked}
                                 disabled={disabled || showResult}
-                                onChange={() => toggleOption(question, option.id)}
-                                className="size-4 accent-primary-600"
+                                onCheckedChange={() => toggleOption(question, option.id)}
+                                label={option.text}
+                                className="w-full"
                               />
-                              <span>{option.text}</span>
-                            </label>
-                          ) : (
-                            <Checkbox
-                              checked={checked}
-                              disabled={disabled || showResult}
-                              onCheckedChange={() => toggleOption(question, option.id)}
-                              label={option.text}
-                              className="w-full"
-                            />
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              {feedback?.explanation ? (
-                <p className="mt-3 text-sm text-slate-600">{feedback.explanation}</p>
-              ) : null}
-              {feedback ? (
-                <p
-                  className={cn(
-                    'mt-2 text-xs font-medium',
-                    feedback.correct ? 'text-emerald-700' : 'text-red-700',
-                  )}
-                >
-                  {feedback.correct ? 'Верно' : 'Неверно'}
-                </p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {feedback?.explanation ? (
+                  <div
+                    className={cn(
+                      'mt-3 rounded-lg border px-3 py-2.5 text-sm leading-6',
+                      feedback.correct
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                        : 'border-red-200 bg-red-50 text-red-900',
+                    )}
+                  >
+                    <p className="font-semibold">{feedback.correct ? 'Верно' : 'Разберём ответ'}</p>
+                    <p className="mt-0.5 opacity-90">{feedback.explanation}</p>
+                  </div>
+                ) : null}
+                {feedback && !feedback.explanation ? (
+                  <p
+                    className={cn(
+                      'mt-2 text-xs font-medium',
+                      feedback.correct ? 'text-emerald-700' : 'text-red-700',
+                    )}
+                  >
+                    {feedback.correct ? 'Верно' : 'Неверно'}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
 
-      <div className="flex flex-wrap gap-2">
-        {!showResult ? (
-          <Button
-            disabled={disabled || submitting || !complete}
-            loading={submitting}
-            onClick={() => onSubmit(draftToAnswers(draft))}
-          >
-            Проверить ответы
-          </Button>
-        ) : lastResult?.passed && onContinue ? (
-          <Button onClick={onContinue}>
-            Завершить и продолжить
-          </Button>
-        ) : canRetry ? (
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setDraft(emptyQuizDraft(quiz));
-              onRetry?.();
-            }}
-          >
-            <RotateCcw className="size-4" />
-            Попробовать ещё раз
-          </Button>
-        ) : null}
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+          {!showResult ? (
+            <p className="text-xs text-slate-500">
+              {complete
+                ? 'Все вопросы заполнены — можно проверить ответы'
+                : `Ответьте ещё на ${quiz.questions.length - answeredCount}`}
+            </p>
+          ) : (
+            <span />
+          )}
+          {!showResult ? (
+            <Button
+              disabled={disabled || submitting || !complete}
+              loading={submitting}
+              onClick={() => onSubmit(draftToAnswers(draft))}
+            >
+              Проверить ответы
+            </Button>
+          ) : lastResult?.passed && onContinue ? (
+            <Button onClick={onContinue}>Завершить и продолжить</Button>
+          ) : canRetry ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setDraft(emptyQuizDraft(quiz));
+                onRetry?.();
+              }}
+            >
+              <RotateCcw className="size-4" />
+              Попробовать ещё раз
+            </Button>
+          ) : null}
+        </div>
       </div>
     </section>
   );

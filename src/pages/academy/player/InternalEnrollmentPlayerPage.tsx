@@ -213,6 +213,9 @@ export function InternalEnrollmentPlayerPage() {
   };
 
   const lessonIndex = flatLessons.findIndex((l) => l.id === currentLessonId);
+  const currentSection = enrollment?.outline.sections.find((section) =>
+    section.lessons.some((item) => item.id === currentLessonId),
+  );
   const prevLesson = lessonIndex > 0 ? flatLessons[lessonIndex - 1] : undefined;
   const nextLesson =
     lessonIndex >= 0 && lessonIndex < flatLessons.length - 1
@@ -236,8 +239,7 @@ export function InternalEnrollmentPlayerPage() {
       toast.success(
         updated.progressStatus === 'completed' ? 'Курс завершён!' : 'Урок отмечен как пройденный',
       );
-      const nextId = nextAvailableLessonId(updated, currentLessonId);
-      if (nextId) selectLesson(nextId);
+      // Keep the completion state visible. The learner moves on explicitly from the footer.
       void enrollmentQuery.refetch();
     },
     onError: (error) => {
@@ -324,8 +326,7 @@ export function InternalEnrollmentPlayerPage() {
     enrollment.canCompleteLessons &&
     !hasQuiz;
 
-  const completeLabel =
-    nextLesson && !nextLesson.locked ? 'Завершить и продолжить' : 'Завершить урок';
+  const completeLabel = 'Завершить урок';
 
   return (
     <CoursePlayerShell
@@ -391,6 +392,9 @@ export function InternalEnrollmentPlayerPage() {
             <LessonArticle
               lesson={lesson}
               loading={Boolean(currentLessonId && canReadCurrentLesson && lessonQuery.isLoading)}
+              sectionTitle={currentSection?.title}
+              lessonNumber={lessonIndex >= 0 ? lessonIndex + 1 : undefined}
+              totalLessons={flatLessons.length}
             />
           )}
           {lesson?.quiz && !lesson.locked ? (
@@ -430,6 +434,8 @@ export function InternalEnrollmentPlayerPage() {
           completeDisabled={completeMutation.isPending}
           completeLoading={completeMutation.isPending}
           onComplete={() => completeMutation.mutate()}
+          nextLessonTitle={nextLesson?.title}
+          lessonCompleted={lessonCompleted}
         />
       }
     />

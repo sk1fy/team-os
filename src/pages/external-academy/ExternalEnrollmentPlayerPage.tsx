@@ -161,9 +161,6 @@ export function ExternalEnrollmentPlayerPage() {
       queryClient.setQueryData(queryKeys.externalAcademy.enrollment(enrollmentId), updated);
       await invalidatePlayerState(currentLessonId);
       toast.success('Урок завершён');
-      if (updated.currentLessonId && updated.currentLessonId !== currentLessonId) {
-        setSearchParams({ lesson: updated.currentLessonId });
-      }
     },
     onError: (error) => {
       const presentation = presentExternalError(error, {
@@ -256,6 +253,9 @@ export function ExternalEnrollmentPlayerPage() {
     ((deadlineExpired || enrollment.accessStatus === 'expired') && !lessonCompleted);
   const visibleLesson = contentUnavailable || !currentLessonAllowed ? null : lesson;
   const lessonIndex = flatLessons.findIndex((item) => item.id === currentLessonId);
+  const currentSection = outline.sections.find((section) =>
+    section.lessons.some((item) => item.id === currentLessonId),
+  );
   const prevLesson = lessonIndex > 0 ? flatLessons[lessonIndex - 1] : undefined;
   const nextLesson =
     lessonIndex >= 0 && lessonIndex < flatLessons.length - 1
@@ -366,6 +366,9 @@ export function ExternalEnrollmentPlayerPage() {
             <LessonArticle
               lesson={visibleLesson}
               loading={Boolean(currentLessonAllowed && lessonQuery.isLoading)}
+              sectionTitle={currentSection?.title}
+              lessonNumber={lessonIndex >= 0 ? lessonIndex + 1 : undefined}
+              totalLessons={flatLessons.length}
             />
           )}
           {visibleLesson?.quiz && !visibleLesson.locked ? (
@@ -408,9 +411,11 @@ export function ExternalEnrollmentPlayerPage() {
           onPrev={() => prevLesson && selectLesson(prevLesson.id)}
           onNext={() => nextLesson && selectLesson(nextLesson.id)}
           showComplete={Boolean(showComplete)}
-          completeLabel="Завершить и продолжить"
+          completeLabel="Завершить урок"
           completeLoading={completeMutation.isPending}
           onComplete={() => completeMutation.mutate()}
+          nextLessonTitle={nextLesson?.title}
+          lessonCompleted={lessonCompleted}
         />
       }
     />

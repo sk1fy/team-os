@@ -355,6 +355,40 @@
     @apply m-0 size-full border-0 object-contain;
   }
 
+  .lesson-rich-text {
+    @apply text-[15px] leading-7 text-slate-700;
+  }
+
+  .lesson-rich-text :where(h1, h2, h3) {
+    scroll-margin-top: 8.5rem;
+  }
+
+  .lesson-rich-text h2 {
+    @apply mt-10 mb-3 text-2xl font-semibold tracking-tight text-slate-950;
+  }
+
+  .lesson-rich-text h3 {
+    @apply mt-8 mb-2 text-lg font-semibold text-slate-900;
+  }
+
+  .lesson-rich-text p {
+    @apply my-4;
+  }
+
+  .lesson-rich-text :where(ul, ol) {
+    @apply my-4 space-y-2;
+  }
+
+  .lesson-rich-text blockquote {
+    @apply my-6 rounded-r-xl border-l-4 border-primary-300 bg-primary-50 px-5 py-3 text-slate-700;
+  }
+
+  .lesson-rich-text img,
+  .lesson-rich-text iframe,
+  .lesson-rich-text .video-embed {
+    @apply my-7 rounded-xl;
+  }
+
   .rich-text-editor {
     @apply rounded-md;
   }

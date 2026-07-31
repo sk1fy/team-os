@@ -49,12 +49,15 @@ test('external learner verifies email, activates access, completes lessons and s
   await expect(page.getByRole('heading', { name: 'Добро пожаловать' })).toBeVisible();
   await expect(page.getByText('Это настоящий browser E2E')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Завершить и продолжить' }).click();
+  await page.getByRole('button', { name: 'Завершить урок' }).click();
+  await expect(page.getByText('Урок завершён', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Далее: Следующий шаг')).toBeVisible();
+  await page.getByRole('button', { name: 'Следующий урок' }).click();
   await expect(page.getByRole('heading', { name: 'Следующий шаг' })).toBeVisible();
   await expect(page.getByText('Второй урок открыт серверным состоянием.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Завершить и продолжить' }).click();
-  await expect(page.getByText('100%')).toBeVisible();
+  await page.getByRole('button', { name: 'Завершить урок' }).click();
+  await expect(page.getByRole('banner').getByText('100%', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Результаты' }).click();
   await expect(page.getByRole('heading', { name: 'Результаты прохождения' })).toBeVisible();
   await expect(page.getByText('2 / 2')).toBeVisible();

@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, PanelLeft, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  LockKeyhole,
+  PanelLeft,
+  PlayCircle,
+  X,
+} from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { academyVersionsApi } from '@/api/academy';
 import { ApiError } from '@/api/client';
@@ -60,11 +70,8 @@ export function CoursePlayerShell({
         .flatMap((section) => section.lessons.slice().sort((a, b) => a.order - b.order)),
     [outline],
   );
-  const currentLessonIndex = orderedLessons.findIndex(
-    (lesson) => lesson.id === currentLessonId,
-  );
-  const currentLesson =
-    currentLessonIndex >= 0 ? orderedLessons[currentLessonIndex] : undefined;
+  const currentLessonIndex = orderedLessons.findIndex((lesson) => lesson.id === currentLessonId);
+  const currentLesson = currentLessonIndex >= 0 ? orderedLessons[currentLessonIndex] : undefined;
 
   const outlinePanel = (
     <CourseOutlinePanel
@@ -99,10 +106,7 @@ export function CoursePlayerShell({
           {outlineToggleIcon ?? '☰'}
         </button>
         <div className="min-w-0 flex-1">
-          <h1
-            className="truncate text-sm font-semibold text-slate-900 sm:text-base"
-            title={title}
-          >
+          <h1 className="truncate text-sm font-semibold text-slate-900 sm:text-base" title={title}>
             {title}
           </h1>
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -145,7 +149,7 @@ export function CoursePlayerShell({
             </div>
           </div>
         </div>
-        {headerMeta}
+        {headerMeta ? <div className="hidden shrink-0 sm:block">{headerMeta}</div> : null}
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -205,83 +209,174 @@ function CourseOutlinePanel({
   onSelectLesson: (lessonId: string) => void;
   readOnly: boolean;
 }) {
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const currentSection = outline.sections.find((section) =>
+      section.lessons.some((lesson) => lesson.id === currentLessonId),
+    );
+    if (!currentSection) return;
+    setCollapsedSections((current) => {
+      if (!current.has(currentSection.id)) return current;
+      const next = new Set(current);
+      next.delete(currentSection.id);
+      return next;
+    });
+  }, [currentLessonId, outline.sections]);
+
   return (
     <nav className="p-3" aria-label="Программа курса">
-      <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {outline.title}
-      </p>
-      <ul className="space-y-3">
-        {outline.sections.map((section) => (
-          <li key={section.id}>
-            <p className="px-2 text-xs font-semibold text-slate-500">{section.title}</p>
-            <ul className="mt-1 space-y-0.5">
-              {section.lessons.map((lesson) => {
-                const active = lesson.id === currentLessonId;
-                const interactionLocked = readOnly || (lesson.locked && !lesson.completed);
-                return (
-                  <li key={lesson.id}>
-                    <button
-                      type="button"
-                      aria-disabled={interactionLocked}
-                      aria-label={
-                        interactionLocked
-                          ? `${lesson.title}. ${
-                              readOnly
-                                ? 'Материалы недоступны в текущем состоянии прохождения'
-                                : lesson.lockReason ?? 'Урок пока недоступен'
-                            }`
-                          : lesson.title
-                      }
-                      onClick={() => {
-                        if (!interactionLocked) onSelectLesson(lesson.id);
-                      }}
-                      title={
-                        interactionLocked
-                          ? `${lesson.title}. ${
-                              readOnly
-                                ? 'Материалы недоступны в текущем состоянии прохождения'
-                                : lesson.lockReason ?? 'Урок пока недоступен'
-                            }`
-                          : lesson.title
-                      }
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition',
-                        active && 'bg-primary-50 font-medium text-primary-800',
-                        !active && !interactionLocked && 'text-slate-700 hover:bg-slate-100',
-                        interactionLocked && 'cursor-not-allowed text-slate-400',
-                      )}
-                    >
-                      <span
+      <div className="mb-4 px-2 pt-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          Программа курса
+        </p>
+        <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-slate-900">
+          {outline.title}
+        </p>
+      </div>
+      <ul className="space-y-2">
+        {outline.sections.map((section) => {
+          const completedCount = section.lessons.filter((lesson) => lesson.completed).length;
+          const totalCount = section.lessons.length;
+          const sectionPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+          const collapsed = collapsedSections.has(section.id);
+          const sectionComplete = totalCount > 0 && completedCount === totalCount;
+
+          return (
+            <li
+              key={section.id}
+              className="overflow-hidden rounded-xl border border-slate-200 bg-surface"
+            >
+              <button
+                type="button"
+                className="flex w-full items-start gap-2 px-3 py-3 text-left hover:bg-slate-50"
+                onClick={() =>
+                  setCollapsedSections((current) => {
+                    const next = new Set(current);
+                    if (next.has(section.id)) next.delete(section.id);
+                    else next.add(section.id);
+                    return next;
+                  })
+                }
+                aria-expanded={!collapsed}
+                aria-controls={`course-section-${section.id}`}
+              >
+                {sectionComplete ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
+                ) : (
+                  <span className="mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-300 text-[9px] font-semibold text-slate-500">
+                    {completedCount}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold leading-4 text-slate-800">
+                    {section.title}
+                  </span>
+                  <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                    <span>
+                      {completedCount} из {totalCount} уроков
+                    </span>
+                    <span>{Math.round(sectionPercent)}%</span>
+                  </span>
+                  <span
+                    className="mt-1.5 block h-1 overflow-hidden rounded-full bg-slate-100"
+                    role="progressbar"
+                    aria-label={`Прогресс раздела «${section.title}»`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(sectionPercent)}
+                  >
+                    <span
+                      className="block h-full rounded-full bg-primary-500 transition-[width] duration-300"
+                      style={{ width: `${sectionPercent}%` }}
+                    />
+                  </span>
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'mt-0.5 size-4 shrink-0 text-slate-400 transition-transform',
+                    collapsed && '-rotate-90',
+                  )}
+                  aria-hidden
+                />
+              </button>
+              <ul
+                id={`course-section-${section.id}`}
+                className={cn('space-y-0.5 border-t border-slate-100 p-1.5', collapsed && 'hidden')}
+              >
+                {section.lessons.map((lesson) => {
+                  const active = lesson.id === currentLessonId;
+                  const interactionLocked = readOnly || (lesson.locked && !lesson.completed);
+                  return (
+                    <li key={lesson.id}>
+                      <button
+                        type="button"
+                        aria-disabled={interactionLocked}
+                        aria-label={
+                          interactionLocked
+                            ? `${lesson.title}. ${
+                                readOnly
+                                  ? 'Материалы недоступны в текущем состоянии прохождения'
+                                  : (lesson.lockReason ?? 'Урок пока недоступен')
+                              }`
+                            : lesson.title
+                        }
+                        onClick={() => {
+                          if (!interactionLocked) onSelectLesson(lesson.id);
+                        }}
+                        title={
+                          interactionLocked
+                            ? `${lesson.title}. ${
+                                readOnly
+                                  ? 'Материалы недоступны в текущем состоянии прохождения'
+                                  : (lesson.lockReason ?? 'Урок пока недоступен')
+                              }`
+                            : lesson.title
+                        }
                         className={cn(
-                          'size-1.5 shrink-0 rounded-full',
-                          lesson.completed
-                            ? 'bg-emerald-500'
-                            : active
-                              ? 'bg-primary-500'
-                              : 'bg-slate-300',
+                          'group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition',
+                          active &&
+                            'bg-primary-50 font-semibold text-primary-800 ring-1 ring-inset ring-primary-100',
+                          !active && !interactionLocked && 'text-slate-700 hover:bg-slate-100',
+                          interactionLocked && 'cursor-not-allowed text-slate-400',
                         )}
-                        aria-hidden
-                      />
-                      <span className="line-clamp-2 min-w-0 flex-1">{lesson.title}</span>
-                      {lesson.hasQuiz ? (
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                            active
-                              ? 'bg-primary-100 text-primary-700'
-                              : 'bg-slate-100 text-slate-500',
-                          )}
-                        >
-                          тест
+                      >
+                        {lesson.completed ? (
+                          <Check
+                            className="size-4 shrink-0 text-emerald-600"
+                            strokeWidth={2.5}
+                            aria-hidden
+                          />
+                        ) : interactionLocked ? (
+                          <LockKeyhole className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                        ) : active ? (
+                          <PlayCircle className="size-4 shrink-0 text-primary-600" aria-hidden />
+                        ) : (
+                          <Circle className="size-3.5 shrink-0 text-slate-300" aria-hidden />
+                        )}
+                        <span className="line-clamp-2 min-w-0 flex-1 leading-5">
+                          {lesson.title}
                         </span>
-                      ) : null}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </li>
-        ))}
+                        {lesson.hasQuiz ? (
+                          <span
+                            className={cn(
+                              'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
+                              active
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'bg-slate-100 text-slate-500',
+                            )}
+                          >
+                            тест
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );
@@ -405,7 +500,16 @@ export function CoursePreviewPage() {
       }
       content={
         <div>
-          <LessonArticle lesson={selectedLesson} />
+          <LessonArticle
+            lesson={selectedLesson}
+            sectionTitle={
+              outline.sections.find((section) => section.id === selected?.sectionId)?.title
+            }
+            lessonNumber={
+              selected ? lessons.findIndex((lesson) => lesson.id === selected.id) + 1 : undefined
+            }
+            totalLessons={lessons.length}
+          />
           {selected && !selected.content ? (
             <div className="mx-auto max-w-3xl px-4 pb-4 sm:px-6">
               <AcademyStatusCallout
@@ -416,11 +520,7 @@ export function CoursePreviewPage() {
             </div>
           ) : null}
           {selectedLesson?.quiz ? (
-            <QuizRunner
-              quiz={selectedLesson.quiz}
-              disabled
-              onSubmit={() => undefined}
-            />
+            <QuizRunner quiz={selectedLesson.quiz} disabled onSubmit={() => undefined} />
           ) : null}
         </div>
       }
