@@ -50,6 +50,7 @@ test('external learner verifies email, activates access, completes lessons and s
   await expect(page.getByText('Это настоящий browser E2E')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Перед началом' })).toBeVisible();
   await expect(page.getByText('Действовать по памяти')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Главная мысль' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Перед продолжением' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Завершить урок' }).click();
@@ -59,9 +60,17 @@ test('external learner verifies email, activates access, completes lessons and s
   await expect(page.getByRole('heading', { name: 'Следующий шаг' })).toBeVisible();
   await expect(page.getByText('Второй урок открыт серверным состоянием.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Завершить урок' }).click();
-  await expect(page.getByRole('banner').getByText('100%', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Результаты' }).click();
+  await page.getByText('Пропустить практику и не обсуждать вопросы').click();
+  await page.getByRole('button', { name: 'Проверить ответы' }).click();
+  await expect(page.getByText('Тест не пройден', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Практика и фиксация результата помогают перенести знание в работу.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Попробовать ещё раз' }).click();
+  await page.getByText('Применить алгоритм на практике и зафиксировать результат').click();
+  await page.getByRole('button', { name: 'Проверить ответы' }).click();
+  await expect(page.getByText('Тест пройден', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Завершить и продолжить' }).click();
   await expect(page.getByRole('heading', { name: 'Результаты прохождения' })).toBeVisible();
   await expect(page.getByText('2 / 2')).toBeVisible();
   await expect(page.getByText('Завершён')).toHaveCount(2);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RichTextContent } from '@/types';
 import type { LessonBlock } from './lessonBlocks';
 import {
+  createLessonBlock,
   lessonBlocksHaveMeaningfulContent,
   parseLessonBlocks,
   serializeLessonBlocks,
@@ -38,6 +39,7 @@ describe('lesson blocks storage', () => {
       {
         id: 'warning',
         kind: 'callout',
+        style: 'accent',
         tone: 'warning',
         title: 'Do not skip',
         body: 'Read this first.',
@@ -45,24 +47,28 @@ describe('lesson blocks storage', () => {
       {
         id: 'pitfalls',
         kind: 'comparison',
+        style: 'outline',
         eyebrow: 'Common pitfalls',
         rows: [{ id: 'row-1', avoid: 'Guess', prefer: 'Verify' }],
       },
       {
         id: 'check',
         kind: 'checklist',
+        style: 'minimal',
         title: 'Before continuing',
         items: [{ id: 'item-1', text: 'Save your work' }],
       },
       {
         id: 'steps',
         kind: 'steps',
+        style: 'card',
         title: 'How to proceed',
         items: [{ id: 'step-1', text: 'Review the evidence' }],
       },
       {
         id: 'practice',
         kind: 'practice',
+        style: 'accent',
         title: 'Try it',
         description: 'Apply the lesson.',
         action: 'Write down the result.',
@@ -71,6 +77,7 @@ describe('lesson blocks storage', () => {
       {
         id: 'summary',
         kind: 'takeaway',
+        style: 'outline',
         title: 'Remember',
         body: 'Verification matters.',
       },
@@ -117,11 +124,51 @@ describe('lesson blocks storage', () => {
       {
         id: 'practice-1',
         kind: 'practice',
+        style: 'card',
         title: 'Try it',
         description: 'Apply the lesson.',
         action: 'Write down the result.',
       },
     ]);
+  });
+
+  it('defaults old special blocks to the card style', () => {
+    const stored: RichTextContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'lessonBlock',
+          attrs: {
+            id: 'takeaway-legacy',
+            kind: 'takeaway',
+            data: { title: 'Remember', body: 'This has no stored style.' },
+          },
+        },
+      ],
+    };
+
+    expect(parseLessonBlocks(stored)).toContainEqual({
+      id: 'takeaway-legacy',
+      kind: 'takeaway',
+      style: 'card',
+      title: 'Remember',
+      body: 'This has no stored style.',
+    });
+  });
+
+  it('creates each special block with the default card style', () => {
+    const specialKinds = [
+      'callout',
+      'comparison',
+      'takeaway',
+      'steps',
+      'checklist',
+      'practice',
+    ] as const;
+
+    for (const kind of specialKinds) {
+      expect(createLessonBlock(kind)).toMatchObject({ kind, style: 'card' });
+    }
   });
 
   it('preserves legacy nodes mixed with block nodes', () => {

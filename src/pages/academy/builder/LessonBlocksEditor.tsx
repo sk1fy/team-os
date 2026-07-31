@@ -20,6 +20,7 @@ import {
   createLessonBlock,
   type LessonBlock,
   type LessonBlockKind,
+  type LessonBlockStyle,
   type LessonChecklistBlock,
   type LessonStepsBlock,
 } from '@/lib/academy/lessonBlocks';
@@ -79,6 +80,33 @@ const blockMeta: Record<
     tone: 'bg-primary-50 text-primary-700',
   },
 };
+
+const blockStyleOptions: Array<{ value: LessonBlockStyle; label: string }> = [
+  { value: 'card', label: 'Карточка — мягкий фон' },
+  { value: 'accent', label: 'Акцент — цветная заливка' },
+  { value: 'minimal', label: 'Минимал — без контейнера' },
+  { value: 'outline', label: 'Контур — только рамка' },
+];
+
+function BlockStyleSelect({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: LessonBlockStyle;
+  disabled?: boolean;
+  onChange: (style: LessonBlockStyle) => void;
+}) {
+  return (
+    <Select
+      label="Внешний вид"
+      value={value}
+      disabled={disabled}
+      options={blockStyleOptions}
+      onValueChange={(style) => onChange(style as LessonBlockStyle)}
+    />
+  );
+}
 
 export function LessonBlocksEditor({
   lessonId,
@@ -282,6 +310,11 @@ function BlockEditor({
     case 'callout':
       return (
         <div className="space-y-3">
+          <BlockStyleSelect
+            value={block.style}
+            disabled={disabled}
+            onChange={(style) => onUpdate({ ...block, style })}
+          />
           <Select
             label="Тип сообщения"
             value={block.tone}
@@ -311,6 +344,11 @@ function BlockEditor({
     case 'comparison':
       return (
         <div className="space-y-3">
+          <BlockStyleSelect
+            value={block.style}
+            disabled={disabled}
+            onChange={(style) => onUpdate({ ...block, style })}
+          />
           <Input
             label="Надпись над блоком"
             value={block.eyebrow}
@@ -381,6 +419,11 @@ function BlockEditor({
     case 'takeaway':
       return (
         <div className="space-y-3">
+          <BlockStyleSelect
+            value={block.style}
+            disabled={disabled}
+            onChange={(style) => onUpdate({ ...block, style })}
+          />
           <Input
             label="Заголовок"
             value={block.title}
@@ -402,6 +445,11 @@ function BlockEditor({
     case 'practice':
       return (
         <div className="space-y-3">
+          <BlockStyleSelect
+            value={block.style}
+            disabled={disabled}
+            onChange={(style) => onUpdate({ ...block, style })}
+          />
           <Input
             label="Заголовок"
             value={block.title}
@@ -438,6 +486,11 @@ function ItemsBlockEditor({
 }) {
   return (
     <div className="space-y-3">
+      <BlockStyleSelect
+        value={block.style}
+        disabled={disabled}
+        onChange={(style) => onUpdate({ ...block, style })}
+      />
       <Input
         label="Заголовок"
         value={block.title}

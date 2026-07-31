@@ -71,12 +71,11 @@ function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
               }`}
             >
               <Clock3 className="size-3.5" />
-              {deadlinePassed ? 'Срок истёк' : 'Срок до'}{' '}
-              {deadlineDate.toLocaleDateString('ru-RU')}
+              {deadlinePassed ? 'Срок истёк' : 'Срок до'} {deadlineDate.toLocaleDateString('ru-RU')}
             </p>
           ) : null}
         </div>
-        <StatusBadgeFromPresentation status={progress} />
+        <StatusBadgeFromPresentation status={progress} className="shrink-0 whitespace-nowrap" />
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
         <div
@@ -118,8 +117,7 @@ export function AcademyHomePage() {
   const enrollments = data?.enrollments ?? [];
   const stats = data?.stats;
   const allCompleted =
-    enrollments.length > 0 &&
-    enrollments.every((item) => item.progressStatus === 'completed');
+    enrollments.length > 0 && enrollments.every((item) => item.progressStatus === 'completed');
 
   return (
     <div className="space-y-8">
@@ -148,7 +146,9 @@ export function AcademyHomePage() {
               </p>
               <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <h2 className="text-xl font-semibold text-slate-950">{continueItem.courseTitle}</h2>
+                  <h2 className="text-xl font-semibold text-slate-950">
+                    {continueItem.courseTitle}
+                  </h2>
                   <p className="mt-1 text-sm text-slate-600">
                     Прогресс {continueItem.percent}% · {continueItem.completedLessons}/
                     {continueItem.totalLessons} уроков

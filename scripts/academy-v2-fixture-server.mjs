@@ -10,10 +10,15 @@ const learnerId = '66666666-6666-4666-8666-666666666666';
 const firstLessonId = '77777777-7777-4777-8777-777777777777';
 const secondLessonId = '88888888-8888-4888-8888-888888888888';
 const sectionId = '99999999-9999-4999-8999-999999999999';
+const quizId = '12121212-1212-4121-8121-121212121212';
+const quizQuestionId = '13131313-1313-4131-8131-131313131313';
+const wrongOptionId = '14141414-1414-4141-8141-141414141414';
+const correctOptionId = '15151515-1515-4151-8151-151515151515';
 const now = '2026-07-27T09:00:00Z';
 const accessUntil = '2099-07-30T09:00:00Z';
 
 let completedLessonIds = [];
+let quizAttemptsUsed = 0;
 
 const unavailableStates = new Set([
   'distribution_paused',
@@ -159,6 +164,7 @@ function lesson(lessonId) {
                   id: 'fixture-warning',
                   kind: 'callout',
                   data: {
+                    style: 'card',
                     tone: 'warning',
                     title: 'Перед началом',
                     body: 'Проверьте исходные данные и только потом переходите к действию.',
@@ -171,6 +177,7 @@ function lesson(lessonId) {
                   id: 'fixture-comparison',
                   kind: 'comparison',
                   data: {
+                    style: 'accent',
                     eyebrow: 'Частые ошибки',
                     rows: [
                       {
@@ -185,9 +192,22 @@ function lesson(lessonId) {
               {
                 type: 'lessonBlock',
                 attrs: {
+                  id: 'fixture-takeaway',
+                  kind: 'takeaway',
+                  data: {
+                    style: 'outline',
+                    title: 'Главная мысль',
+                    body: 'Проверяйте факты до того, как переходить к следующему шагу.',
+                  },
+                },
+              },
+              {
+                type: 'lessonBlock',
+                attrs: {
                   id: 'fixture-checklist',
                   kind: 'checklist',
                   data: {
+                    style: 'minimal',
                     title: 'Перед продолжением',
                     items: [
                       { id: 'fixture-check-1', text: 'Материал прочитан' },
@@ -204,6 +224,29 @@ function lesson(lessonId) {
               },
             ],
       },
+      quiz: isFirst
+        ? undefined
+        : {
+            id: quizId,
+            lessonId,
+            passingScore: 100,
+            maxAttempts: 3,
+            attemptsUsed: quizAttemptsUsed,
+            questions: [
+              {
+                id: quizQuestionId,
+                type: 'single',
+                text: 'Как лучше закрепить результат этого модуля?',
+                options: [
+                  { id: wrongOptionId, text: 'Пропустить практику и не обсуждать вопросы' },
+                  {
+                    id: correctOptionId,
+                    text: 'Применить алгоритм на практике и зафиксировать результат',
+                  },
+                ],
+              },
+            ],
+          },
     },
     enrollment: enrollment(),
   };
@@ -336,6 +379,43 @@ const server = createServer(async (request, response) => {
   }
 
   if (
+    request.method === 'POST' &&
+    url.pathname === `/api/v1/public/academy/enrollments/${enrollmentId}/quizzes/${quizId}/attempts`
+  ) {
+    const input = await readJSON(request);
+    const selectedOptionIds = input.answers?.[0]?.optionIds ?? [];
+    const passed = selectedOptionIds.includes(correctOptionId);
+    quizAttemptsUsed += 1;
+    if (passed && !completedLessonIds.includes(secondLessonId)) {
+      completedLessonIds.push(secondLessonId);
+    }
+    send(request, response, 201, {
+      attempt: {
+        id: `fixture-attempt-${quizAttemptsUsed}`,
+        quizVersionId: quizId,
+        enrollmentId,
+        attemptNumber: quizAttemptsUsed,
+        maxAttempts: 3,
+        score: passed ? 100 : 0,
+        passed,
+        pendingReview: false,
+        feedback: [
+          {
+            questionId: quizQuestionId,
+            correct: passed,
+            selectedOptionIds,
+            correctOptionIds: [correctOptionId],
+            explanation: 'Практика и фиксация результата помогают перенести знание в работу.',
+          },
+        ],
+        createdAt: now,
+      },
+      enrollment: enrollment(),
+    });
+    return;
+  }
+
+  if (
     request.method === 'GET' &&
     url.pathname === `/api/v1/public/academy/enrollments/${enrollmentId}/results`
   ) {
@@ -361,6 +441,7 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'POST' && url.pathname === '/api/v1/__e2e/reset') {
     completedLessonIds = [];
+    quizAttemptsUsed = 0;
     send(request, response, 204);
     return;
   }

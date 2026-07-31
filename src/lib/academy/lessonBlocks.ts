@@ -4,6 +4,8 @@ import type { RichTextContent } from '@/types';
 export type LessonBlockKind =
   'richText' | 'callout' | 'comparison' | 'takeaway' | 'steps' | 'checklist' | 'practice' | 'quiz';
 
+export type LessonBlockStyle = 'card' | 'accent' | 'minimal' | 'outline';
+
 export interface LessonTextBlock {
   id: string;
   kind: 'richText';
@@ -13,6 +15,7 @@ export interface LessonTextBlock {
 export interface LessonCalloutBlock {
   id: string;
   kind: 'callout';
+  style: LessonBlockStyle;
   tone: 'info' | 'warning' | 'success';
   title: string;
   body: string;
@@ -21,6 +24,7 @@ export interface LessonCalloutBlock {
 export interface LessonComparisonBlock {
   id: string;
   kind: 'comparison';
+  style: LessonBlockStyle;
   eyebrow: string;
   rows: Array<{ id: string; avoid: string; prefer: string }>;
 }
@@ -28,6 +32,7 @@ export interface LessonComparisonBlock {
 export interface LessonTakeawayBlock {
   id: string;
   kind: 'takeaway';
+  style: LessonBlockStyle;
   title: string;
   body: string;
 }
@@ -35,6 +40,7 @@ export interface LessonTakeawayBlock {
 export interface LessonStepsBlock {
   id: string;
   kind: 'steps';
+  style: LessonBlockStyle;
   title: string;
   items: Array<{ id: string; text: string }>;
 }
@@ -42,6 +48,7 @@ export interface LessonStepsBlock {
 export interface LessonChecklistBlock {
   id: string;
   kind: 'checklist';
+  style: LessonBlockStyle;
   title: string;
   items: Array<{ id: string; text: string }>;
 }
@@ -49,6 +56,7 @@ export interface LessonChecklistBlock {
 export interface LessonPracticeBlock {
   id: string;
   kind: 'practice';
+  style: LessonBlockStyle;
   title: string;
   description: string;
   action: string;
@@ -87,6 +95,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const stringValue = (value: unknown, fallback = '') =>
   typeof value === 'string' ? value : fallback;
 
+const blockStyle = (value: unknown): LessonBlockStyle =>
+  value === 'accent' || value === 'minimal' || value === 'outline' || value === 'card'
+    ? value
+    : 'card';
+
 const storedItems = (value: unknown): Array<{ id: string; text: string }> =>
   Array.isArray(value)
     ? value.flatMap((item, index) =>
@@ -108,6 +121,7 @@ function parseStoredBlock(node: StoredLessonBlockNode, index: number): LessonBlo
       return {
         id,
         kind,
+        style: blockStyle(data.style),
         tone:
           data.tone === 'warning' || data.tone === 'success' || data.tone === 'info'
             ? data.tone
@@ -119,6 +133,7 @@ function parseStoredBlock(node: StoredLessonBlockNode, index: number): LessonBlo
       return {
         id,
         kind,
+        style: blockStyle(data.style),
         eyebrow: stringValue(data.eyebrow, 'Частые ошибки'),
         rows: Array.isArray(data.rows)
           ? data.rows.flatMap((row, rowIndex) =>
@@ -138,6 +153,7 @@ function parseStoredBlock(node: StoredLessonBlockNode, index: number): LessonBlo
       return {
         id,
         kind,
+        style: blockStyle(data.style),
         title: stringValue(data.title, 'Главная мысль'),
         body: stringValue(data.body),
       };
@@ -145,6 +161,7 @@ function parseStoredBlock(node: StoredLessonBlockNode, index: number): LessonBlo
       return {
         id,
         kind,
+        style: blockStyle(data.style),
         title: stringValue(data.title, 'Пошаговый алгоритм'),
         items: storedItems(data.items),
       };
@@ -152,6 +169,7 @@ function parseStoredBlock(node: StoredLessonBlockNode, index: number): LessonBlo
       return {
         id,
         kind,
+        style: blockStyle(data.style),
         title: stringValue(data.title, 'Проверьте себя'),
         items: storedItems(data.items),
       };
@@ -159,6 +177,7 @@ function parseStoredBlock(node: StoredLessonBlockNode, index: number): LessonBlo
       return {
         id,
         kind,
+        style: blockStyle(data.style),
         title: stringValue(data.title, 'Примените на практике'),
         description: stringValue(data.description),
         action: stringValue(data.action),
@@ -230,16 +249,21 @@ export function parseLessonBlocks(
 function blockData(block: Exclude<LessonBlock, LessonTextBlock | LessonQuizBlock>) {
   switch (block.kind) {
     case 'callout':
-      return { tone: block.tone, title: block.title, body: block.body };
+      return { style: block.style, tone: block.tone, title: block.title, body: block.body };
     case 'comparison':
-      return { eyebrow: block.eyebrow, rows: block.rows };
+      return { style: block.style, eyebrow: block.eyebrow, rows: block.rows };
     case 'takeaway':
-      return { title: block.title, body: block.body };
+      return { style: block.style, title: block.title, body: block.body };
     case 'steps':
     case 'checklist':
-      return { title: block.title, items: block.items };
+      return { style: block.style, title: block.title, items: block.items };
     case 'practice':
-      return { title: block.title, description: block.description, action: block.action };
+      return {
+        style: block.style,
+        title: block.title,
+        description: block.description,
+        action: block.action,
+      };
   }
 }
 
@@ -267,6 +291,7 @@ export function createLessonBlock(kind: LessonBlockKind): LessonBlock {
       return {
         id,
         kind,
+        style: 'card',
         tone: 'warning',
         title: 'Обратите внимание',
         body: 'Коротко объясните риск или важное ограничение.',
@@ -275,6 +300,7 @@ export function createLessonBlock(kind: LessonBlockKind): LessonBlock {
       return {
         id,
         kind,
+        style: 'card',
         eyebrow: 'Частые ошибки',
         rows: [
           {
@@ -288,6 +314,7 @@ export function createLessonBlock(kind: LessonBlockKind): LessonBlock {
       return {
         id,
         kind,
+        style: 'card',
         title: 'Главная мысль',
         body: 'Сформулируйте идею, которую важно унести из урока.',
       };
@@ -295,6 +322,7 @@ export function createLessonBlock(kind: LessonBlockKind): LessonBlock {
       return {
         id,
         kind,
+        style: 'card',
         title: 'Пошаговый алгоритм',
         items: [
           { id: createId(), text: 'Первый шаг' },
@@ -305,6 +333,7 @@ export function createLessonBlock(kind: LessonBlockKind): LessonBlock {
       return {
         id,
         kind,
+        style: 'card',
         title: 'Проверьте себя',
         items: [
           { id: createId(), text: 'Первый критерий' },
@@ -315,6 +344,7 @@ export function createLessonBlock(kind: LessonBlockKind): LessonBlock {
       return {
         id,
         kind,
+        style: 'card',
         title: 'Примените на практике',
         description: 'Свяжите материал урока с реальной рабочей ситуацией.',
         action: 'Выполните действие и зафиксируйте результат.',

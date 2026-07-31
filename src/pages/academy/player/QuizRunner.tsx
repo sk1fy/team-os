@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, CheckCircle2, CircleHelp, RotateCcw, XCircle } from 'lucide-react';
-import { Button, Checkbox, Textarea } from '@/components/ui';
+import { Button, Textarea } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import type {
   QuizAttemptAnswer,
@@ -182,7 +182,7 @@ export function QuizRunner({
             role="status"
             aria-live="polite"
             className={cn(
-              'rounded-xl border px-4 py-3 outline-none',
+              'mt-5 rounded-xl border px-4 py-3 outline-none',
               lastResult.passed
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
                 : lastResult.pendingReview
@@ -223,37 +223,27 @@ export function QuizRunner({
           </div>
         ) : null}
 
-        <ol className="mt-6 space-y-4">
+        <ol className="mt-6 divide-y divide-slate-200">
           {quiz.questions.map((question, index) => {
             const feedback = lastResult?.feedback.find((f) => f.questionId === question.id);
             const answer = draft[question.id] ?? { optionIds: [], openText: '' };
             return (
-              <li
-                key={question.id}
-                className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5"
-              >
-                <div className="flex items-start gap-3">
-                  <span
-                    className={cn(
-                      'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                      feedback?.correct
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : feedback
-                          ? 'bg-red-100 text-red-700'
-                          : answer.openText.trim() || answer.optionIds.length
-                            ? 'bg-primary-100 text-primary-700'
-                            : 'bg-slate-200 text-slate-600',
-                    )}
-                  >
-                    {feedback?.correct ? <Check className="size-4" aria-hidden /> : index + 1}
+              <li key={question.id} className="py-6 first:pt-0 last:pb-0">
+                <div className="flex items-baseline gap-2.5">
+                  <span className="shrink-0 font-mono text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                    Q{index + 1}
                   </span>
-                  <p className="pt-0.5 text-sm font-semibold leading-6 text-slate-900">
+                  <h4 className="text-sm font-semibold leading-6 text-slate-950">
                     {question.text}
-                  </p>
+                  </h4>
                 </div>
                 {question.type === 'open' ? (
                   <Textarea
-                    className="mt-4"
+                    className={cn(
+                      'mt-3',
+                      feedback?.correct && 'border-emerald-400 bg-emerald-50 text-emerald-900',
+                      feedback && !feedback.correct && 'border-red-400 bg-red-50 text-red-900',
+                    )}
                     value={answer.openText}
                     disabled={disabled || showResult}
                     onChange={(e) =>
@@ -270,65 +260,81 @@ export function QuizRunner({
                   />
                 ) : (
                   <ul
-                    className="mt-4 space-y-2"
+                    className="mt-3 space-y-2"
                     role={question.type === 'single' ? 'radiogroup' : undefined}
                     aria-label={question.type === 'single' ? question.text : undefined}
                   >
                     {question.options.map((option) => {
                       const checked = answer.optionIds.includes(option.id);
-                      const isCorrectOption = feedback?.correctOptionIds?.includes(option.id);
+                      const isCorrectOption =
+                        feedback?.correctOptionIds?.includes(option.id) ||
+                        (feedback?.correct && feedback.selectedOptionIds?.includes(option.id));
                       const isWrongSelected =
                         feedback &&
                         !feedback.correct &&
                         feedback.selectedOptionIds?.includes(option.id);
+                      const resultTone = isCorrectOption
+                        ? 'correct'
+                        : isWrongSelected
+                          ? 'incorrect'
+                          : 'neutral';
                       return (
                         <li key={option.id}>
-                          <div
+                          <label
                             className={cn(
-                              'flex items-start gap-2 rounded-lg border bg-surface px-3 py-3 text-sm transition-colors',
-                              checked && !feedback && 'border-primary-300 bg-primary-50',
-                              isCorrectOption && 'border-emerald-300 bg-emerald-50',
-                              isWrongSelected && 'border-red-300 bg-red-50',
+                              'group flex min-h-11 w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-sm leading-5 transition-colors',
+                              !disabled && !showResult && 'cursor-pointer hover:border-slate-400',
+                              disabled && !showResult && 'cursor-not-allowed opacity-60',
+                              !feedback && !checked && 'border-slate-200 bg-surface text-slate-700',
+                              !feedback &&
+                                checked &&
+                                'border-primary-400 bg-primary-50 text-primary-900',
+                              feedback &&
+                                resultTone === 'correct' &&
+                                'border-emerald-400 bg-emerald-50 text-emerald-900',
+                              feedback &&
+                                resultTone === 'incorrect' &&
+                                'border-red-400 bg-red-50 text-red-900',
+                              feedback &&
+                                resultTone === 'neutral' &&
+                                'border-slate-200 bg-slate-50 text-slate-500',
                             )}
                           >
-                            {question.type === 'single' ? (
-                              <label className="flex w-full cursor-pointer items-center gap-2 text-sm text-slate-700">
-                                <input
-                                  type="radio"
-                                  name={`quiz-${quiz.id}-question-${question.id}`}
-                                  checked={checked}
-                                  disabled={disabled || showResult}
-                                  onChange={() => toggleOption(question, option.id)}
-                                  className="size-4 accent-primary-600"
-                                />
-                                <span>{option.text}</span>
-                              </label>
-                            ) : (
-                              <Checkbox
-                                checked={checked}
-                                disabled={disabled || showResult}
-                                onCheckedChange={() => toggleOption(question, option.id)}
-                                label={option.text}
-                                className="w-full"
-                              />
-                            )}
-                          </div>
+                            <input
+                              type={question.type === 'single' ? 'radio' : 'checkbox'}
+                              name={`quiz-${quiz.id}-question-${question.id}`}
+                              checked={checked}
+                              disabled={disabled || showResult}
+                              onChange={() => toggleOption(question, option.id)}
+                              className="peer sr-only"
+                            />
+                            {!feedback ? (
+                              <span
+                                aria-hidden="true"
+                                className={cn(
+                                  'pointer-events-none flex size-4.5 shrink-0 items-center justify-center border bg-surface transition-colors',
+                                  question.type === 'single' ? 'rounded-full' : 'rounded',
+                                  'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-600',
+                                  !checked && 'border-slate-300',
+                                  checked && 'border-primary-600 bg-primary-600 text-white',
+                                )}
+                              >
+                                {checked ? <Check className="size-3" strokeWidth={3} /> : null}
+                              </span>
+                            ) : null}
+                            <span className="min-w-0 flex-1">{option.text}</span>
+                          </label>
                         </li>
                       );
                     })}
                   </ul>
                 )}
                 {feedback?.explanation ? (
-                  <div
-                    className={cn(
-                      'mt-3 rounded-lg border px-3 py-2.5 text-sm leading-6',
-                      feedback.correct
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                        : 'border-red-200 bg-red-50 text-red-900',
-                    )}
-                  >
-                    <p className="font-semibold">{feedback.correct ? 'Верно' : 'Разберём ответ'}</p>
-                    <p className="mt-0.5 opacity-90">{feedback.explanation}</p>
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm leading-5 text-slate-700">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Пояснение
+                    </p>
+                    <p className="mt-1">{feedback.explanation}</p>
                   </div>
                 ) : null}
                 {feedback && !feedback.explanation ? (
