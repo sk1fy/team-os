@@ -28,15 +28,15 @@ const calloutTone: Record<
     icon: Info,
     card: 'border-sky-200 bg-sky-50/70',
     outline: 'border-sky-300 bg-surface',
-    accent: 'border-sky-700 bg-sky-700 text-white',
+    accent: 'border-sky-200 border-l-4 border-l-sky-500 bg-sky-50 text-slate-950 shadow-sm',
     iconStyle: 'bg-sky-100 text-sky-700',
-    accentIcon: 'bg-white/15 text-white',
+    accentIcon: 'bg-sky-500 text-white',
   },
   warning: {
     icon: AlertTriangle,
     card: 'border-amber-200 bg-amber-50/70',
     outline: 'border-amber-300 bg-surface',
-    accent: 'border-amber-300 bg-amber-100 text-amber-950',
+    accent: 'border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 text-slate-950 shadow-sm',
     iconStyle: 'bg-amber-100 text-amber-700',
     accentIcon: 'bg-amber-200 text-amber-800',
   },
@@ -44,9 +44,10 @@ const calloutTone: Record<
     icon: CheckCircle2,
     card: 'border-emerald-200 bg-emerald-50/70',
     outline: 'border-emerald-300 bg-surface',
-    accent: 'border-emerald-700 bg-emerald-700 text-white',
+    accent:
+      'border-emerald-200 border-l-4 border-l-emerald-500 bg-emerald-50 text-slate-950 shadow-sm',
     iconStyle: 'bg-emerald-100 text-emerald-700',
-    accentIcon: 'bg-white/15 text-white',
+    accentIcon: 'bg-emerald-500 text-white',
   },
 };
 
@@ -105,7 +106,8 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
         <section
           aria-labelledby={`${block.id}-title`}
           className={cn(
-            block.style === 'accent' && 'rounded-2xl bg-slate-950 p-5 sm:p-6',
+            block.style === 'accent' &&
+              'rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 via-surface to-emerald-50/60 p-5 shadow-sm sm:p-6',
             block.style === 'outline' &&
               'rounded-2xl border-2 border-slate-300 bg-surface p-5 sm:p-6',
             block.style === 'minimal' && 'border-y border-slate-200 py-5',
@@ -115,7 +117,7 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
             id={`${block.id}-title`}
             className={cn(
               'mb-3 text-xs font-semibold uppercase tracking-[0.12em]',
-              block.style === 'accent' ? 'text-slate-300' : 'text-slate-500',
+              block.style === 'accent' ? 'text-primary-700' : 'text-slate-500',
             )}
           >
             {block.eyebrow}
@@ -128,7 +130,7 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
                   'grid overflow-hidden sm:grid-cols-2',
                   block.style === 'card' && 'rounded-2xl border border-slate-200 bg-surface',
                   block.style === 'outline' && 'rounded-xl border border-slate-200',
-                  block.style === 'accent' && 'rounded-xl border border-white/10 bg-white/5',
+                  block.style === 'accent' && 'rounded-xl border border-slate-200 bg-white/80',
                   block.style === 'minimal' && 'border-b border-slate-100 last:border-b-0',
                 )}
               >
@@ -136,14 +138,14 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
                   className={cn(
                     'border-b p-5 sm:border-b-0 sm:border-r',
                     block.style === 'accent'
-                      ? 'border-white/10 bg-rose-950/30'
+                      ? 'border-slate-200 bg-rose-50/70'
                       : 'border-slate-200',
                   )}
                 >
                   <p
                     className={cn(
                       'flex items-center gap-2 text-xs font-semibold uppercase tracking-wide',
-                      block.style === 'accent' ? 'text-rose-300' : 'text-rose-700',
+                      'text-rose-700',
                     )}
                   >
                     <span className="flex size-5 items-center justify-center rounded-full bg-rose-50">
@@ -151,20 +153,13 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
                     </span>
                     Избегать
                   </p>
-                  <p
-                    className={cn(
-                      'mt-2 pl-7 text-sm leading-6',
-                      block.style === 'accent' ? 'text-slate-300' : 'text-slate-600',
-                    )}
-                  >
-                    {row.avoid}
-                  </p>
+                  <p className={cn('mt-2 pl-7 text-sm leading-6', 'text-slate-600')}>{row.avoid}</p>
                 </div>
-                <div className={cn('p-5', block.style === 'accent' && 'bg-emerald-950/25')}>
+                <div className={cn('p-5', block.style === 'accent' && 'bg-emerald-50/70')}>
                   <p
                     className={cn(
                       'flex items-center gap-2 text-xs font-semibold uppercase tracking-wide',
-                      block.style === 'accent' ? 'text-emerald-300' : 'text-emerald-700',
+                      'text-emerald-700',
                     )}
                   >
                     <span className="flex size-5 items-center justify-center rounded-full bg-emerald-50">
@@ -172,12 +167,7 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
                     </span>
                     Предпочитать
                   </p>
-                  <p
-                    className={cn(
-                      'mt-2 pl-7 text-sm leading-6',
-                      block.style === 'accent' ? 'text-white' : 'text-slate-700',
-                    )}
-                  >
+                  <p className={cn('mt-2 pl-7 text-sm leading-6', 'text-slate-700')}>
                     {row.prefer}
                   </p>
                 </div>
@@ -194,17 +184,15 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
             'relative overflow-hidden p-6 sm:p-7',
             block.style === 'card' &&
               'rounded-2xl border border-primary-100 bg-primary-50 text-slate-950',
-            block.style === 'accent' && 'rounded-2xl bg-primary-700 text-white',
+            block.style === 'accent' &&
+              'rounded-2xl border border-primary-200 border-l-4 border-l-primary-500 bg-gradient-to-br from-primary-50 to-surface text-slate-950 shadow-sm',
             block.style === 'outline' &&
               'rounded-2xl border-2 border-primary-300 bg-surface text-slate-950',
             block.style === 'minimal' && 'border-l-4 border-primary-500 py-3 pl-5 text-slate-950',
           )}
         >
           <Lightbulb
-            className={cn(
-              'absolute -right-3 -top-4 size-24 rotate-12',
-              block.style === 'accent' ? 'text-white/10' : 'text-primary-500/10',
-            )}
+            className={cn('absolute -right-3 -top-4 size-24 rotate-12', 'text-primary-500/10')}
             aria-hidden
           />
           <div className="relative">
@@ -212,24 +200,17 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
               className={cn(
                 'flex size-9 items-center justify-center rounded-xl',
                 block.style === 'accent'
-                  ? 'bg-white/15 text-white'
+                  ? 'bg-primary-600 text-white'
                   : 'bg-primary-100 text-primary-700',
               )}
             >
               <Lightbulb className="size-4.5" aria-hidden />
             </span>
-            <h3
-              className={cn(
-                'mt-4 text-lg font-semibold',
-                block.style === 'accent' ? 'text-white' : 'text-slate-950',
-              )}
-            >
-              {block.title}
-            </h3>
+            <h3 className={cn('mt-4 text-lg font-semibold', 'text-slate-950')}>{block.title}</h3>
             <p
               className={cn(
                 'mt-2 max-w-2xl whitespace-pre-line text-sm leading-6',
-                block.style === 'accent' ? 'text-white/85' : 'text-slate-600',
+                'text-slate-600',
               )}
             >
               {block.body}
@@ -245,7 +226,8 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
           className={cn(
             'p-5 sm:p-7',
             block.style === 'card' && 'rounded-2xl border border-slate-200 bg-surface shadow-sm',
-            block.style === 'accent' && 'rounded-2xl border border-indigo-200 bg-indigo-50',
+            block.style === 'accent' &&
+              'rounded-2xl border border-indigo-200 border-l-4 border-l-indigo-500 bg-gradient-to-br from-indigo-50 to-surface shadow-sm',
             block.style === 'outline' &&
               'rounded-2xl border-2 border-dashed border-indigo-300 bg-surface',
             block.style === 'minimal' && 'border-l-2 border-indigo-300 py-2 pl-5',
@@ -283,22 +265,20 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
           className={cn(
             'p-5 sm:p-7',
             block.style === 'card' && 'rounded-2xl border border-emerald-200 bg-emerald-50/40',
-            block.style === 'accent' && 'rounded-2xl bg-emerald-700 text-white',
+            block.style === 'accent' &&
+              'rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-500 bg-gradient-to-br from-emerald-50 to-surface shadow-sm',
             block.style === 'outline' && 'rounded-2xl border-2 border-emerald-300 bg-surface',
             block.style === 'minimal' && 'border-y border-emerald-200 px-0',
           )}
         >
           <h3
             id={`${block.id}-title`}
-            className={cn(
-              'flex items-center gap-2.5 text-lg font-semibold',
-              block.style === 'accent' ? 'text-white' : 'text-slate-900',
-            )}
+            className={cn('flex items-center gap-2.5 text-lg font-semibold', 'text-slate-900')}
           >
             <CheckCircle2
               className={cn(
                 'size-5',
-                block.style === 'accent' ? 'text-emerald-200' : 'text-emerald-600',
+                block.style === 'accent' ? 'text-emerald-600' : 'text-emerald-600',
               )}
               aria-hidden
             />
@@ -308,15 +288,12 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
             {block.items.map((item) => (
               <li
                 key={item.id}
-                className={cn(
-                  'flex items-start gap-3 text-sm leading-6',
-                  block.style === 'accent' ? 'text-emerald-50' : 'text-slate-700',
-                )}
+                className={cn('flex items-start gap-3 text-sm leading-6', 'text-slate-700')}
               >
                 <Circle
                   className={cn(
                     'mt-1 size-4 shrink-0',
-                    block.style === 'accent' ? 'text-emerald-200' : 'text-emerald-500',
+                    block.style === 'accent' ? 'text-emerald-500' : 'text-emerald-500',
                   )}
                   aria-hidden
                 />
@@ -334,7 +311,8 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
           className={cn(
             'overflow-hidden',
             block.style === 'card' && 'rounded-2xl border border-violet-200 bg-surface',
-            block.style === 'accent' && 'rounded-2xl bg-violet-700 text-white',
+            block.style === 'accent' &&
+              'rounded-2xl border border-violet-200 border-l-4 border-l-violet-500 bg-gradient-to-br from-violet-50 via-surface to-primary-50 shadow-sm',
             block.style === 'outline' && 'rounded-2xl border-2 border-violet-300 bg-surface',
             block.style === 'minimal' && 'border-l-4 border-violet-400',
           )}
@@ -343,7 +321,7 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
             className={cn(
               'flex items-center gap-3 px-5 py-4 sm:px-6',
               block.style === 'card' && 'border-b border-violet-100 bg-violet-50/70',
-              block.style === 'accent' && 'border-b border-white/15',
+              block.style === 'accent' && 'border-b border-violet-100 bg-violet-50/70',
               block.style === 'outline' && 'border-b border-violet-100',
               block.style === 'minimal' && 'py-2',
             )}
@@ -352,63 +330,40 @@ function BlockView({ block, quizContent }: { block: LessonBlock; quizContent?: R
               className={cn(
                 'flex size-9 items-center justify-center rounded-xl',
                 block.style === 'accent'
-                  ? 'bg-white/15 text-white'
+                  ? 'bg-violet-600 text-white'
                   : 'bg-violet-100 text-violet-700',
               )}
             >
               <Sparkles className="size-4.5" aria-hidden />
             </span>
             <div>
-              <p
-                className={cn(
-                  'text-xs font-semibold uppercase tracking-wide',
-                  block.style === 'accent' ? 'text-violet-200' : 'text-violet-600',
-                )}
-              >
+              <p className={cn('text-xs font-semibold uppercase tracking-wide', 'text-violet-600')}>
                 Практика
               </p>
               <h3
                 id={`${block.id}-title`}
-                className={cn(
-                  'text-base font-semibold',
-                  block.style === 'accent' ? 'text-white' : 'text-slate-900',
-                )}
+                className={cn('text-base font-semibold', 'text-slate-900')}
               >
                 {block.title}
               </h3>
             </div>
           </div>
           <div className="p-5 sm:p-6">
-            <p
-              className={cn(
-                'whitespace-pre-line text-sm leading-6',
-                block.style === 'accent' ? 'text-violet-100' : 'text-slate-600',
-              )}
-            >
+            <p className={cn('whitespace-pre-line text-sm leading-6', 'text-slate-600')}>
               {block.description}
             </p>
             <div
               className={cn(
                 'mt-4 rounded-xl border px-4 py-3.5',
                 block.style === 'accent'
-                  ? 'border-white/15 bg-white/10'
+                  ? 'border-violet-100 bg-violet-50/70'
                   : 'border-violet-100 bg-violet-50/50',
               )}
             >
-              <p
-                className={cn(
-                  'text-xs font-semibold uppercase tracking-wide',
-                  block.style === 'accent' ? 'text-violet-200' : 'text-violet-600',
-                )}
-              >
+              <p className={cn('text-xs font-semibold uppercase tracking-wide', 'text-violet-600')}>
                 Что сделать
               </p>
-              <p
-                className={cn(
-                  'mt-1 text-sm font-medium leading-6',
-                  block.style === 'accent' ? 'text-white' : 'text-slate-800',
-                )}
-              >
+              <p className={cn('mt-1 text-sm font-medium leading-6', 'text-slate-800')}>
                 {block.action}
               </p>
             </div>

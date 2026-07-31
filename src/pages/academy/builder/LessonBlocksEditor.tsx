@@ -4,16 +4,27 @@ import {
   ArrowDown,
   ArrowUp,
   BookOpenText,
+  Check,
   ClipboardCheck,
   Lightbulb,
   ListChecks,
+  Palette,
   Plus,
   Route,
   Scale,
   Sparkles,
   Trash2,
 } from 'lucide-react';
-import { Button, Input, Modal, RichTextEditor, Select, Textarea } from '@/components/ui';
+import {
+  Button,
+  Dropdown,
+  type DropdownItem,
+  Input,
+  Modal,
+  RichTextEditor,
+  Select,
+  Textarea,
+} from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { createId } from '@/lib/id';
 import {
@@ -88,24 +99,10 @@ const blockStyleOptions: Array<{ value: LessonBlockStyle; label: string }> = [
   { value: 'outline', label: 'Контур — только рамка' },
 ];
 
-function BlockStyleSelect({
-  value,
-  disabled,
-  onChange,
-}: {
-  value: LessonBlockStyle;
-  disabled?: boolean;
-  onChange: (style: LessonBlockStyle) => void;
-}) {
-  return (
-    <Select
-      label="Внешний вид"
-      value={value}
-      disabled={disabled}
-      options={blockStyleOptions}
-      onValueChange={(style) => onChange(style as LessonBlockStyle)}
-    />
-  );
+type StyledLessonBlock = Exclude<LessonBlock, { kind: 'richText' } | { kind: 'quiz' }>;
+
+function isStyledBlock(block: LessonBlock): block is StyledLessonBlock {
+  return block.kind !== 'richText' && block.kind !== 'quiz';
 }
 
 export function LessonBlocksEditor({
@@ -160,6 +157,20 @@ export function LessonBlocksEditor({
           const meta = blockMeta[block.kind];
           const Icon = meta.icon;
           const canRemove = block.kind !== 'richText' || textBlockCount > 1;
+          const styleItems: DropdownItem[] = isStyledBlock(block)
+            ? blockStyleOptions.map((option) => ({
+                key: option.value,
+                label: option.label,
+                icon: option.value === block.style ? Check : undefined,
+                onSelect: () =>
+                  updateBlock(block.id, (current) =>
+                    isStyledBlock(current) ? { ...current, style: option.value } : current,
+                  ),
+              }))
+            : [];
+          const currentStyleLabel = isStyledBlock(block)
+            ? blockStyleOptions.find((option) => option.value === block.style)?.label
+            : undefined;
           return (
             <li
               key={block.id}
@@ -179,6 +190,24 @@ export function LessonBlocksEditor({
                   <p className="truncate text-[11px] text-slate-500">{meta.description}</p>
                 </div>
                 <div className="flex items-center gap-0.5">
+                  {isStyledBlock(block) ? (
+                    <Dropdown
+                      align="end"
+                      className="min-w-64"
+                      items={styleItems}
+                      trigger={
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+                          disabled={disabled}
+                          aria-label={`Выбрать внешний вид блока «${meta.label}»`}
+                          title={`Внешний вид: ${currentStyleLabel ?? 'Карточка'}`}
+                        >
+                          <Palette className="size-4" />
+                        </button>
+                      }
+                    />
+                  ) : null}
                   <button
                     type="button"
                     className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
@@ -310,11 +339,6 @@ function BlockEditor({
     case 'callout':
       return (
         <div className="space-y-3">
-          <BlockStyleSelect
-            value={block.style}
-            disabled={disabled}
-            onChange={(style) => onUpdate({ ...block, style })}
-          />
           <Select
             label="Тип сообщения"
             value={block.tone}
@@ -344,11 +368,6 @@ function BlockEditor({
     case 'comparison':
       return (
         <div className="space-y-3">
-          <BlockStyleSelect
-            value={block.style}
-            disabled={disabled}
-            onChange={(style) => onUpdate({ ...block, style })}
-          />
           <Input
             label="Надпись над блоком"
             value={block.eyebrow}
@@ -419,11 +438,6 @@ function BlockEditor({
     case 'takeaway':
       return (
         <div className="space-y-3">
-          <BlockStyleSelect
-            value={block.style}
-            disabled={disabled}
-            onChange={(style) => onUpdate({ ...block, style })}
-          />
           <Input
             label="Заголовок"
             value={block.title}
@@ -445,11 +459,6 @@ function BlockEditor({
     case 'practice':
       return (
         <div className="space-y-3">
-          <BlockStyleSelect
-            value={block.style}
-            disabled={disabled}
-            onChange={(style) => onUpdate({ ...block, style })}
-          />
           <Input
             label="Заголовок"
             value={block.title}
@@ -486,11 +495,6 @@ function ItemsBlockEditor({
 }) {
   return (
     <div className="space-y-3">
-      <BlockStyleSelect
-        value={block.style}
-        disabled={disabled}
-        onChange={(style) => onUpdate({ ...block, style })}
-      />
       <Input
         label="Заголовок"
         value={block.title}

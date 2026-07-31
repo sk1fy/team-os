@@ -393,6 +393,7 @@ export function CoursePreviewPage() {
     queryFn: ({ signal }) => academyVersionsApi.getLearner(previewVersionId, { signal }),
     enabled: Boolean(previewVersionId),
     retry: false,
+    refetchOnMount: 'always',
   });
   const outline = previewQuery.data;
   const lessons = useMemo(

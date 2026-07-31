@@ -377,6 +377,11 @@ export function CourseBuilderPage() {
   const invalidateDraft = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.draft(courseId) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.course(courseId) });
+    if (draft?.id) {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.academyV2.draftOutline(draft.id),
+      });
+    }
   };
 
   const draftVersionId = draft?.id;
