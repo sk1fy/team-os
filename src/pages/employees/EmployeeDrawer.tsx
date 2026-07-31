@@ -181,6 +181,10 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   });
 
   const user = userQuery.data;
+  const canImpersonate =
+    currentUserQuery.data?.role === 'owner' &&
+    user?.role !== 'owner' &&
+    user?.status === 'active';
   const userPositions = useMemo(
     () => positions.filter((position) => user?.positionIds.includes(position.id)),
     [positions, user],
@@ -457,21 +461,6 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 </div>
               </div>
             </div>
-            {currentUserQuery.data?.role === 'owner' &&
-              user &&
-              user.role !== 'owner' &&
-              user.status === 'active' && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  loading={impersonateMutation.isPending}
-                  onClick={() => setImpersonateOpen(true)}
-                >
-                  <LogIn className="size-4" />
-                  Войти под пользователем
-                </Button>
-              )}
             <button
               type="button"
               onClick={onClose}
@@ -625,13 +614,41 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
               )}
 
               {activeTab === 'login' && accessVisible && (
-                <EmployeeAccessSection
-                  user={user}
-                  access={accessQuery.data}
-                  loading={accessQuery.isPending}
-                  customPassword={customAccessPassword}
-                  onCustomPasswordChange={setCustomAccessPassword}
-                />
+                <>
+                  <EmployeeAccessSection
+                    user={user}
+                    access={accessQuery.data}
+                    loading={accessQuery.isPending}
+                    customPassword={customAccessPassword}
+                    onCustomPasswordChange={setCustomAccessPassword}
+                  />
+                  {canImpersonate && (
+                    <PanelSection title="Вход от имени сотрудника">
+                      <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-ink">
+                            Проверить интерфейс и доступы
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                            Текущая сессия владельца в этом браузере будет заменена сессией
+                            сотрудника.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="shrink-0"
+                          loading={impersonateMutation.isPending}
+                          onClick={() => setImpersonateOpen(true)}
+                        >
+                          <LogIn className="size-4" />
+                          Войти от имени сотрудника
+                        </Button>
+                      </div>
+                    </PanelSection>
+                  )}
+                </>
               )}
 
               {activeTab === 'sections' && sectionsVisible && (

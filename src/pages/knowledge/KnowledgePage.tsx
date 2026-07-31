@@ -623,6 +623,7 @@ export function KnowledgePage() {
   const [accessOpen, setAccessOpen] = useState(false);
   const [articleDrawer, setArticleDrawer] = useState<'create' | 'edit' | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [articleToDelete, setArticleToDelete] = useState<Article | null>(null);
 
   const sectionsQuery = useQuery({ queryKey: queryKeys.kb.sections, queryFn: kbApi.getSections });
   const articlesQuery = useQuery({
@@ -730,6 +731,7 @@ export function KnowledgePage() {
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.kb.articles });
       toast.success('Статья удалена');
+      setArticleToDelete(null);
       setActiveArticleId(null);
       setSearchParams(
         (params) => {
@@ -934,8 +936,7 @@ export function KnowledgePage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            loading={deleteArticle.isPending}
-                            onClick={() => deleteArticle.mutate(activeArticle.id)}
+                            onClick={() => setArticleToDelete(activeArticle)}
                             aria-label="Удалить статью"
                             title="Удалить статью"
                           >
@@ -1096,6 +1097,36 @@ export function KnowledgePage() {
         open={versionsOpen}
         onClose={() => setVersionsOpen(false)}
       />
+      <Modal
+        open={Boolean(articleToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deleteArticle.isPending) setArticleToDelete(null);
+        }}
+        title="Удалить статью?"
+        description={
+          articleToDelete
+            ? `Статья «${articleToDelete.title}» будет удалена безвозвратно.`
+            : undefined
+        }
+        size="sm"
+      >
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="ghost"
+            disabled={deleteArticle.isPending}
+            onClick={() => setArticleToDelete(null)}
+          >
+            Отмена
+          </Button>
+          <Button
+            variant="danger"
+            loading={deleteArticle.isPending}
+            onClick={() => articleToDelete && deleteArticle.mutate(articleToDelete.id)}
+          >
+            Удалить
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
