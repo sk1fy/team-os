@@ -7,8 +7,11 @@ import { TooltipProvider, Toaster } from '@/components/ui';
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 import { ThemeSync } from '@/components/layout/ThemeSync';
 import { AuthBootstrap } from '@/components/auth/AuthBootstrap';
+import { installChunkRecovery } from '@/lib/chunkRecovery';
 import { App } from '@/App';
 import './index.css';
+
+installChunkRecovery();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -165,10 +165,7 @@ type SectionAuthorWire = Omit<CourseVersionAuthorDetail['sections'][number], 'le
   lessons?: LessonAuthorWire[] | null;
 };
 
-type DraftWire = Omit<
-  CourseVersionAuthorDetail,
-  'sections' | 'versionNumber' | 'deadlineDays'
-> & {
+type DraftWire = Omit<CourseVersionAuthorDetail, 'sections' | 'versionNumber' | 'deadlineDays'> & {
   courseVersionId?: ID;
   versionNumber?: number;
   number?: number;
@@ -307,12 +304,7 @@ export const academyCoursesApi = {
     input: UpdateCourseDraftInput,
     options?: RequestOptions,
   ): Promise<CourseVersionWire> {
-    return academyMutate(
-      `/academy/courses/${encodeId(courseId)}/draft`,
-      'PATCH',
-      input,
-      options,
-    );
+    return academyMutate(`/academy/courses/${encodeId(courseId)}/draft`, 'PATCH', input, options);
   },
 
   archive(courseId: ID, options?: RequestOptions): Promise<AcademyCourseDetail> {
@@ -416,13 +408,15 @@ export const academyCoursesApi = {
 
   /** Ensure draft exists (backend may create version 1). */
   async ensureDraft(courseId: ID, options?: RequestOptions): Promise<CourseVersionAuthorDetail> {
-    return normalizeDraft(
-      await academyMutate<DraftWire>(
-        `/academy/courses/${encodeId(courseId)}/draft`,
-        'POST',
-        {},
-        options,
-      ),
+    // POST returns only CourseVersion metadata. Always follow it with the author
+    // detail endpoint; otherwise a cloned v2 is cached with `sections: []` and
+    // looks empty until a hard reload.
+    await academyMutate<CourseVersionWire>(
+      `/academy/courses/${encodeId(courseId)}/draft`,
+      'POST',
+      {},
+      options,
     );
+    return academyCoursesApi.getDraft(courseId, options);
   },
 };

@@ -76,6 +76,17 @@ function hasLessonContent(content: RichTextContent | undefined): boolean {
   return lessonBlocksHaveMeaningfulContent(parseLessonBlocks(content));
 }
 
+function retryTransientAcademyMutation(failureCount: number, error: Error): boolean {
+  if (failureCount >= 1) return false;
+  if (!(error instanceof ApiError)) return error instanceof TypeError;
+  return (
+    error.code === 'REQUEST_TIMEOUT' ||
+    error.status === 408 ||
+    error.status === 429 ||
+    error.status >= 500
+  );
+}
+
 function validateDraftForPublish(
   draft: CourseVersionAuthorDetail,
   dirty: boolean,
@@ -414,6 +425,7 @@ export function CourseBuilderPage() {
   const renameSection = useMutation({
     mutationFn: (input: { id: string; title: string }) =>
       academyVersionsApi.updateSection(input.id, { title: input.title }),
+    retry: retryTransientAcademyMutation,
     onSuccess: invalidateDraft,
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Не удалось переименовать'),
   });
@@ -531,6 +543,7 @@ export function CourseBuilderPage() {
       toast.success('Урок сохранён');
       invalidateDraft();
     },
+    retry: retryTransientAcademyMutation,
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Не удалось сохранить урок'),
   });
 
@@ -593,6 +606,7 @@ export function CourseBuilderPage() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.catalogRoot });
     },
+    retry: retryTransientAcademyMutation,
     onError: (e) => {
       const err = e instanceof ApiError ? e : null;
       const details = parsePublishValidationDetails(err?.details);
@@ -814,7 +828,9 @@ export function CourseBuilderPage() {
             onSelectLesson={requestSelectLesson}
             onCreateSection={() => createSection.mutate()}
             onCreateLesson={(sectionId) => createLesson.mutate(sectionId)}
-            onRenameSection={(id, nextTitle) => renameSection.mutate({ id, title: nextTitle })}
+            onRenameSection={async (id, nextTitle) => {
+              await renameSection.mutateAsync({ id, title: nextTitle });
+            }}
             onDeleteSection={(sectionId, sectionTitle, lessonCountInSection) =>
               setConfirm({
                 title: 'Удалить раздел?',
@@ -910,7 +926,9 @@ export function CourseBuilderPage() {
           onSelectLesson={requestSelectLesson}
           onCreateSection={() => createSection.mutate()}
           onCreateLesson={(sectionId) => createLesson.mutate(sectionId)}
-          onRenameSection={(id, nextTitle) => renameSection.mutate({ id, title: nextTitle })}
+          onRenameSection={async (id, nextTitle) => {
+            await renameSection.mutateAsync({ id, title: nextTitle });
+          }}
           onDeleteSection={(sectionId, sectionTitle, lessonCountInSection) =>
             setConfirm({
               title: 'Удалить раздел?',
@@ -1082,7 +1100,7 @@ interface BuilderOutlineProps {
   onSelectLesson: (lessonId: string) => void;
   onCreateSection: () => void;
   onCreateLesson: (sectionId: string) => void;
-  onRenameSection: (sectionId: string, title: string) => void;
+  onRenameSection: (sectionId: string, title: string) => Promise<void>;
   onDeleteSection: (sectionId: string, title: string, lessonCount: number) => void;
   onRenameLesson: (lesson: LessonAuthor) => void;
   onDeleteLesson: (lesson: LessonAuthor) => void;
@@ -1213,17 +1231,7 @@ function BuilderSectionOutline({
         >
           {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
         </Button>
-        <Input
-          className="flex-1 bg-white"
-          aria-label="Название раздела"
-          defaultValue={section.title}
-          key={`${section.id}-${section.title}`}
-          onBlur={(event) => {
-            const next = event.target.value.trim();
-            if (next && next !== section.title) onRenameSection(section.id, next);
-            else event.target.value = section.title;
-          }}
-        />
+        <SectionTitleInput sectionId={section.id} title={section.title} onSave={onRenameSection} />
         <Button
           size="sm"
           variant="ghost"
@@ -1276,6 +1284,77 @@ function BuilderSectionOutline({
         </p>
       )}
     </li>
+  );
+}
+
+function SectionTitleInput({
+  sectionId,
+  title,
+  onSave,
+}: {
+  sectionId: string;
+  title: string;
+  onSave: (sectionId: string, title: string) => Promise<void>;
+}) {
+  const [value, setValue] = useState(title);
+  const [saving, setSaving] = useState(false);
+  const lastRequested = useRef(title);
+
+  useEffect(() => {
+    lastRequested.current = title;
+    setValue(title);
+  }, [sectionId, title]);
+
+  const persist = async (nextValue: string) => {
+    const next = nextValue.trim();
+    if (!next) {
+      setValue(lastRequested.current);
+      return;
+    }
+    if (next === lastRequested.current) {
+      setValue(next);
+      return;
+    }
+
+    const previous = lastRequested.current;
+    lastRequested.current = next;
+    setValue(next);
+    setSaving(true);
+    try {
+      await onSave(sectionId, next);
+    } catch {
+      lastRequested.current = previous;
+      setValue(previous);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const next = value.trim();
+    if (!next || next === lastRequested.current) return;
+    const timer = window.setTimeout(() => void persist(next), 700);
+    return () => window.clearTimeout(timer);
+    // Changing `value` cancels the previous autosave timer first.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, sectionId]);
+
+  return (
+    <Input
+      className="flex-1 bg-white"
+      aria-label="Название раздела"
+      value={value}
+      disabled={saving}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={() => void persist(value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') {
+          setValue(lastRequested.current);
+          event.currentTarget.blur();
+        }
+      }}
+    />
   );
 }
 

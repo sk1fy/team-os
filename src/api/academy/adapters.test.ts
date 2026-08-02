@@ -237,6 +237,57 @@ describe('Academy deployed-contract adapters', () => {
     expect(draft.sections[0]?.lessons).toEqual([]);
   });
 
+  it('после создания следующего черновика загружает его полное клонированное содержимое', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'POST') {
+        return jsonResponse({
+          id: 'draft-v2',
+          courseId: 'course-1',
+          number: 2,
+          status: 'draft',
+          title: 'Курс',
+        });
+      }
+      if (url.endsWith('/academy/courses/course-1/draft')) {
+        return jsonResponse({
+          id: 'draft-v2',
+          courseId: 'course-1',
+          number: 2,
+          status: 'draft',
+          title: 'Курс',
+          sections: [
+            {
+              id: 'section-v2',
+              title: 'Скопированный раздел',
+              order: 0,
+              lessons: [
+                {
+                  id: 'lesson-v2',
+                  title: 'Скопированный урок',
+                  order: 0,
+                  content: { type: 'doc', content: [] },
+                },
+              ],
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const draft = await academyCoursesApi.ensureDraft('course-1');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' });
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'GET' });
+    expect(draft.sections[0]?.lessons[0]).toMatchObject({
+      id: 'lesson-v2',
+      title: 'Скопированный урок',
+    });
+  });
+
   it('распаковывает envelope создания курса и использует version ids для команд draft', async () => {
     vi.stubGlobal(
       'fetch',

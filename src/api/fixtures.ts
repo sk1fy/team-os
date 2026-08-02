@@ -79,7 +79,11 @@ function readStored<T>(key: string, fallback: T): T {
 }
 
 function store(key: string, value: unknown) {
-  if (typeof localStorage !== 'undefined') localStorage.setItem(key, JSON.stringify(value));
+  try {
+    globalThis.localStorage?.setItem?.(key, JSON.stringify(value));
+  } catch {
+    // Mock persistence is optional in test/private browser environments.
+  }
 }
 
 export let CURRENT_USER_ID = readStored(mockSessionKey, 'user-1');
