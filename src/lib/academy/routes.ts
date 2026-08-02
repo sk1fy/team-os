@@ -3,6 +3,7 @@ import type { UserRole } from '@/types';
 /** Canonical Academy V2 route paths. */
 export const academyRoutes = {
   home: '/academy',
+  archive: '/academy/archive',
   catalog: '/academy/catalog',
   courses: '/academy/courses',
   course: (courseId: string) => `/academy/courses/${courseId}`,
@@ -29,13 +30,7 @@ export const academyRoutes = {
 } as const;
 
 export type AcademyNavItemId =
-  | 'home'
-  | 'catalog'
-  | 'courses'
-  | 'partners'
-  | 'templates'
-  | 'reports'
-  | 'learners';
+  'home' | 'archive' | 'catalog' | 'courses' | 'partners' | 'templates' | 'reports' | 'learners';
 
 export interface AcademyNavItem {
   id: AcademyNavItemId;
@@ -53,6 +48,7 @@ export function academyNavForRole(role: UserRole | undefined): AcademyNavItem[] 
 
   const learner: AcademyNavItem[] = [
     { id: 'home', to: academyRoutes.home, label: 'Моё обучение', end: true },
+    { id: 'archive', to: academyRoutes.archive, label: 'Архив' },
     { id: 'catalog', to: academyRoutes.catalog, label: 'Каталог' },
   ];
 
@@ -88,7 +84,12 @@ export function canAccessAcademyPath(role: UserRole | undefined, pathname: strin
   const path = pathname.split('?')[0] ?? pathname;
 
   // Shared learner paths
-  if (path === '/academy' || path.startsWith('/academy/catalog')) return true;
+  if (
+    path === '/academy' ||
+    path.startsWith('/academy/archive') ||
+    path.startsWith('/academy/catalog')
+  )
+    return true;
   if (path.startsWith('/learn/')) return true;
   // Preview is authenticated; object-level access is enforced by backend 403
   if (path.startsWith('/academy/preview/')) return true;

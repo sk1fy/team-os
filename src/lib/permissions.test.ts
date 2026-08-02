@@ -175,8 +175,9 @@ describe('module matrix', () => {
 });
 
 describe('academy route policy', () => {
-  it('employee: home + catalog + learn', () => {
+  it('employee: home + archive + catalog + learn', () => {
     expect(canAccessAcademyPath('employee', '/academy')).toBe(true);
+    expect(canAccessAcademyPath('employee', '/academy/archive')).toBe(true);
     expect(canAccessAcademyPath('employee', '/academy/catalog')).toBe(true);
     expect(canAccessAcademyPath('employee', '/learn/enr-1')).toBe(true);
     expect(canAccessAcademyPath('employee', '/academy/courses')).toBe(false);
@@ -207,7 +208,7 @@ describe('academy route policy', () => {
     expect(partnerNav).not.toContain('Курсы партнёров');
     expect(ownerNav).toContain('Курсы компании');
     expect(ownerNav).toContain('Курсы партнёров');
-    expect(academyNavForRole('employee').map((i) => i.id)).toEqual(['home', 'catalog']);
+    expect(academyNavForRole('employee').map((i) => i.id)).toEqual(['home', 'archive', 'catalog']);
   });
 
   it('сохраняет legacy course workspace redirect', () => {

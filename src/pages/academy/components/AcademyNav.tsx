@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
+  Archive,
   BookOpen,
   Building2,
   FileStack,
@@ -17,6 +18,7 @@ import { prefetchRoute } from '@/lib/routePrefetch';
 
 const icons: Record<AcademyNavItemId, typeof LayoutDashboard> = {
   home: LayoutDashboard,
+  archive: Archive,
   catalog: BookOpen,
   courses: Library,
   partners: Building2,

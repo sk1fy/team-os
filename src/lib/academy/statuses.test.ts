@@ -6,6 +6,8 @@ import {
   sortEnrollmentsForMyLearning,
   pickContinueEnrollment,
   isEnrollmentAvailable,
+  isEnrollmentArchived,
+  isEnrollmentInMyLearning,
   resolveEnrollmentIdForLegacyCourse,
   lifecycleStatusLabel,
   distributionStatusLabel,
@@ -108,6 +110,10 @@ describe('course ordering', () => {
     expect(isEnrollmentAvailable('suspended')).toBe(false);
     expect(isEnrollmentAvailable('revoked')).toBe(false);
     expect(isEnrollmentAvailable('closed')).toBe(false);
+    expect(isEnrollmentInMyLearning(items[1])).toBe(true);
+    expect(isEnrollmentInMyLearning(items[2])).toBe(false);
+    expect(isEnrollmentArchived({ ...items[1], accessStatus: 'closed' })).toBe(true);
+    expect(isEnrollmentArchived(items[1])).toBe(false);
   });
 });
 

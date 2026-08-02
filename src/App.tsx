@@ -80,6 +80,11 @@ const AcademyLayout = lazy(() =>
 const AcademyHomePage = lazy(() =>
   import('@/pages/academy/AcademyHomePage').then((module) => ({ default: module.AcademyHomePage })),
 );
+const AcademyArchivePage = lazy(() =>
+  import('@/pages/academy/AcademyArchivePage').then((module) => ({
+    default: module.AcademyArchivePage,
+  })),
+);
 const AcademyCatalogPage = lazy(() =>
   import('@/pages/academy/AcademyCatalogPage').then((module) => ({
     default: module.AcademyCatalogPage,
@@ -394,6 +399,7 @@ export function App() {
             <>
               <Route path="/academy" element={<AcademyLayout />}>
                 <Route index element={<AcademyHomePage />} />
+                <Route path="archive" element={<AcademyArchivePage />} />
                 <Route path="catalog" element={<AcademyCatalogPage />} />
                 <Route path="courses" element={<AcademyCoursesPage />} />
                 <Route path="courses/:courseId" element={<CourseWorkspacePage />} />

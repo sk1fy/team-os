@@ -11,6 +11,21 @@ export function isEnrollmentAvailable(accessStatus: EnrollmentAccessStatus): boo
   return AVAILABLE_ENROLLMENT_ACCESS_STATUSES.has(accessStatus);
 }
 
+/** Only actively studied, accessible courses belong on the learner home screen. */
+export function isEnrollmentInMyLearning(enrollment: EnrollmentSummary): boolean {
+  return (
+    enrollment.progressStatus === 'in_progress' && isEnrollmentAvailable(enrollment.accessStatus)
+  );
+}
+
+/**
+ * Closed access is the enrollment-level signal used when a course was removed,
+ * archived, hidden, expired or otherwise withdrawn from the learner.
+ */
+export function isEnrollmentArchived(enrollment: EnrollmentSummary): boolean {
+  return !isEnrollmentAvailable(enrollment.accessStatus);
+}
+
 /** Sort enrollments: continue-first (in progress / overdue by due date), then not started, then completed. */
 export function sortEnrollmentsForMyLearning(items: EnrollmentSummary[]): EnrollmentSummary[] {
   const rank = (item: EnrollmentSummary): number => {
@@ -37,7 +52,5 @@ export function sortEnrollmentsForMyLearning(items: EnrollmentSummary[]): Enroll
 
 export function pickContinueEnrollment(items: EnrollmentSummary[]): EnrollmentSummary | undefined {
   const sorted = sortEnrollmentsForMyLearning(items);
-  return sorted.find(
-    (item) => item.progressStatus === 'in_progress' && isEnrollmentAvailable(item.accessStatus),
-  );
+  return sorted.find(isEnrollmentInMyLearning);
 }

@@ -1,14 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
-import { ArrowRight, BookOpenCheck, Clock3, PlayCircle, Target } from 'lucide-react';
+import { ArrowRight, BookOpenCheck, Clock3, PlayCircle } from 'lucide-react';
 import { academyLearningApi } from '@/api/academy';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { Button } from '@/components/ui';
-import { academyRoutes, enrollmentProgressLabel, pickContinueEnrollment } from '@/lib/academy';
+import {
+  academyRoutes,
+  enrollmentProgressLabel,
+  isEnrollmentArchived,
+  isEnrollmentInMyLearning,
+  pickContinueEnrollment,
+} from '@/lib/academy';
 import { StatusBadgeFromPresentation } from './components/StatusBadge';
 import type { EnrollmentSummary } from '@/types/academy';
 import { enrollmentCardPresentation } from './academyHomePresentation';
@@ -20,7 +26,7 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  icon: typeof Target;
+  icon: typeof Clock3;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-surface p-4 shadow-sm">
@@ -98,7 +104,10 @@ function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
 
   if (presentation.kind === 'restricted') {
     return (
-      <article className={className} aria-label={`${item.courseTitle}: ${presentation.access.label}`}>
+      <article
+        className={className}
+        aria-label={`${item.courseTitle}: ${presentation.access.label}`}
+      >
         {content}
       </article>
     );
@@ -133,13 +142,12 @@ export function AcademyHomePage() {
   }
 
   const data = learningQuery.data;
-  const enrollments = data?.enrollments ?? [];
+  const allEnrollments = data?.enrollments ?? [];
+  const enrollments = allEnrollments.filter(isEnrollmentInMyLearning);
   // The API hint can be stale or inconsistent with access/progress state. Derive the CTA locally
   // from the full enrollment list so completed and restricted attempts never reach this block.
   const continueItem = pickContinueEnrollment(enrollments);
-  const stats = data?.stats;
-  const allCompleted =
-    enrollments.length > 0 && enrollments.every((item) => item.progressStatus === 'completed');
+  const archivedCount = allEnrollments.filter(isEnrollmentArchived).length;
 
   return (
     <div className="space-y-8">
@@ -186,11 +194,9 @@ export function AcademyHomePage() {
             </section>
           ) : null}
 
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="В процессе" value={stats?.inProgress ?? 0} icon={Clock3} />
-            <StatCard label="Завершено" value={stats?.completed ?? 0} icon={BookOpenCheck} />
-            <StatCard label="Просрочено" value={stats?.overdue ?? 0} icon={Target} />
-            <StatCard label="Всего назначено" value={stats?.totalAssigned ?? 0} icon={Target} />
+          <section className="grid gap-4 sm:grid-cols-2">
+            <StatCard label="Доступно и в процессе" value={enrollments.length} icon={Clock3} />
+            <StatCard label="В архиве" value={archivedCount} icon={BookOpenCheck} />
           </section>
 
           <section className="space-y-4">
@@ -199,17 +205,17 @@ export function AcademyHomePage() {
               <EmptyState
                 icon={BookOpenCheck}
                 title={
-                  (stats?.totalAssigned ?? 0) > 0
-                    ? 'Нет доступных курсов'
+                  allEnrollments.length > 0
+                    ? 'Нет курсов в процессе'
                     : 'Пока нет назначенных курсов'
                 }
                 description={
-                  (stats?.totalAssigned ?? 0) > 0
-                    ? 'Назначенные курсы сейчас недоступны. Обратитесь к администратору компании.'
+                  allEnrollments.length > 0
+                    ? 'Здесь появятся доступные курсы после начала обучения. Недоступные курсы находятся в архиве.'
                     : 'Когда вам назначат обучение, оно появится здесь. Можно посмотреть каталог компании.'
                 }
                 action={
-                  (stats?.totalAssigned ?? 0) === 0 ? (
+                  allEnrollments.length === 0 ? (
                     <Link to={academyRoutes.catalog}>
                       <Button>Открыть каталог</Button>
                     </Link>
@@ -217,18 +223,11 @@ export function AcademyHomePage() {
                 }
               />
             ) : (
-              <>
-                {allCompleted ? (
-                  <p className="rounded-lg bg-success-50 px-4 py-3 text-sm text-success-800">
-                    Все доступные курсы завершены. Результаты можно открыть в карточках ниже.
-                  </p>
-                ) : null}
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {enrollments.map((item) => (
-                    <EnrollmentCard key={item.id} item={item} />
-                  ))}
-                </div>
-              </>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {enrollments.map((item) => (
+                  <EnrollmentCard key={item.id} item={item} />
+                ))}
+              </div>
             )}
           </section>
         </>

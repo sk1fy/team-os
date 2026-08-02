@@ -35,6 +35,8 @@ export {
   sortEnrollmentsForMyLearning,
   pickContinueEnrollment,
   isEnrollmentAvailable,
+  isEnrollmentInMyLearning,
+  isEnrollmentArchived,
 } from './courseOrdering';
 export {
   parseReportFilters,
