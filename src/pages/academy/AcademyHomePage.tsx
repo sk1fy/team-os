@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
-import { ArrowRight, BookOpenCheck, Clock3, PlayCircle } from 'lucide-react';
+import { Archive, ArrowRight, BookOpenCheck, Clock3, PlayCircle } from 'lucide-react';
 import { academyLearningApi } from '@/api/academy';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -18,30 +18,6 @@ import {
 import { StatusBadgeFromPresentation } from './components/StatusBadge';
 import type { EnrollmentSummary } from '@/types/academy';
 import { enrollmentCardPresentation } from './academyHomePresentation';
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  icon: typeof Clock3;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-surface p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-950">{value}</p>
-        </div>
-        <div className="rounded-lg bg-primary-50 p-2 text-primary-600">
-          <Icon className="size-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
   const progress = enrollmentProgressLabel(item.progressStatus);
@@ -155,9 +131,19 @@ export function AcademyHomePage() {
         title="Моё обучение"
         description="Назначенные курсы, прогресс и продолжение с того места, где остановились."
         actions={
-          <Link to={academyRoutes.catalog}>
-            <Button variant="secondary">Каталог курсов</Button>
-          </Link>
+          <>
+            {archivedCount > 0 ? (
+              <Link to={academyRoutes.archive}>
+                <Button variant="secondary">
+                  <Archive className="size-4" />
+                  Архив ({archivedCount})
+                </Button>
+              </Link>
+            ) : null}
+            <Link to={academyRoutes.catalog}>
+              <Button variant="secondary">Каталог курсов</Button>
+            </Link>
+          </>
         }
       />
 
@@ -194,11 +180,6 @@ export function AcademyHomePage() {
             </section>
           ) : null}
 
-          <section className="grid gap-4 sm:grid-cols-2">
-            <StatCard label="Доступно и в процессе" value={enrollments.length} icon={Clock3} />
-            <StatCard label="В архиве" value={archivedCount} icon={BookOpenCheck} />
-          </section>
-
           <section className="space-y-4">
             <h2 className="text-lg font-semibold text-slate-900">Мои курсы</h2>
             {enrollments.length === 0 ? (
@@ -211,7 +192,9 @@ export function AcademyHomePage() {
                 }
                 description={
                   allEnrollments.length > 0
-                    ? 'Здесь появятся доступные курсы после начала обучения. Недоступные курсы находятся в архиве.'
+                    ? archivedCount > 0
+                      ? 'Здесь появятся доступные курсы после начала обучения. Недоступные курсы находятся в архиве.'
+                      : 'Здесь появятся доступные курсы после начала обучения.'
                     : 'Когда вам назначат обучение, оно появится здесь. Можно посмотреть каталог компании.'
                 }
                 action={

@@ -208,7 +208,7 @@ describe('academy route policy', () => {
     expect(partnerNav).not.toContain('Курсы партнёров');
     expect(ownerNav).toContain('Курсы компании');
     expect(ownerNav).toContain('Курсы партнёров');
-    expect(academyNavForRole('employee').map((i) => i.id)).toEqual(['home', 'archive', 'catalog']);
+    expect(academyNavForRole('employee').map((i) => i.id)).toEqual(['home', 'catalog']);
   });
 
   it('сохраняет legacy course workspace redirect', () => {

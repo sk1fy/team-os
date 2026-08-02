@@ -30,7 +30,7 @@ export const academyRoutes = {
 } as const;
 
 export type AcademyNavItemId =
-  'home' | 'archive' | 'catalog' | 'courses' | 'partners' | 'templates' | 'reports' | 'learners';
+  'home' | 'catalog' | 'courses' | 'partners' | 'templates' | 'reports' | 'learners';
 
 export interface AcademyNavItem {
   id: AcademyNavItemId;
@@ -48,7 +48,6 @@ export function academyNavForRole(role: UserRole | undefined): AcademyNavItem[] 
 
   const learner: AcademyNavItem[] = [
     { id: 'home', to: academyRoutes.home, label: 'Моё обучение', end: true },
-    { id: 'archive', to: academyRoutes.archive, label: 'Архив' },
     { id: 'catalog', to: academyRoutes.catalog, label: 'Каталог' },
   ];
 
