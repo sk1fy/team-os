@@ -19,6 +19,7 @@ const accessUntil = '2099-07-30T09:00:00Z';
 
 let completedLessonIds = [];
 let quizAttemptsUsed = 0;
+let largeCourse = false;
 
 const unavailableStates = new Set([
   'distribution_paused',
@@ -72,6 +73,7 @@ async function readJSON(request) {
 
 function enrollment() {
   const completed = completedLessonIds.length;
+  const totalLessons = largeCourse ? 75 : 2;
   return {
     id: enrollmentId,
     companyId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -83,11 +85,12 @@ function enrollment() {
     externalLearnerId: learnerId,
     sourceType: 'personal_access',
     attemptNumber: 1,
-    progressStatus: completed === 2 ? 'completed' : completed === 0 ? 'not_started' : 'in_progress',
+    progressStatus:
+      completed === totalLessons ? 'completed' : completed === 0 ? 'not_started' : 'in_progress',
     accessStatus: 'active',
-    progressPercent: completed * 50,
+    progressPercent: Math.round((completed / totalLessons) * 100),
     completedLessons: completed,
-    totalLessons: 2,
+    totalLessons,
     currentLessonVersionId: completed === 0 ? firstLessonId : secondLessonId,
     accessUntil,
     createdAt: now,
@@ -95,36 +98,67 @@ function enrollment() {
 }
 
 function outline() {
-  return {
-    enrollment: enrollment(),
-    sections: [
+  const firstSection = {
+    id: sectionId,
+    title: 'Старт',
+    order: 0,
+    lessons: [
       {
-        id: sectionId,
-        title: 'Старт',
+        id: firstLessonId,
+        title: 'Добро пожаловать',
         order: 0,
-        lessons: [
-          {
-            id: firstLessonId,
-            title: 'Добро пожаловать',
-            order: 0,
-            status: completedLessonIds.includes(firstLessonId) ? 'completed' : 'current',
-          },
-          {
-            id: secondLessonId,
-            title: 'Следующий шаг',
-            order: 1,
-            status: completedLessonIds.includes(secondLessonId)
-              ? 'completed'
-              : completedLessonIds.includes(firstLessonId)
-                ? 'current'
-                : 'locked',
-            lockReason: completedLessonIds.includes(firstLessonId)
-              ? undefined
-              : 'Сначала завершите предыдущий урок',
-          },
-        ],
+        status: completedLessonIds.includes(firstLessonId) ? 'completed' : 'current',
+      },
+      {
+        id: secondLessonId,
+        title: 'Следующий шаг',
+        order: 1,
+        status: completedLessonIds.includes(secondLessonId)
+          ? 'completed'
+          : completedLessonIds.includes(firstLessonId)
+            ? 'current'
+            : 'locked',
+        lockReason: completedLessonIds.includes(firstLessonId)
+          ? undefined
+          : 'Сначала завершите предыдущий урок',
       },
     ],
+  };
+
+  if (largeCourse) {
+    firstSection.lessons.push(
+      ...Array.from({ length: 3 }, (_, lessonIndex) => ({
+        id: `20000000-0000-4000-8000-${String(lessonIndex + 3).padStart(12, '0')}`,
+        title: `Урок ${lessonIndex + 3}`,
+        order: lessonIndex + 2,
+        status: 'locked',
+        lockReason: 'Сначала завершите предыдущий урок',
+      })),
+    );
+  }
+
+  return {
+    enrollment: enrollment(),
+    sections: largeCourse
+      ? [
+          firstSection,
+          ...Array.from({ length: 14 }, (_, sectionIndex) => ({
+            id: `10000000-0000-4000-8000-${String(sectionIndex + 2).padStart(12, '0')}`,
+            title: `Раздел ${sectionIndex + 2}`,
+            order: sectionIndex + 1,
+            lessons: Array.from({ length: 5 }, (_, lessonIndex) => {
+              const lessonNumber = 6 + sectionIndex * 5 + lessonIndex;
+              return {
+                id: `20000000-0000-4000-8000-${String(lessonNumber).padStart(12, '0')}`,
+                title: `Урок ${lessonNumber}`,
+                order: lessonIndex,
+                status: 'locked',
+                lockReason: 'Сначала завершите предыдущий урок',
+              };
+            }),
+          })),
+        ]
+      : [firstSection],
   };
 }
 
@@ -440,8 +474,10 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname === '/api/v1/__e2e/reset') {
+    const input = await readJSON(request);
     completedLessonIds = [];
     quizAttemptsUsed = 0;
+    largeCourse = input.largeCourse === true;
     send(request, response, 204);
     return;
   }

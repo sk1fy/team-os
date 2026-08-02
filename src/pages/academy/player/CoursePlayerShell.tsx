@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
@@ -64,6 +64,7 @@ export function CoursePlayerShell({
 }: CoursePlayerShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const contentScrollRef = useRef<HTMLDivElement>(null);
   const orderedLessons = useMemo(
     () =>
       outline.sections
@@ -74,6 +75,10 @@ export function CoursePlayerShell({
   );
   const currentLessonIndex = orderedLessons.findIndex((lesson) => lesson.id === currentLessonId);
   const currentLesson = currentLessonIndex >= 0 ? orderedLessons[currentLessonIndex] : undefined;
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0 });
+  }, [currentLessonId]);
 
   const outlinePanel = (
     <CourseOutlinePanel
@@ -88,8 +93,8 @@ export function CoursePlayerShell({
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-page" data-player-mode={mode}>
-      <header className="sticky top-0 z-20 flex min-h-16 items-center gap-3 border-b border-slate-200 bg-surface/95 px-3 py-2 backdrop-blur sm:px-4">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-page" data-player-mode={mode}>
+      <header className="z-20 flex min-h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-surface/95 px-3 py-2 backdrop-blur sm:px-4">
         {headerLeft}
         <button
           type="button"
@@ -154,8 +159,9 @@ export function CoursePlayerShell({
         {headerMeta ? <div className="hidden shrink-0 sm:block">{headerMeta}</div> : null}
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
+          data-player-outline
           className={cn(
             'hidden shrink-0 overflow-y-auto border-r border-slate-200 bg-surface lg:block',
             desktopCollapsed ? 'w-0 border-0' : 'w-72',
@@ -164,19 +170,28 @@ export function CoursePlayerShell({
           {!desktopCollapsed ? outlinePanel : null}
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-          {callout ? (
-            <div className="px-4 pt-4 sm:px-6">
-              <div className="mx-auto max-w-3xl">{callout}</div>
-            </div>
-          ) : null}
-          <div className="flex-1">{content}</div>
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            ref={contentScrollRef}
+            data-player-content-scroll
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          >
+            {callout ? (
+              <div className="px-4 pt-4 sm:px-6">
+                <div className="mx-auto max-w-3xl">{callout}</div>
+              </div>
+            ) : null}
+            <div className="min-h-full">{content}</div>
+          </div>
           {footer ? (
-            <div className="sticky bottom-0 border-t border-slate-200 bg-surface px-4 py-3 sm:px-6">
+            <div
+              data-player-footer
+              className="z-10 shrink-0 border-t border-slate-200 bg-surface px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.05)] sm:px-6"
+            >
               {footer}
             </div>
           ) : null}
-        </div>
+        </main>
       </div>
 
       <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>

@@ -94,3 +94,53 @@ test('opens an already activated enrollment without starting a new verification'
   await page.getByRole('button', { name: 'Продолжить обучение' }).click();
   await expect(page.getByRole('heading', { name: 'Добро пожаловать' })).toBeVisible();
 });
+
+test('keeps lesson actions visible for a course with 15 sections and 75 lessons', async ({
+  page,
+  request,
+}) => {
+  await request.post('http://127.0.0.1:8081/api/v1/__e2e/reset', {
+    data: { largeCourse: true },
+  });
+  await page.goto('/training/enrollments/44444444-4444-4444-8444-444444444444');
+
+  await expect(page.getByRole('heading', { name: 'Добро пожаловать' })).toBeVisible();
+  const outline = page.getByRole('navigation', { name: 'Программа курса' });
+  await expect(outline.locator(':scope > ul > li')).toHaveCount(15);
+
+  const aside = page.locator('[data-player-outline]');
+  await expect
+    .poll(() => aside.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
+
+  const footer = page.locator('[data-player-footer]');
+  const completeButton = page.getByRole('button', { name: 'Завершить урок' });
+  await expect(footer).toBeVisible();
+  await expect(completeButton).toBeVisible();
+  const initialBox = await footer.boundingBox();
+
+  await aside.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  const scrolledBox = await footer.boundingBox();
+  const viewport = page.viewportSize();
+
+  expect(initialBox).not.toBeNull();
+  expect(scrolledBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(Math.abs((scrolledBox?.y ?? 0) - (initialBox?.y ?? 0))).toBeLessThan(1);
+  expect((scrolledBox?.y ?? 0) + (scrolledBox?.height ?? 0)).toBeLessThanOrEqual(
+    viewport?.height ?? 0,
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const contentScroll = page.locator('[data-player-content-scroll]');
+  await contentScroll.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  const mobileFooterBox = await footer.boundingBox();
+
+  expect(mobileFooterBox).not.toBeNull();
+  expect((mobileFooterBox?.y ?? 0) + (mobileFooterBox?.height ?? 0)).toBeLessThanOrEqual(844);
+  await expect(completeButton).toBeVisible();
+});
