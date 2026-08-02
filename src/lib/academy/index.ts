@@ -31,7 +31,11 @@ export {
   externalDeadlineOptions,
   deadlineRemaining,
 } from './deadline';
-export { sortEnrollmentsForMyLearning, pickContinueEnrollment } from './courseOrdering';
+export {
+  sortEnrollmentsForMyLearning,
+  pickContinueEnrollment,
+  isEnrollmentAvailable,
+} from './courseOrdering';
 export {
   parseReportFilters,
   reportFiltersToSearchParams,

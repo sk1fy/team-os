@@ -5,6 +5,7 @@ import {
   externalDeadlineOptions,
   sortEnrollmentsForMyLearning,
   pickContinueEnrollment,
+  isEnrollmentAvailable,
   resolveEnrollmentIdForLegacyCourse,
   lifecycleStatusLabel,
   distributionStatusLabel,
@@ -88,6 +89,25 @@ describe('course ordering', () => {
   it('сортирует continue-first', () => {
     expect(sortEnrollmentsForMyLearning(items).map((i) => i.id)).toEqual(['e1', 'e2', 'e3']);
     expect(pickContinueEnrollment(items)?.id).toBe('e1');
+  });
+
+  it('выбирает для верхнего блока только доступный in_progress enrollment', () => {
+    expect(
+      pickContinueEnrollment([
+        { ...items[1], id: 'closed', accessStatus: 'closed' },
+        { ...items[0], id: 'completed-active', accessStatus: 'active' },
+        items[2],
+      ]),
+    ).toBeUndefined();
+
+    expect(isEnrollmentAvailable('active')).toBe(true);
+    expect(isEnrollmentAvailable('ready')).toBe(true);
+    expect(isEnrollmentAvailable('invited')).toBe(true);
+    expect(isEnrollmentAvailable('expired')).toBe(false);
+    expect(isEnrollmentAvailable('frozen')).toBe(false);
+    expect(isEnrollmentAvailable('suspended')).toBe(false);
+    expect(isEnrollmentAvailable('revoked')).toBe(false);
+    expect(isEnrollmentAvailable('closed')).toBe(false);
   });
 });
 

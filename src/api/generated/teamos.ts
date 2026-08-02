@@ -586,7 +586,8 @@ export interface paths {
         get: operations["getArticle"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Удалить статью */
+        delete: operations["deleteArticle"];
         options?: never;
         head?: never;
         /** Обновить статью */
@@ -4306,6 +4307,10 @@ export interface components {
             companyId: components["schemas"]["ID"];
             courseId: components["schemas"]["ID"];
             courseVersionId: components["schemas"]["ID"];
+            /** @description Название зафиксированной версии курса. */
+            courseTitle?: string;
+            /** Format: uri */
+            courseCoverUrl?: string;
             learnerType: components["schemas"]["EnrollmentLearnerType"];
             /** @description Ровно один из userId/externalLearnerId задан; проверяет domain. */
             userId?: components["schemas"]["ID"];
@@ -4317,6 +4322,8 @@ export interface components {
             accessStatus: components["schemas"]["EnrollmentAccessStatus"];
             currentLessonVersionId?: components["schemas"]["ID"];
             progressPercent: number;
+            completedLessons?: number;
+            totalLessons?: number;
             activatedAt?: components["schemas"]["ISODateTime"];
             accessUntil?: components["schemas"]["ISODateTime"];
             /** @description Срок внутреннего назначения; overdue не блокирует доступ. */
@@ -6652,6 +6659,22 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["Article"];
+            "4XX": components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteArticle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
             "4XX": components["responses"]["Error"];
             default: components["responses"]["Error"];
         };

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQuery } from '@tanstack/react-query';
+import { useTitle } from '@reactuses/core';
 import {
   ArrowLeft,
   Check,
@@ -20,6 +21,7 @@ import { Button } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import type { CourseVersionLearnerDetail, LessonLearner } from '@/types/academy';
 import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
+import { coursePreviewDocumentTitle } from './coursePreviewDocumentTitle';
 import { LessonArticle } from './LessonArticle';
 import { QuizRunner } from './QuizRunner';
 export type CoursePlayerMode = 'internal' | 'external' | 'preview';
@@ -396,6 +398,7 @@ export function CoursePreviewPage() {
     refetchOnMount: 'always',
   });
   const outline = previewQuery.data;
+  useTitle(coursePreviewDocumentTitle(outline?.title));
   const lessons = useMemo(
     () =>
       (outline?.sections ?? [])

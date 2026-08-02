@@ -10,6 +10,7 @@ import type { RichTextContent } from '@/types';
 import { cn } from '@/lib/cn';
 import { VideoEmbed } from './videoEmbed';
 import { FileImage } from './fileImages';
+import { readOnlyRichTextAttributes } from './readOnlyRichText';
 import { useResolvedFileImages } from './useResolvedFileImages';
 
 const extensions = [
@@ -36,6 +37,9 @@ export function RichTextView({
     content: resolvedContent as JSONContent | undefined,
     editable: false,
     immediatelyRender: false,
+    editorProps: {
+      attributes: readOnlyRichTextAttributes,
+    },
   });
 
   useEffect(() => {

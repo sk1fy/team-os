@@ -27,6 +27,7 @@ import { Avatar, Badge, Button, Modal, Select, Tabs } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AddUserModal } from './AddUserModal';
 import { EmployeeDrawer } from './EmployeeDrawer';
+import { EmployeeOpenButton } from './EmployeeOpenButton';
 import { StructurePage } from '@/pages/structure/StructurePage';
 import {
   filterEmployees,
@@ -299,9 +300,10 @@ export function EmployeesPage() {
                     <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {fullName(user)}
-                        </p>
+                        <EmployeeOpenButton
+                          name={fullName(user)}
+                          onOpen={() => updateParams({ drawer: user.id })}
+                        />
                         {user.source === 'amo' && (
                           <Badge variant="warning" className="text-[10px] px-1.5 py-0">
                             amoCRM

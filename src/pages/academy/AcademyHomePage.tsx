@@ -8,9 +8,10 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { Button } from '@/components/ui';
-import { academyRoutes, enrollmentProgressLabel } from '@/lib/academy';
+import { academyRoutes, enrollmentProgressLabel, pickContinueEnrollment } from '@/lib/academy';
 import { StatusBadgeFromPresentation } from './components/StatusBadge';
 import type { EnrollmentSummary } from '@/types/academy';
+import { enrollmentCardPresentation } from './academyHomePresentation';
 
 function StatCard({
   label,
@@ -38,6 +39,7 @@ function StatCard({
 
 function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
   const progress = enrollmentProgressLabel(item.progressStatus);
+  const presentation = enrollmentCardPresentation(item);
   const deadline = item.dueDate ?? item.accessUntil;
   const deadlineDate = deadline ? new Date(deadline) : null;
   const deadlinePassed =
@@ -45,17 +47,8 @@ function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
     Number.isFinite(deadlineDate.getTime()) &&
     deadlineDate.getTime() < Date.now() &&
     item.progressStatus !== 'completed';
-  const cta =
-    item.progressStatus === 'not_started'
-      ? 'Начать'
-      : item.progressStatus === 'in_progress'
-        ? 'Продолжить'
-        : 'Просмотреть';
-  return (
-    <Link
-      to={academyRoutes.learn(item.id)}
-      className="group flex flex-col gap-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm transition hover:border-primary-200 hover:shadow-md"
-    >
+  const content = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-base font-semibold text-slate-900 group-hover:text-primary-700">
@@ -75,7 +68,10 @@ function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
             </p>
           ) : null}
         </div>
-        <StatusBadgeFromPresentation status={progress} className="shrink-0 whitespace-nowrap" />
+        <StatusBadgeFromPresentation
+          status={presentation.kind === 'restricted' ? presentation.access : progress}
+          className="shrink-0 whitespace-nowrap"
+        />
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
         <div
@@ -85,11 +81,35 @@ function EnrollmentCard({ item }: { item: EnrollmentSummary }) {
       </div>
       <div className="flex items-center justify-between text-sm text-slate-500">
         <span>{item.percent}%</span>
-        <span className="inline-flex items-center gap-1 font-medium text-primary-600">
-          {cta}
-          <ArrowRight className="size-4" />
-        </span>
+        {presentation.kind === 'link' ? (
+          <span className="inline-flex items-center gap-1 font-medium text-primary-600">
+            {presentation.ctaLabel}
+            <ArrowRight className="size-4" />
+          </span>
+        ) : (
+          <span className="font-medium text-slate-600">{presentation.restrictionLabel}</span>
+        )}
       </div>
+    </>
+  );
+
+  const className =
+    'group flex flex-col gap-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm';
+
+  if (presentation.kind === 'restricted') {
+    return (
+      <article className={className} aria-label={`${item.courseTitle}: ${presentation.access.label}`}>
+        {content}
+      </article>
+    );
+  }
+
+  return (
+    <Link
+      to={academyRoutes.learn(item.id)}
+      className={`${className} transition hover:border-primary-200 hover:shadow-md`}
+    >
+      {content}
     </Link>
   );
 }
@@ -113,8 +133,10 @@ export function AcademyHomePage() {
   }
 
   const data = learningQuery.data;
-  const continueItem = data?.continueEnrollment;
   const enrollments = data?.enrollments ?? [];
+  // The API hint can be stale or inconsistent with access/progress state. Derive the CTA locally
+  // from the full enrollment list so completed and restricted attempts never reach this block.
+  const continueItem = pickContinueEnrollment(enrollments);
   const stats = data?.stats;
   const allCompleted =
     enrollments.length > 0 && enrollments.every((item) => item.progressStatus === 'completed');

@@ -20,6 +20,7 @@ import { StatusBadgeFromPresentation } from '../components/StatusBadge';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { toast } from '@/stores/toast';
 import { ApiError } from '@/api/client';
+import { resolveReportViewState } from './reportViewState';
 
 function externalProgressLabel(status: string): string {
   if (status === 'not_started') return 'Не начат';
@@ -155,6 +156,13 @@ export function AcademyReportsPage() {
     for (const row of internalQuery.data?.items ?? []) counts[row.status] += 1;
     return counts;
   }, [internalQuery.data?.items]);
+
+  const internalViewState = resolveReportViewState({
+    hasInvalidFilter: hasInvalidId,
+    isError: internalQuery.isError,
+    isLoading: internalQuery.isLoading,
+    itemCount: internalQuery.data?.items.length ?? 0,
+  });
 
   if (userQuery.isLoading) {
     return <div className="h-40 animate-pulse rounded-xl bg-slate-100" />;
@@ -336,15 +344,15 @@ export function AcademyReportsPage() {
         </section>
       ) : null}
 
-      {internalQuery.isError ? (
+      {internalViewState === 'blocked' ? null : internalViewState === 'error' ? (
         <ErrorState
           title="Не удалось загрузить отчёт"
           description="Нужен backend read model GET /academy/reports/internal"
           onRetry={() => void internalQuery.refetch()}
         />
-      ) : internalQuery.isLoading ? (
+      ) : internalViewState === 'loading' ? (
         <div className="h-48 animate-pulse rounded-xl bg-slate-100" />
-      ) : (internalQuery.data?.items.length ?? 0) === 0 ? (
+      ) : internalViewState === 'empty' ? (
         <EmptyState
           icon={BarChart3}
           title="Нет строк"

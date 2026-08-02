@@ -1,4 +1,15 @@
-import type { EnrollmentSummary } from '@/types/academy';
+import type { EnrollmentAccessStatus, EnrollmentSummary } from '@/types/academy';
+
+const AVAILABLE_ENROLLMENT_ACCESS_STATUSES = new Set<EnrollmentAccessStatus>([
+  'invited',
+  'ready',
+  'active',
+]);
+
+/** Enrollment states from which the learner can start or continue learning. */
+export function isEnrollmentAvailable(accessStatus: EnrollmentAccessStatus): boolean {
+  return AVAILABLE_ENROLLMENT_ACCESS_STATUSES.has(accessStatus);
+}
 
 /** Sort enrollments: continue-first (in progress / overdue by due date), then not started, then completed. */
 export function sortEnrollmentsForMyLearning(items: EnrollmentSummary[]): EnrollmentSummary[] {
@@ -27,8 +38,6 @@ export function sortEnrollmentsForMyLearning(items: EnrollmentSummary[]): Enroll
 export function pickContinueEnrollment(items: EnrollmentSummary[]): EnrollmentSummary | undefined {
   const sorted = sortEnrollmentsForMyLearning(items);
   return sorted.find(
-    (item) =>
-      item.progressStatus === 'in_progress' &&
-      (item.accessStatus === 'active' || item.accessStatus === 'ready'),
+    (item) => item.progressStatus === 'in_progress' && isEnrollmentAvailable(item.accessStatus),
   );
 }
