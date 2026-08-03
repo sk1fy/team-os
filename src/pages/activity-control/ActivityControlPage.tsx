@@ -145,7 +145,7 @@ function PanelList({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button onClick={onCreate} disabled={busy}>
           <Plus className="size-4" />
-          Новая панель
+          Новый дашборд
         </Button>
         <div className="relative sm:w-72">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
