@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import {
   Bot,
-  CheckCircle2,
   Clock3,
   Copy,
   ExternalLink,
@@ -55,9 +54,50 @@ function PageSkeleton() {
   );
 }
 
+function TelegramBadge({
+  accountId,
+  context,
+  panel,
+}: {
+  accountId: string;
+  context: RakursContext;
+  panel: ActivityPanel;
+}) {
+  const statusQuery = useQuery({
+    queryKey: queryKeys.activity.telegramStatus(accountId, panel.id),
+    queryFn: ({ signal }) => activityApi.getBotStatus(context, panel.id, signal),
+    enabled: panel.telegramBotEnabled,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  if (!panel.telegramBotEnabled) return null;
+
+  const connected = statusQuery.data?.alive === true;
+  const username = statusQuery.data?.bot_username?.trim().replace(/^@/, '');
+  const failed = statusQuery.isError || (statusQuery.isSuccess && !connected);
+
+  return (
+    <span
+      className={`flex items-center gap-1 rounded-full px-2 py-1 ${
+        failed
+          ? 'bg-danger-50 text-danger-700'
+          : connected
+            ? 'bg-success-50 text-success-700'
+            : 'bg-slate-100 text-slate-600'
+      }`}
+      title={failed ? 'Нет связи с Telegram-ботом' : undefined}
+    >
+      <Bot className="size-3" /> Telegram{connected && username ? ` @${username}` : ''}
+    </span>
+  );
+}
+
 function PanelList({
   panels,
   baseLink,
+  accountId,
+  context,
   employees,
   busy,
   onCreate,
@@ -66,6 +106,8 @@ function PanelList({
 }: {
   panels: ActivityPanel[];
   baseLink: string;
+  accountId: string;
+  context: RakursContext;
   employees: Awaited<ReturnType<typeof activityApi.getEmployees>>;
   busy: boolean;
   onCreate: () => void;
@@ -233,11 +275,7 @@ function PanelList({
                         ? `Воронок: ${panel.pipelines.length}`
                         : 'Все воронки'}
                     </span>
-                    {panel.telegramBotEnabled && (
-                      <span className="flex items-center gap-1 rounded-full bg-success-50 px-2 py-1 text-success-700">
-                        <Bot className="size-3" /> Telegram
-                      </span>
-                    )}
+                    <TelegramBadge accountId={accountId} context={context} panel={panel} />
                   </div>
                 </div>
               </article>
@@ -282,8 +320,8 @@ function TaskSettings({
         Управляйте доступом к панели задач и правилами построения очереди. Изменения применятся
         только после сохранения.
       </p>
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(26rem,1.2fr)]">
-        <section className="rounded-xl border border-slate-200 bg-surface shadow-card">
+      <div className="grid gap-5 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(26rem,1.2fr)]">
+        <section className="h-full rounded-xl border border-slate-200 bg-surface shadow-card">
           <header className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
             <div>
               <h2 className="text-base font-semibold text-slate-900">Панель задач</h2>
@@ -305,7 +343,7 @@ function TaskSettings({
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-surface shadow-card">
+        <section className="h-full rounded-xl border border-slate-200 bg-surface shadow-card">
           <header className="border-b border-slate-100 p-4">
             <h2 className="text-base font-semibold text-slate-900">Настройки очереди</h2>
           </header>
@@ -425,6 +463,9 @@ export function ActivityControlPage() {
   const savePanel = async (panel: ActivityPanel, close = true) => {
     const isNew = !currentSettings()?.panels.some((item) => item.id === panel.id);
     await persistPanel(panel, isNew ? 'Панель создана' : 'Панель сохранена');
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.activity.telegramStatus(accountId, panel.id),
+    });
     if (close) setEditor(null);
   };
 
@@ -434,10 +475,17 @@ export function ActivityControlPage() {
     if (!result.ok || result.chat_id === undefined) {
       throw new Error(result.message || 'Не удалось подключить Telegram-бота');
     }
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.activity.telegramStatus(accountId, panel.id),
+    });
     return { chatId: String(result.chat_id), chatName: result.chat_name ?? '' };
   };
 
-  const checkTelegram = (panel: ActivityPanel) => activityApi.getBotStatus(context!, panel.id);
+  const checkTelegram = async (panel: ActivityPanel) => {
+    const result = await activityApi.getBotStatus(context!, panel.id);
+    queryClient.setQueryData(queryKeys.activity.telegramStatus(accountId, panel.id), result);
+    return result;
+  };
 
   const deletePanel = async () => {
     const target = deleteTarget;
@@ -532,12 +580,6 @@ export function ActivityControlPage() {
       <PageHeader
         title="Контроль активности"
         description="Настройте дашборды активности сотрудников и доступ к панели задач"
-        actions={
-          <div className="flex items-center gap-2 rounded-full bg-success-50 px-3 py-1.5 text-xs font-medium text-success-700">
-            <CheckCircle2 className="size-3.5" />
-            amoCRM подключена
-          </div>
-        }
       />
 
       {(employeesQuery.isError || pipelinesQuery.isError || linkQuery.isError) && (
@@ -567,6 +609,8 @@ export function ActivityControlPage() {
               <PanelList
                 panels={settings.panels}
                 baseLink={linkQuery.data ?? ''}
+                accountId={accountId}
+                context={context!}
                 employees={employees}
                 busy={busy}
                 onCreate={() =>
