@@ -321,7 +321,7 @@ function TaskSettings({
         только после сохранения.
       </p>
       <div className="grid gap-5 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(26rem,1.2fr)]">
-        <section className="h-full rounded-xl border border-slate-200 bg-surface shadow-card">
+        <section className="h-full rounded-xl border border-slate-200 bg-surface shadow-card xl:flex xl:min-h-0 xl:flex-col">
           <header className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
             <div>
               <h2 className="text-base font-semibold text-slate-900">Панель задач</h2>
@@ -333,12 +333,13 @@ function TaskSettings({
               aria-label="Включить панель задач"
             />
           </header>
-          <div className="p-4">
+          <div className="p-4 xl:min-h-0 xl:flex-1">
             <GroupedEmployeeSelector
               employees={employees}
               values={value.enabled_employees}
               onValuesChange={(values) => onChange({ ...value, enabled_employees: values })}
               disabled={!value.task_panel_enabled}
+              fillHeight
             />
           </div>
         </section>

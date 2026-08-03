@@ -54,11 +54,13 @@ export function GroupedEmployeeSelector({
   values,
   onValuesChange,
   disabled,
+  fillHeight = false,
 }: {
   employees: ActivityEmployee[];
   values: AmoId[];
   onValuesChange: (values: AmoId[]) => void;
   disabled?: boolean;
+  fillHeight?: boolean;
 }) {
   const [search, setSearch] = useState('');
   const selected = useMemo(() => new Set(values.map(idOf)), [values]);
@@ -120,7 +122,13 @@ export function GroupedEmployeeSelector({
     .filter((group) => group.employees.length > 0);
 
   return (
-    <div className={cn('rounded-lg border border-slate-200', disabled && 'opacity-60')}>
+    <div
+      className={cn(
+        'rounded-lg border border-slate-200',
+        fillHeight && 'xl:flex xl:h-full xl:min-h-0 xl:flex-col',
+        disabled && 'opacity-60',
+      )}
+    >
       <div className="border-b border-slate-100 p-3">
         <Input
           aria-label="Поиск сотрудника"
@@ -130,7 +138,12 @@ export function GroupedEmployeeSelector({
           disabled={disabled}
         />
       </div>
-      <div className="max-h-80 overflow-y-auto p-2">
+      <div
+        className={cn(
+          'max-h-80 overflow-y-auto p-2',
+          fillHeight && 'xl:min-h-0 xl:max-h-none xl:flex-1',
+        )}
+      >
         {unknownValues.length > 0 && (
           <p className="mb-2 rounded-md bg-warning-50 px-3 py-2 text-xs text-warning-700">
             {unknownValues.length} выбранных сотрудников сейчас недоступны в amoCRM. Они будут
