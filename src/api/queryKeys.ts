@@ -14,6 +14,10 @@ export const scheduleQueryKeys = {
 export const queryKeys = {
   currentUser: ['currentUser'] as const,
   company: ['company'] as const,
+  onboarding: {
+    all: ['onboarding'] as const,
+    status: ['onboarding', 'status'] as const,
+  },
   invite: (token: string) => ['invite', token] as const,
   users: {
     all: ['users'] as const,

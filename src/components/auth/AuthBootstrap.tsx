@@ -1,22 +1,28 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { authApi } from '@/api';
 import { isHttpApiMode } from '@/api/config';
 import { useAuthStore } from '@/stores/auth';
 
 export function AuthBootstrap({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
   const initialized = useAuthStore((state) => state.initialized);
   const setInitialized = useAuthStore((state) => state.setInitialized);
+  const startedRef = useRef(false);
+  const isPublicTokenRoute = pathname === '/onboarding' || pathname === '/sso';
 
   useEffect(() => {
+    if (isPublicTokenRoute || initialized) return;
+    if (startedRef.current) return;
+    startedRef.current = true;
     if (!isHttpApiMode('auth')) {
       setInitialized(true);
       return;
     }
     void authApi.refresh().finally(() => setInitialized(true));
-  }, [setInitialized]);
+  }, [initialized, isPublicTokenRoute, setInitialized]);
 
-  if (isHttpApiMode('auth') && !initialized) return null;
+  if (isHttpApiMode('auth') && !initialized && !isPublicTokenRoute) return null;
   return children;
 }
 

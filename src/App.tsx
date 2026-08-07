@@ -4,7 +4,7 @@ import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-do
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { RequireAuth } from '@/components/auth/AuthBootstrap';
-import { AuthLayout } from '@/components/layout/AuthLayout';
+import { AuthLayout, PublicAuthLayout } from '@/components/layout/AuthLayout';
 import { authApi } from '@/api';
 import { canManageIntegrations, protectedRouteState, safeHomePath } from '@/lib/permissions';
 import { isAcademyV2Enabled } from '@/lib/academy';
@@ -17,6 +17,12 @@ const NotificationsPage = lazy(() =>
 );
 const NotFoundPage = lazy(() =>
   import('@/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })),
+);
+const OnboardingPage = lazy(() =>
+  import('@/pages/auth/OnboardingPage').then((module) => ({ default: module.OnboardingPage })),
+);
+const SsoPage = lazy(() =>
+  import('@/pages/auth/SsoPage').then((module) => ({ default: module.SsoPage })),
 );
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((module) => ({ default: module.SettingsPage })),
@@ -541,6 +547,12 @@ export function App() {
         ) : (
           <Route path="/learn/:courseId" element={<LearnPage />} />
         )}
+
+        {/* Публичные одноразовые ссылки — без RequireAuth. */}
+        <Route element={<PublicAuthLayout />}>
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/sso" element={<SsoPage />} />
+        </Route>
 
         {/* Аутентификация */}
         <Route path="/auth" element={<AuthLayout />}>

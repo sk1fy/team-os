@@ -34,9 +34,42 @@ export interface Company {
   createdAt: ISODate;
 }
 
+export type CompanyStatus = 'onboarding' | 'active' | 'frozen' | 'suspended';
+export type BootstrapRole = 'owner' | 'admin';
+export type BootstrapActivationState = 'pending' | 'expired' | 'consumed' | 'completed';
+
+/** Участник первоначальной активации, нормализованный из backend-поля userId. */
+export interface BootstrapUser {
+  id: ID;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: BootstrapRole;
+  status: 'invited' | 'active' | 'deactivated';
+}
+
+export interface BootstrapActivation {
+  companyId: ID;
+  companyName: string;
+  companyStatus: CompanyStatus;
+  expiresAt: ISODate;
+  state: BootstrapActivationState;
+  user: BootstrapUser;
+}
+
+/** Каноническое состояние возвращает backend; frontend не вычисляет его по времени или роли. */
+export interface OnboardingState {
+  companyId: ID;
+  companyStatus: CompanyStatus;
+  completed: boolean;
+  pendingUser?: BootstrapUser;
+  activationUrl?: string;
+  expiresAt?: ISODate;
+}
+
 export type UserRole = 'owner' | 'admin' | 'employee' | 'partner';
 export type UserStatus = 'active' | 'invited' | 'deactivated';
-export type UserSource = 'local' | 'amo';
+export type UserSource = 'local' | 'amo' | 'external';
 export type EmployeeAccessMode = 'none' | 'password' | 'link';
 export type EmployeeSection = 'schedule' | 'knowledge' | 'academy' | 'distribution';
 

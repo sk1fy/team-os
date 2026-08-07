@@ -31,6 +31,7 @@ import type {
   ArticleSection,
   ArticleVersion,
   Board,
+  BootstrapActivation,
   Company,
   Course,
   CourseAssignment,
@@ -46,6 +47,7 @@ import type {
   Lesson,
   Quiz,
   Position,
+  OnboardingState,
   ShiftException,
   Task,
   TaskColumn,
@@ -180,6 +182,100 @@ const mockAuthApi = {
         user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
       };
     }),
+
+  getBootstrapActivation: (token: string): Promise<BootstrapActivation> =>
+    mockRequest(
+      () => {
+        if (!token.trim()) {
+          throw new ApiError('Ссылка активации недействительна', 404, {
+            code: 'BOOTSTRAP_INVALID',
+          });
+        }
+        const user =
+          db.users.find((item) => item.role === 'owner' || item.role === 'admin') ??
+          notFound('Пользователь');
+        return {
+          companyId: db.company.id,
+          companyName: db.company.name,
+          companyStatus: 'onboarding',
+          expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+          state: 'pending',
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role === 'admin' ? 'admin' : 'owner',
+            status: user.status,
+          },
+        };
+      },
+      { noFail: true },
+    ),
+
+  completeBootstrapActivation: (
+    token: string,
+    input: { password: string },
+  ): Promise<AuthSession<User> & { onboarding: OnboardingState }> =>
+    mockRequest(
+      () => {
+        if (!token.trim()) {
+          throw new ApiError('Ссылка активации недействительна', 404, {
+            code: 'BOOTSTRAP_INVALID',
+          });
+        }
+        if (input.password.length < 8) {
+          throw new ApiError('Пароль должен содержать не менее 8 символов', 400, {
+            code: 'VALIDATION_ERROR',
+          });
+        }
+        const user =
+          db.users.find((item) => item.role === 'owner' || item.role === 'admin') ??
+          notFound('Пользователь');
+        db.setCurrentUserId(user.id);
+        return {
+          accessToken: 'mock-bootstrap-access-token',
+          user,
+          onboarding: {
+            companyId: db.company.id,
+            companyStatus: 'active',
+            completed: true,
+          },
+        };
+      },
+      { noFail: true },
+    ),
+
+  exchangeSso: (token: string): Promise<AuthSession<User>> =>
+    mockRequest(
+      () => {
+        if (!token.trim()) {
+          throw new ApiError('Ссылка для входа недействительна', 401, { code: 'SSO_INVALID' });
+        }
+        return {
+          accessToken: 'mock-sso-access-token',
+          user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
+        };
+      },
+      { noFail: true },
+    ),
+
+  getOnboardingStatus: (): Promise<OnboardingState> =>
+    mockRequest(() => ({ companyId: db.company.id, companyStatus: 'active', completed: true }), {
+      noFail: true,
+    }),
+
+  reissueOnboardingActivation: (): Promise<OnboardingState> =>
+    mockRequest(
+      () => ({
+        companyId: db.company.id,
+        companyStatus: 'onboarding',
+        completed: false,
+        activationUrl: `${window.location.origin}/onboarding?token=mock-reissued-token`,
+        expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+      }),
+      { noFail: true },
+    ),
 };
 
 // ============================================================================

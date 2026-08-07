@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { BrandMark } from './BrandMark';
 
 /** Минимальный центрированный layout для страниц аутентификации. */
-export function AuthLayout() {
+export function PublicAuthLayout() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-page p-4">
       <div className="mb-8 flex items-center gap-3">
@@ -18,3 +18,5 @@ export function AuthLayout() {
     </div>
   );
 }
+
+export const AuthLayout = PublicAuthLayout;

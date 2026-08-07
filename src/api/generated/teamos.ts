@@ -164,6 +164,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/bootstrap/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["BootstrapToken"];
+            };
+            cookie?: never;
+        };
+        /** Получить данные активации владельца или администратора */
+        get: operations["getBootstrapActivation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/bootstrap/{token}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["BootstrapToken"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Задать пароль и активировать владельца или администратора */
+        post: operations["completeBootstrapActivation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sso/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Обменять одноразовый SSO-токен на сессию TeamOS */
+        post: operations["exchangeSsoToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/provisioning/companies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Создать компанию с владельцем и администратором из внешнего сервиса */
+        post: operations["provisionCompany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/provisioning/companies/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Проверить создание компании по ID аккаунта внешнего сервиса
+         * @description Провайдер определяется служебной учётной записью. Для Rakurs значение externalAccountId соответствует amoCRM Account ID.
+         */
+        get: operations["getProvisionedCompanyStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/provisioning/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Выдать одноразовый SSO-токен сотруднику внешнего сервиса */
+        post: operations["issueSsoToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/company": {
         parameters: {
             query?: never;
@@ -180,6 +289,40 @@ export interface paths {
         head?: never;
         /** Обновить компанию */
         patch: operations["updateCompany"];
+        trace?: never;
+    };
+    "/api/v1/company/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить состояние онбординга текущей компании */
+        get: operations["getOnboardingStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/company/onboarding/activation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Перевыпустить ссылку активации второго пользователя */
+        post: operations["reissueOnboardingActivation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/org/departments": {
@@ -2967,6 +3110,11 @@ export interface components {
                 message: string;
                 /** @example 404 */
                 status: number;
+                /**
+                 * @description Стабильный машинно-читаемый код ошибки, если он определён.
+                 * @example BOOTSTRAP_EXPIRED
+                 */
+                code?: string;
             };
         };
         RichTextContent: {
@@ -2977,12 +3125,18 @@ export interface components {
         /** @enum {string} */
         UserRole: "owner" | "admin" | "employee" | "partner";
         /** @enum {string} */
+        BootstrapRole: "owner" | "admin";
+        /** @enum {string} */
+        CompanyStatus: "onboarding" | "active" | "frozen" | "suspended";
+        /** @enum {string} */
+        BootstrapActivationState: "pending" | "expired" | "consumed" | "completed";
+        /** @enum {string} */
         UserStatus: "active" | "invited" | "deactivated";
         /**
-         * @description Источник сотрудника. Профиль, роль, статус и доступ управляются в TeamOS. Для `amo` факт наличия сотрудника периодически сверяется с amoCRM.
+         * @description Источник сотрудника. Профиль, роль, статус и доступ управляются в TeamOS. Для `amo` факт наличия сотрудника периодически сверяется с amoCRM; `external` обозначает учётную запись, созданную доверенной интеграцией.
          * @enum {string}
          */
-        UserSource: "local" | "amo";
+        UserSource: "local" | "amo" | "external";
         /** @enum {string} */
         EmployeeSection: "schedule" | "knowledge" | "academy" | "distribution";
         /** @enum {string} */
@@ -2997,6 +3151,7 @@ export interface components {
             amoAccountId?: string;
             ownerId: components["schemas"]["ID"];
             createdAt: components["schemas"]["ISODateTime"];
+            status?: components["schemas"]["CompanyStatus"];
         };
         /** @enum {string} */
         FilePurpose: "attachment" | "avatar" | "logo";
@@ -3079,10 +3234,75 @@ export interface components {
             status: components["schemas"]["InviteStatus"];
             createdAt: components["schemas"]["ISODateTime"];
         };
+        ProvisioningParticipantInput: {
+            externalUserId: string;
+            email: components["schemas"]["Email"];
+            firstName: string;
+            lastName: string;
+        };
+        ProvisionCompanyInput: {
+            provider: string;
+            externalAccountId: string;
+            companyName: string;
+            initiatorExternalUserId: string;
+            owner: components["schemas"]["ProvisioningParticipantInput"];
+            admin: components["schemas"]["ProvisioningParticipantInput"];
+        };
+        ProvisionCompanyResponse: {
+            companyId: components["schemas"]["ID"];
+            companyStatus: components["schemas"]["CompanyStatus"];
+            created: boolean;
+            initiatorRole: components["schemas"]["BootstrapRole"];
+            /**
+             * Format: uri
+             * @description URL страницы TeamOS, на которой инициатор завершает активацию.
+             */
+            continueUrl: string;
+            expiresAt: components["schemas"]["ISODateTime"];
+        };
+        ProvisionedCompanyStatusResponse: {
+            exists: boolean;
+            companyId?: components["schemas"]["ID"];
+            companyStatus?: components["schemas"]["CompanyStatus"];
+        };
+        BootstrapParticipant: {
+            userId: components["schemas"]["ID"];
+            email: components["schemas"]["Email"];
+            firstName: string;
+            lastName: string;
+            role: components["schemas"]["BootstrapRole"];
+            status: components["schemas"]["UserStatus"];
+        };
+        BootstrapActivation: {
+            companyId: components["schemas"]["ID"];
+            companyName: string;
+            companyStatus: components["schemas"]["CompanyStatus"];
+            user: components["schemas"]["BootstrapParticipant"];
+            expiresAt: components["schemas"]["ISODateTime"];
+            state: components["schemas"]["BootstrapActivationState"];
+        };
+        OnboardingState: {
+            companyId: components["schemas"]["ID"];
+            companyStatus: components["schemas"]["CompanyStatus"];
+            completed: boolean;
+            pendingUser?: components["schemas"]["BootstrapParticipant"];
+            /**
+             * Format: uri
+             * @description Новая одноразовая ссылка для ожидающего пользователя; возвращается только при выдаче.
+             */
+            activationUrl?: string;
+            expiresAt?: components["schemas"]["ISODateTime"];
+        };
         AuthResponse: {
             /** @description JWT access-токен со сроком жизни 15 минут. */
             accessToken: string;
             user: components["schemas"]["User"];
+        };
+        BootstrapAuthResponse: {
+            /** @description JWT access-токен со сроком жизни 15 минут. */
+            accessToken: string;
+            user: components["schemas"]["User"];
+            onboarding: components["schemas"]["OnboardingState"];
         };
         LoginInput: {
             email: components["schemas"]["Email"];
@@ -3100,6 +3320,26 @@ export interface components {
             password: string;
             firstName: string;
             lastName: string;
+        };
+        CompleteBootstrapActivationInput: {
+            /** Format: password */
+            password: string;
+        };
+        IssueSsoTokenInput: {
+            provider: string;
+            externalAccountId: string;
+            externalUserId: string;
+        };
+        SsoIssueResponse: {
+            /**
+             * Format: uri
+             * @description URL страницы TeamOS с одноразовым query-параметром: `/onboarding?token=...` для ещё не активированного пользователя или `/sso?token=...` для активного.
+             */
+            redirectUrl: string;
+            expiresAt: components["schemas"]["ISODateTime"];
+        };
+        ExchangeSsoTokenInput: {
+            token: string;
         };
         AcceptInviteInput: {
             /** @description Обязателен только для приглашения по ссылке без заранее заданного email. */
@@ -4811,6 +5051,61 @@ export interface components {
                 "application/json": components["schemas"]["AuthResponse"];
             };
         };
+        /** @description Результат создания компании или идемпотентного повтора операции */
+        ProvisionCompany: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ProvisionCompanyResponse"];
+            };
+        };
+        /** @description Результат проверки компании по внешнему аккаунту */
+        ProvisionedCompanyStatus: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ProvisionedCompanyStatusResponse"];
+            };
+        };
+        /** @description Данные ожидающей активации владельца или администратора */
+        BootstrapActivation: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["BootstrapActivation"];
+            };
+        };
+        /** @description Пользователь активирован, refresh-токен установлен в HttpOnly cookie */
+        BootstrapAuthSession: {
+            headers: {
+                "Set-Cookie": components["headers"]["RefreshCookie"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["BootstrapAuthResponse"];
+            };
+        };
+        /** @description Состояние онбординга компании и ожидающего пользователя */
+        Onboarding: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["OnboardingState"];
+            };
+        };
+        /** @description Одноразовый SSO-токен выдан в query-параметре URL приложения TeamOS */
+        SsoIssue: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["SsoIssueResponse"];
+            };
+        };
         /** @description Пользователь */
         User: {
             headers: {
@@ -5763,6 +6058,7 @@ export interface components {
         Id: components["schemas"]["ID"];
         InviteToken: string;
         AccessLinkToken: string;
+        BootstrapToken: string;
         CourseId: components["schemas"]["ID"];
         VersionId: components["schemas"]["ID"];
         SectionId: components["schemas"]["ID"];
@@ -5989,6 +6285,132 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getBootstrapActivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["BootstrapToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BootstrapActivation"];
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    completeBootstrapActivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["BootstrapToken"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteBootstrapActivationInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BootstrapAuthSession"];
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    exchangeSsoToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExchangeSsoTokenInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AuthSession"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    provisionCompany: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionCompanyInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ProvisionCompany"];
+            201: components["responses"]["ProvisionCompany"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getProvisionedCompanyStatus: {
+        parameters: {
+            query: {
+                externalAccountId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ProvisionedCompanyStatus"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    issueSsoToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueSsoTokenInput"];
+            };
+        };
+        responses: {
+            201: components["responses"]["SsoIssue"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
     getCompany: {
         parameters: {
             query?: never;
@@ -6019,6 +6441,38 @@ export interface operations {
             200: components["responses"]["Company"];
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getOnboardingStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Onboarding"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    reissueOnboardingActivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Onboarding"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             default: components["responses"]["Error"];
         };
     };

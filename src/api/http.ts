@@ -7,6 +7,8 @@ import type {
   ArticleSection,
   ArticleVersion,
   Board,
+  BootstrapActivation,
+  BootstrapUser,
   Company,
   Course,
   CourseAssignment,
@@ -29,6 +31,7 @@ import type {
   TaskPriority,
   User,
   UserSchedule,
+  OnboardingState,
 } from '@/types';
 
 const id = (value: string) => encodeURIComponent(value);
@@ -52,6 +55,36 @@ function rememberSession(session: AuthSession<User>): AuthSession<User> {
   useAuthStore.getState().setAccessToken(session.accessToken);
   useAuthStore.getState().setInitialized(true);
   return session;
+}
+
+interface WireBootstrapUser extends Omit<BootstrapUser, 'id'> {
+  userId: string;
+}
+
+interface WireBootstrapActivation extends Omit<BootstrapActivation, 'user'> {
+  user: WireBootstrapUser;
+}
+
+interface WireOnboardingState extends Omit<OnboardingState, 'pendingUser'> {
+  pendingUser?: WireBootstrapUser;
+}
+
+function normalizeBootstrapUser(user: WireBootstrapUser): BootstrapUser {
+  const { userId, ...rest } = user;
+  return { id: userId, ...rest };
+}
+
+function normalizeOnboarding(onboarding: WireOnboardingState): OnboardingState {
+  return {
+    ...onboarding,
+    pendingUser: onboarding.pendingUser
+      ? normalizeBootstrapUser(onboarding.pendingUser)
+      : undefined,
+  };
+}
+
+export interface BootstrapAuthSession extends AuthSession<User> {
+  onboarding: OnboardingState;
 }
 
 export const httpAuthApi = {
@@ -95,6 +128,28 @@ export const httpAuthApi = {
     input: { email?: string; firstName: string; lastName: string; password: string },
   ): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest(`/auth/invites/${id(token)}/accept`, 'POST', input)),
+  getBootstrapActivation: async (token: string): Promise<BootstrapActivation> => {
+    const activation = await publicRequest<WireBootstrapActivation>(`/auth/bootstrap/${id(token)}`);
+    return { ...activation, user: normalizeBootstrapUser(activation.user) };
+  },
+  completeBootstrapActivation: async (
+    token: string,
+    input: { password: string },
+  ): Promise<BootstrapAuthSession> => {
+    const response = await publicRequest<
+      Omit<BootstrapAuthSession, 'onboarding'> & { onboarding: WireOnboardingState }
+    >(`/auth/bootstrap/${id(token)}/complete`, 'POST', input);
+    const session = rememberSession(response);
+    return { ...session, onboarding: normalizeOnboarding(response.onboarding) };
+  },
+  exchangeSso: async (token: string): Promise<AuthSession<User>> =>
+    rememberSession(await publicRequest('/auth/sso/exchange', 'POST', { token })),
+  getOnboardingStatus: async (): Promise<OnboardingState> =>
+    normalizeOnboarding(await request<WireOnboardingState>('/company/onboarding')),
+  reissueOnboardingActivation: async (): Promise<OnboardingState> =>
+    normalizeOnboarding(
+      await request<WireOnboardingState>('/company/onboarding/activation', 'POST'),
+    ),
 };
 
 export const httpOrgApi = {
