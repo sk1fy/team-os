@@ -3259,6 +3259,8 @@ export interface components {
             birthDate?: components["schemas"]["LocalDate"];
             hiredAt?: components["schemas"]["LocalDate"];
             vacationAllowance?: number;
+            /** @description Показывать пользователя в рабочем графике. Для владельца всегда false. */
+            showInSchedule: boolean;
             createdAt: components["schemas"]["ISODateTime"];
         };
         /** @description Фактический способ входа сотрудника. Поля `linkToken` и `linkCreatedAt` возвращаются только для режима `link`. */
@@ -3506,6 +3508,7 @@ export interface components {
             birthDate?: components["schemas"]["ClearableDate"];
             hiredAt?: components["schemas"]["ClearableDate"];
             vacationAllowance?: number;
+            showInSchedule?: boolean;
             role?: components["schemas"]["UserRole"];
             status?: components["schemas"]["UserStatus"];
             positionIds?: components["schemas"]["ID"][];

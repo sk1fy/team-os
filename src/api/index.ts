@@ -631,6 +631,7 @@ const mockOrgApi = {
     birthDate?: string;
     hiredAt?: string;
     vacationAllowance?: number;
+    showInSchedule?: boolean;
     role?: User['role'];
     status?: User['status'];
     positionIds?: ID[];
@@ -663,6 +664,9 @@ const mockOrgApi = {
       if (input.birthDate !== undefined) user.birthDate = input.birthDate || undefined;
       if (input.hiredAt !== undefined) user.hiredAt = input.hiredAt || undefined;
       if (input.vacationAllowance !== undefined) user.vacationAllowance = input.vacationAllowance;
+      if (input.showInSchedule !== undefined) {
+        user.showInSchedule = user.role === 'owner' ? false : input.showInSchedule;
+      }
       if (input.role !== undefined) user.role = input.role;
       if (input.status !== undefined) user.status = input.status;
       if (input.positionIds !== undefined) user.positionIds = input.positionIds;

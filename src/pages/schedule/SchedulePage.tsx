@@ -42,7 +42,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
-import { filterScheduleUsers } from './scheduleUsers';
+import { filterScheduleUsers, isUserShownInSchedule } from './scheduleUsers';
 import { canManageContent } from '@/lib/permissions';
 
 /** Черновик правки одной ячейки (до публикации). */
@@ -556,11 +556,15 @@ export function SchedulePage() {
   };
 
   // Активные (включая приглашённых) или уволенные — как в справочнике сотрудников
-  const firedCount = users.filter((user) => user.status === 'deactivated').length;
+  const firedCount = users.filter(
+    (user) => isUserShownInSchedule(user) && user.status === 'deactivated',
+  ).length;
   const staffUsers = useMemo(
     () =>
-      users.filter((user) =>
-        staff === 'fired' ? user.status === 'deactivated' : user.status !== 'deactivated',
+      users.filter(
+        (user) =>
+          isUserShownInSchedule(user) &&
+          (staff === 'fired' ? user.status === 'deactivated' : user.status !== 'deactivated'),
       ),
     [staff, users],
   );

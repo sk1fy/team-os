@@ -15,6 +15,28 @@ const users: User[] = [
     createdAt: '2026-07-16T00:00:00Z',
   },
   {
+    id: 'hidden-user',
+    email: 'hidden@example.com',
+    firstName: 'Скрытый',
+    lastName: 'Сотрудник',
+    role: 'employee',
+    status: 'active',
+    showInSchedule: false,
+    positionIds: [],
+    createdAt: '2026-07-16T00:00:00Z',
+  },
+  {
+    id: 'owner-user',
+    email: 'owner@example.com',
+    firstName: 'Владелец',
+    lastName: 'Компании',
+    role: 'owner',
+    status: 'active',
+    showInSchedule: true,
+    positionIds: [],
+    createdAt: '2026-07-16T00:00:00Z',
+  },
+  {
     id: 'amo-user',
     email: 'amo@example.com',
     firstName: 'Импортированный',
@@ -29,6 +51,17 @@ const users: User[] = [
 
 describe('filterScheduleUsers', () => {
   it('показывает сотрудников без созданного шаблона графика', () => {
+    const result = filterScheduleUsers(users, {
+      search: '',
+      chip: 'all',
+      positionById: new Map(),
+      stateToday: () => undefined,
+    });
+
+    expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
+  });
+
+  it('скрывает владельца и сотрудников с выключенным флагом', () => {
     const result = filterScheduleUsers(users, {
       search: '',
       chip: 'all',

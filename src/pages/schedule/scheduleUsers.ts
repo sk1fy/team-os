@@ -17,6 +17,7 @@ interface ScheduleUserFilter {
 export function filterScheduleUsers(users: User[], filter: ScheduleUserFilter): User[] {
   const normalizedSearch = filter.search.trim().toLowerCase();
   return users.filter((user) => {
+    if (!isUserShownInSchedule(user)) return false;
     const position = user.positionIds[0] ? filter.positionById.get(user.positionIds[0]) : undefined;
     const haystack = `${fullName(user)} ${user.email} ${position?.name ?? ''}`.toLowerCase();
     if (normalizedSearch && !haystack.includes(normalizedSearch)) return false;
@@ -25,4 +26,9 @@ export function filterScheduleUsers(users: User[], filter: ScheduleUserFilter): 
     if (filter.chip === 'absent') return stateType === 'vacation' || stateType === 'sick';
     return true;
   });
+}
+
+/** Старые записи без флага видимы по умолчанию; владелец исключён всегда. */
+export function isUserShownInSchedule(user: User): boolean {
+  return user.role !== 'owner' && user.showInSchedule !== false;
 }

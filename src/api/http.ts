@@ -240,6 +240,7 @@ export const httpOrgApi = {
     birthDate?: string;
     hiredAt?: string;
     vacationAllowance?: number;
+    showInSchedule?: boolean;
     role?: User['role'];
     status?: User['status'];
     positionIds?: ID[];

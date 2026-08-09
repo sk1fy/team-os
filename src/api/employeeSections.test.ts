@@ -3,11 +3,30 @@ import { orgApi } from '@/api';
 import * as db from './fixtures';
 
 const employee = db.users.find((user) => user.id === 'user-3')!;
+const owner = db.users.find((user) => user.id === 'user-1')!;
 const originalSections = employee.sectionAccess;
+const originalShowInSchedule = employee.showInSchedule;
+const originalOwnerShowInSchedule = owner.showInSchedule;
 
 afterEach(() => {
   db.setCurrentUserId('user-1');
   employee.sectionAccess = originalSections;
+  employee.showInSchedule = originalShowInSchedule;
+  owner.showInSchedule = originalOwnerShowInSchedule;
+});
+
+describe('видимость сотрудника в графике', () => {
+  it('сохраняет выключенный флаг для сотрудника', async () => {
+    await expect(
+      orgApi.updateUser({ id: employee.id, showInSchedule: false }),
+    ).resolves.toMatchObject({ showInSchedule: false });
+  });
+
+  it('не позволяет включить владельца в график', async () => {
+    await expect(orgApi.updateUser({ id: 'user-1', showInSchedule: true })).resolves.toMatchObject({
+      showInSchedule: false,
+    });
+  });
 });
 
 describe('индивидуальный доступ сотрудника к разделам', () => {

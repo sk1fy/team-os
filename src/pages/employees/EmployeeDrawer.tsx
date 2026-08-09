@@ -47,7 +47,7 @@ import {
 import { cn } from '@/lib/cn';
 import { MONTH_LABELS, MONTH_LABELS_GENITIVE } from '@/lib/schedule';
 import { toast } from '@/stores/toast';
-import { Avatar, Badge, Button, Drawer, Input, Modal, Select } from '@/components/ui';
+import { Avatar, Badge, Button, Checkbox, Drawer, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
 import { PHONE_ERROR, formatPhoneInput, isValidPhone } from '@/lib/formValidation';
@@ -114,6 +114,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     phone: '',
     hire: '',
     birth: '',
+    showInSchedule: true,
   });
   const [scheduleType, setScheduleType] = useState<'week' | 'cycle'>('week');
   const [weekDraft, setWeekDraft] = useState({
@@ -182,9 +183,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
 
   const user = userQuery.data;
   const canImpersonate =
-    currentUserQuery.data?.role === 'owner' &&
-    user?.role !== 'owner' &&
-    user?.status === 'active';
+    currentUserQuery.data?.role === 'owner' && user?.role !== 'owner' && user?.status === 'active';
   const userPositions = useMemo(
     () => positions.filter((position) => user?.positionIds.includes(position.id)),
     [positions, user],
@@ -235,6 +234,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       phone: formatPhoneInput(user.phone ?? ''),
       hire: user.hiredAt ?? '',
       birth: user.birthDate ?? '',
+      showInSchedule: user.role !== 'owner' && user.showInSchedule !== false,
     });
     setVacationNorm(user.vacationAllowance ?? 28);
     setSectionDraft(user.sectionAccess ?? defaultEmployeeSections);
@@ -302,6 +302,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
           birthDate: profileDraft.birth,
           hiredAt: profileDraft.hire,
           vacationAllowance: vacationNorm,
+          showInSchedule: user.role === 'owner' ? false : profileDraft.showInSchedule,
           role: user.role,
           status: user.status,
           positionIds:
@@ -606,6 +607,21 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                       setPhoneError(undefined);
                     }}
                   />
+                  <div className="rounded-md border border-slate-200 bg-surface p-3">
+                    <Checkbox
+                      checked={user.role !== 'owner' && profileDraft.showInSchedule}
+                      disabled={user.role === 'owner'}
+                      onCheckedChange={(showInSchedule) =>
+                        setProfileDraft((draft) => ({ ...draft, showInSchedule }))
+                      }
+                      label="Показывать в Графике"
+                    />
+                    <p className="mt-1.5 pl-6.5 text-xs leading-relaxed text-slate-500">
+                      {user.role === 'owner'
+                        ? 'Владелец компании не отображается в рабочем графике.'
+                        : 'Отключите, чтобы скрыть сотрудника из графика и его статистики.'}
+                    </p>
+                  </div>
                   <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
                     <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />
                     <span>Фото подтягивается автоматически из amoCRM</span>
