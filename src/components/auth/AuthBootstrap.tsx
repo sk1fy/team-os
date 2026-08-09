@@ -1,7 +1,10 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
 import { isHttpApiMode } from '@/api/config';
+import { queryKeys } from '@/api/queryKeys';
+import { safeHomePath } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth';
 
 export function AuthBootstrap({ children }: { children: ReactNode }) {
@@ -33,4 +36,24 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return <Navigate to="/auth/login" replace state={{ from: location }} />;
   }
   return children;
+}
+
+export function RedirectAuthenticated({ children }: { children: ReactNode }) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const shouldCheckSession = isHttpApiMode('auth') && Boolean(accessToken);
+  const currentUserQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+    enabled: shouldCheckSession,
+  });
+
+  if (!shouldCheckSession || currentUserQuery.isError) return children;
+  if (!currentUserQuery.data) return null;
+
+  return (
+    <Navigate
+      to={safeHomePath(currentUserQuery.data.role, currentUserQuery.data.sectionAccess)}
+      replace
+    />
+  );
 }

@@ -3,7 +3,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { RequireAuth } from '@/components/auth/AuthBootstrap';
+import { RedirectAuthenticated, RequireAuth } from '@/components/auth/AuthBootstrap';
 import { AuthLayout, PublicAuthLayout } from '@/components/layout/AuthLayout';
 import { authApi } from '@/api';
 import { canManageIntegrations, protectedRouteState, safeHomePath } from '@/lib/permissions';
@@ -554,7 +554,14 @@ export function App() {
         {/* Аутентификация */}
         <Route path="/auth" element={<AuthLayout />}>
           <Route index element={<Navigate to="/auth/login" replace />} />
-          <Route path="login" element={<LoginPage />} />
+          <Route
+            path="login"
+            element={
+              <RedirectAuthenticated>
+                <LoginPage />
+              </RedirectAuthenticated>
+            }
+          />
           <Route path="register" element={<RegisterPage />} />
           <Route path="create-company" element={<Navigate to="/auth/register" replace />} />
           <Route path="invite/:token" element={<InvitePage />} />
