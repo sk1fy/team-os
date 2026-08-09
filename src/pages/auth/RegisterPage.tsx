@@ -208,12 +208,12 @@ export function RegisterPage() {
           required
         />
         <Input
-          label="Токен amoCRM (необязательно)"
+          label="Необязательное поле"
           name="registrationToken"
           type="password"
           autoComplete="off"
           value={registrationToken}
-          placeholder="Одноразовый токен регистрации"
+          placeholder="Токен регистрации"
           hint={
             tokenValidation?.amoAccountId
               ? 'Токен подтверждён · amoCRM будет подключена после регистрации.'
