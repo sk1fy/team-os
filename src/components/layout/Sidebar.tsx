@@ -36,12 +36,12 @@ type NavItemDefinition = {
 };
 
 const academyV2 = isAcademyV2Enabled();
+const distributionEnabled = false;
 
 const navItems: NavItemDefinition[] = [
   { to: '/dashboard', label: 'Главная', icon: Home, end: true },
   { to: '/employees', label: 'Сотрудники', icon: Users },
   { to: '/schedule', label: 'График', icon: CalendarDays },
-  { to: '/distribution', label: 'Распределение', icon: Shuffle },
   { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/academy', label: 'Академия', icon: GraduationCap },
   // Experimental academies hidden after V2 cutover (routes may still redirect).
@@ -54,6 +54,10 @@ const navItems: NavItemDefinition[] = [
 ];
 
 const integrationItems: NavItemDefinition[] = [
+  // Раздел ещё в разработке. Он относится к интеграциям и появится здесь после запуска.
+  ...(distributionEnabled
+    ? [{ to: '/distribution', label: 'Распределение', icon: Shuffle }]
+    : []),
   { to: '/activity-control', label: 'Контроль активности', icon: Activity },
   { to: '/duplicate-search', label: 'Автопоиск дубликатов', icon: ScanSearch },
 ];
