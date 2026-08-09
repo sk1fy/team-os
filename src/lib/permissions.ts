@@ -21,7 +21,7 @@ export function safeHomePath(
     return '/settings';
   }
   if (role === 'partner') return '/academy';
-  if (role === 'owner' || role === 'admin') return '/';
+  if (role === 'owner' || role === 'admin') return '/dashboard';
   return '/auth/login';
 }
 
@@ -75,7 +75,7 @@ export function canAccessModule(role: UserRole | undefined, module: AppModule): 
 
 /** Map pathname prefix to product module. */
 export function moduleForPath(pathname: string): AppModule | null {
-  if (pathname === '/' || pathname === '') return 'dashboard';
+  if (pathname === '/' || pathname === '' || pathname.startsWith('/dashboard')) return 'dashboard';
   if (pathname.startsWith('/employees') || pathname.startsWith('/structure')) return 'employees';
   if (pathname.startsWith('/schedule')) return 'schedule';
   if (pathname.startsWith('/tasks')) return 'tasks';

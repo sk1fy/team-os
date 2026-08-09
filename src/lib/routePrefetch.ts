@@ -8,7 +8,7 @@ import { isAcademyV2Enabled } from '@/lib/academy';
 const academyV2 = isAcademyV2Enabled();
 
 const loaders: Record<string, () => Promise<unknown>> = {
-  '/': () => import('@/pages/DashboardPage'),
+  '/dashboard': () => import('@/pages/DashboardPage'),
   '/employees': () => import('@/pages/employees/EmployeesPage'),
   '/schedule': () => import('@/pages/schedule/SchedulePage'),
   '/tasks': () => import('@/pages/tasks/TasksPage'),

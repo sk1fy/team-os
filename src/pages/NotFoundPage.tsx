@@ -13,7 +13,7 @@ export function NotFoundPage() {
           Возможно, она была перемещена или никогда не существовала.
         </p>
       </div>
-      <Link to="/">
+      <Link to="/dashboard">
         <Button variant="secondary">На главную</Button>
       </Link>
     </div>

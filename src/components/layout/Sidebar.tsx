@@ -6,7 +6,6 @@ import {
   CalendarDays,
   GraduationCap,
   Home,
-  KanbanSquare,
   Library,
   LogOut,
   PanelLeftClose,
@@ -39,10 +38,9 @@ type NavItemDefinition = {
 const academyV2 = isAcademyV2Enabled();
 
 const navItems: NavItemDefinition[] = [
-  { to: '/', label: 'Главная', icon: Home, end: true },
+  { to: '/dashboard', label: 'Главная', icon: Home, end: true },
   { to: '/employees', label: 'Сотрудники', icon: Users },
   { to: '/schedule', label: 'График', icon: CalendarDays },
-  { to: '/tasks', label: 'Задачи', icon: KanbanSquare },
   { to: '/distribution', label: 'Распределение', icon: Shuffle },
   { to: '/knowledge', label: 'База знаний', icon: Library },
   { to: '/academy', label: 'Академия', icon: GraduationCap },

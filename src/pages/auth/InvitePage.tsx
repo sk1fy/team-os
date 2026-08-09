@@ -7,6 +7,7 @@ import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import { Button, Input } from '@/components/ui';
 import { toast } from '@/stores/toast';
+import { safeHomePath } from '@/lib/permissions';
 
 /**
  * Страница приёма приглашения по ссылке /auth/invite/:token.
@@ -35,14 +36,14 @@ export function InvitePage() {
     setSubmitError(undefined);
     const form = new FormData(event.currentTarget);
     try {
-      await authApi.acceptInvite(token, {
+      const session = await authApi.acceptInvite(token, {
         email: invite?.email ? undefined : String(form.get('email') ?? ''),
         firstName: String(form.get('firstName') ?? ''),
         lastName: String(form.get('lastName') ?? ''),
         password: String(form.get('password') ?? ''),
       });
       toast.success('Добро пожаловать в команду!');
-      navigate('/', { replace: true });
+      navigate(safeHomePath(session.user.role, session.user.sectionAccess), { replace: true });
     } catch (caught) {
       setSubmitError(
         caught instanceof ApiError ? caught.message : 'Не удалось принять приглашение.',

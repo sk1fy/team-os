@@ -61,7 +61,7 @@ describe('permissions', () => {
   it('возвращает доступный home для каждой роли', () => {
     expect(safeHomePath('employee')).toBe('/schedule');
     expect(safeHomePath('partner')).toBe('/academy');
-    expect(safeHomePath('owner')).toBe('/');
+    expect(safeHomePath('owner')).toBe('/dashboard');
     expect(safeHomePath(undefined)).toBe('/auth/login');
   });
 
@@ -72,6 +72,7 @@ describe('permissions', () => {
     expect(resolvePostLoginPath('partner', '/academy/courses')).toBe('/academy/courses');
     expect(resolvePostLoginPath('employee', '/')).toBe('/schedule');
     expect(resolvePostLoginPath('owner', '/')).toBe('/');
+    expect(resolvePostLoginPath('owner')).toBe('/dashboard');
   });
 
   it('применяет индивидуальный набор разделов сотрудника к меню и прямым ссылкам', () => {
@@ -155,6 +156,7 @@ describe('module matrix', () => {
   });
 
   it('moduleForPath распознаёт academy и integrations', () => {
+    expect(moduleForPath('/dashboard')).toBe('dashboard');
     expect(moduleForPath('/academy/catalog')).toBe('academy');
     expect(moduleForPath('/learn/enr-1')).toBe('academy');
     expect(moduleForPath('/activity-control')).toBe('integrations');

@@ -6,6 +6,7 @@ import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import type { CompanyRegistrationTokenValidation } from '@/types';
 import { EMAIL_ERROR, isValidEmail } from '@/lib/formValidation';
+import { safeHomePath } from '@/lib/permissions';
 import { PublicAuthError } from './PublicAuthError';
 import { registrationTokenErrorView, type PublicAuthErrorView } from './publicAuthFlow';
 import { claimOneTimeRequest, useOneTimeQueryValue } from './useOneTimeQueryToken';
@@ -102,7 +103,7 @@ export function RegisterPage() {
     try {
       if (token && validatedToken !== token && !(await validateToken(token))) return;
 
-      await authApi.register({
+      const session = await authApi.register({
         companyName: String(form.get('companyName') ?? '').trim(),
         firstName: String(form.get('firstName') ?? '').trim(),
         lastName: String(form.get('lastName') ?? '').trim(),
@@ -113,7 +114,7 @@ export function RegisterPage() {
       setRegistrationToken('');
       setValidatedToken('');
       setTokenValidation(undefined);
-      navigate('/', { replace: true });
+      navigate(safeHomePath(session.user.role, session.user.sectionAccess), { replace: true });
     } catch (caught) {
       const registrationError = registrationTokenErrorView(caught);
       setError(

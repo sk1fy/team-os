@@ -59,7 +59,7 @@ export function CreateCompanyPage() {
       setStep(step + 1);
     } else {
       toast.success('Компания создана', 'Добро пожаловать в TeamOS!');
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 
