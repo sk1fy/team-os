@@ -4,6 +4,7 @@ import {
   activationStateError,
   companyStatusError,
   publicAuthErrorView,
+  registrationTokenErrorView,
   validateActivationPasswords,
 } from './publicAuthFlow';
 import { claimOneTimeRequest, withoutOneTimeToken } from './useOneTimeQueryToken';
@@ -16,6 +17,15 @@ describe('public auth flow', () => {
 
     expect(result.get('token')).toBeNull();
     expect(result.toString()).toBe('source=amo&returnTo=%2Fschedule');
+  });
+
+  it('удаляет registrationToken, сохраняя остальные параметры URL', () => {
+    const result = withoutOneTimeToken(
+      new URLSearchParams('registrationToken=secret&source=admin'),
+      'registrationToken',
+    );
+
+    expect(result.toString()).toBe('source=admin');
   });
 
   it('разрешает только один запрос при повторном эффекте Strict Mode', () => {
@@ -35,13 +45,30 @@ describe('public auth flow', () => {
 
   it.each([
     ['BOOTSTRAP_EXPIRED', 'Срок действия ссылки истёк', 'none'],
-    ['SSO_CONSUMED', 'Ссылка уже использована', 'login'],
+    ['BOOTSTRAP_CONSUMED', 'Ссылка уже использована', 'login'],
     ['EXTERNAL_USER_DEACTIVATED', 'Нет доступа к TeamOS', 'none'],
     ['INTEGRATION_FROZEN', 'TeamOS временно недоступен', 'none'],
   ] as const)('показывает стабильный код %s без разбора сообщения', (code, title, action) => {
     const result = publicAuthErrorView(new ApiError('Произвольный текст', 409, { code }));
 
     expect(result).toMatchObject({ title, action });
+  });
+
+  it.each([
+    ['invalid', 'Ссылка недействительна', 'none'],
+    ['expired', 'Срок действия ссылки истёк', 'none'],
+    ['consumed', 'Ссылка уже использована', 'login'],
+    ['revoked', 'Ссылка отозвана', 'none'],
+  ] as const)('отображает состояние registration-токена %s', (state, title, action) => {
+    expect(registrationTokenErrorView(undefined, state)).toMatchObject({ title, action });
+  });
+
+  it('обрабатывает конфликт amoCRM при отправке регистрации', () => {
+    expect(
+      registrationTokenErrorView(
+        new ApiError('Конфликт', 409, { code: 'AMO_ACCOUNT_ALREADY_EXISTS' }),
+      ),
+    ).toMatchObject({ title: 'Компания уже зарегистрирована', action: 'login' });
   });
 
   it('предлагает повторить сетевую ошибку', () => {

@@ -34,6 +34,16 @@ export interface Company {
   createdAt: ISODate;
 }
 
+export type CompanyRegistrationTokenState =
+  'valid' | 'invalid' | 'expired' | 'consumed' | 'revoked';
+
+export interface CompanyRegistrationTokenValidation {
+  valid: boolean;
+  state: CompanyRegistrationTokenState;
+  amoAccountId?: string;
+  expiresAt?: ISODate;
+}
+
 export type CompanyStatus = 'onboarding' | 'active' | 'frozen' | 'suspended';
 export type BootstrapRole = 'owner' | 'admin';
 export type BootstrapActivationState = 'pending' | 'expired' | 'consumed' | 'completed';

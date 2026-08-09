@@ -33,6 +33,7 @@ import type {
   Board,
   BootstrapActivation,
   Company,
+  CompanyRegistrationTokenValidation,
   Course,
   CourseAssignment,
   CourseProgress,
@@ -79,6 +80,22 @@ const mockAuthApi = {
 
   getInviteByToken: (token: string): Promise<Invite> =>
     mockRequest(() => db.invites.find((i) => i.token === token) ?? notFound('Приглашение')),
+
+  validateCompanyRegistrationToken: (
+    registrationToken: string,
+  ): Promise<CompanyRegistrationTokenValidation> =>
+    mockRequest(
+      () =>
+        registrationToken.trim()
+          ? {
+              valid: true,
+              state: 'valid' as const,
+              amoAccountId: db.company.amoAccountId ?? '31355990',
+              expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+            }
+          : { valid: false, state: 'invalid' as const },
+      { noFail: true },
+    ),
 
   updateCompany: (input: {
     name?: string;
@@ -161,6 +178,7 @@ const mockAuthApi = {
     password: string;
     firstName: string;
     lastName: string;
+    registrationToken?: string;
   }): Promise<AuthSession<User>> => {
     void input;
     return mockRequest(() => ({
@@ -241,20 +259,6 @@ const mockAuthApi = {
             companyStatus: 'active',
             completed: true,
           },
-        };
-      },
-      { noFail: true },
-    ),
-
-  exchangeSso: (token: string): Promise<AuthSession<User>> =>
-    mockRequest(
-      () => {
-        if (!token.trim()) {
-          throw new ApiError('Ссылка для входа недействительна', 401, { code: 'SSO_INVALID' });
-        }
-        return {
-          accessToken: 'mock-sso-access-token',
-          user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
         };
       },
       { noFail: true },

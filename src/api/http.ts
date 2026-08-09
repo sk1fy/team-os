@@ -10,6 +10,7 @@ import type {
   BootstrapActivation,
   BootstrapUser,
   Company,
+  CompanyRegistrationTokenValidation,
   Course,
   CourseAssignment,
   CourseProgress,
@@ -91,6 +92,10 @@ export const httpAuthApi = {
   getCurrentUser: (): Promise<User> => request('/auth/me'),
   getCompany: (): Promise<Company> => request('/company'),
   getInviteByToken: (token: string): Promise<Invite> => publicRequest(`/auth/invites/${id(token)}`),
+  validateCompanyRegistrationToken: (
+    registrationToken: string,
+  ): Promise<CompanyRegistrationTokenValidation> =>
+    publicRequest('/public/company-registration-tokens/validate', 'POST', { registrationToken }),
   updateCompany: (input: {
     name?: string;
     logoUrl?: string;
@@ -121,6 +126,7 @@ export const httpAuthApi = {
     password: string;
     firstName: string;
     lastName: string;
+    registrationToken?: string;
   }): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest('/auth/register', 'POST', input)),
   acceptInvite: async (
@@ -142,8 +148,6 @@ export const httpAuthApi = {
     const session = rememberSession(response);
     return { ...session, onboarding: normalizeOnboarding(response.onboarding) };
   },
-  exchangeSso: async (token: string): Promise<AuthSession<User>> =>
-    rememberSession(await publicRequest('/auth/sso/exchange', 'POST', { token })),
   getOnboardingStatus: async (): Promise<OnboardingState> =>
     normalizeOnboarding(await request<WireOnboardingState>('/company/onboarding')),
   reissueOnboardingActivation: async (): Promise<OnboardingState> =>

@@ -21,9 +21,6 @@ const NotFoundPage = lazy(() =>
 const OnboardingPage = lazy(() =>
   import('@/pages/auth/OnboardingPage').then((module) => ({ default: module.OnboardingPage })),
 );
-const SsoPage = lazy(() =>
-  import('@/pages/auth/SsoPage').then((module) => ({ default: module.SsoPage })),
-);
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((module) => ({ default: module.SettingsPage })),
 );
@@ -551,7 +548,7 @@ export function App() {
         {/* Публичные одноразовые ссылки — без RequireAuth. */}
         <Route element={<PublicAuthLayout />}>
           <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="/sso" element={<SsoPage />} />
+          <Route path="/register-company" element={<RegisterPage />} />
         </Route>
 
         {/* Аутентификация */}

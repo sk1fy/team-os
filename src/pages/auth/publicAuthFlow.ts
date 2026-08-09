@@ -1,5 +1,9 @@
 import { ApiError } from '@/api/client';
-import type { BootstrapActivationState, CompanyStatus } from '@/types';
+import type {
+  BootstrapActivationState,
+  CompanyRegistrationTokenState,
+  CompanyStatus,
+} from '@/types';
 
 export type PublicAuthErrorAction = 'none' | 'login' | 'retry';
 
@@ -18,14 +22,14 @@ const invalidLink: PublicAuthErrorView = {
 export function publicAuthErrorView(error: unknown): PublicAuthErrorView {
   const code = error instanceof ApiError ? error.code : undefined;
 
-  if (code === 'BOOTSTRAP_EXPIRED' || code === 'SSO_EXPIRED') {
+  if (code === 'BOOTSTRAP_EXPIRED') {
     return {
       title: 'Срок действия ссылки истёк',
       description: 'Запросите новую ссылку и повторите попытку.',
       action: 'none',
     };
   }
-  if (code === 'BOOTSTRAP_CONSUMED' || code === 'SSO_CONSUMED') {
+  if (code === 'BOOTSTRAP_CONSUMED') {
     return {
       title: 'Ссылка уже использована',
       description: 'Войдите по email или откройте TeamOS заново из amoCRM.',
@@ -53,12 +57,63 @@ export function publicAuthErrorView(error: unknown): PublicAuthErrorView {
       action: 'none',
     };
   }
-  if (code === 'BOOTSTRAP_INVALID' || code === 'SSO_INVALID') return invalidLink;
+  if (code === 'BOOTSTRAP_INVALID') return invalidLink;
   if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
     return invalidLink;
   }
   return {
     title: 'Не удалось связаться с TeamOS',
+    description: 'Проверьте подключение к интернету и повторите попытку.',
+    action: 'retry',
+  };
+}
+
+const registrationTokenErrors: Record<
+  Exclude<CompanyRegistrationTokenState, 'valid'>,
+  PublicAuthErrorView
+> = {
+  invalid: {
+    title: 'Ссылка недействительна',
+    description: 'Проверьте ссылку или запросите новый токен регистрации.',
+    action: 'none',
+  },
+  expired: {
+    title: 'Срок действия ссылки истёк',
+    description: 'Запросите новую ссылку регистрации и повторите попытку.',
+    action: 'none',
+  },
+  consumed: {
+    title: 'Ссылка уже использована',
+    description: 'Эта компания уже могла быть зарегистрирована. Попробуйте войти по email.',
+    action: 'login',
+  },
+  revoked: {
+    title: 'Ссылка отозвана',
+    description: 'Запросите новую ссылку регистрации и повторите попытку.',
+    action: 'none',
+  },
+};
+
+export function registrationTokenErrorView(
+  error: unknown,
+  state?: CompanyRegistrationTokenState,
+): PublicAuthErrorView {
+  if (state && state !== 'valid') return registrationTokenErrors[state];
+
+  const code = error instanceof ApiError ? error.code : undefined;
+  if (code === 'REGISTRATION_TOKEN_INVALID') return registrationTokenErrors.invalid;
+  if (code === 'REGISTRATION_TOKEN_EXPIRED') return registrationTokenErrors.expired;
+  if (code === 'REGISTRATION_TOKEN_CONSUMED') return registrationTokenErrors.consumed;
+  if (code === 'REGISTRATION_TOKEN_REVOKED') return registrationTokenErrors.revoked;
+  if (code === 'AMO_ACCOUNT_ALREADY_EXISTS') {
+    return {
+      title: 'Компания уже зарегистрирована',
+      description: 'Аккаунт amoCRM уже привязан к другой компании TeamOS.',
+      action: 'login',
+    };
+  }
+  return {
+    title: 'Не удалось проверить токен',
     description: 'Проверьте подключение к интернету и повторите попытку.',
     action: 'retry',
   };

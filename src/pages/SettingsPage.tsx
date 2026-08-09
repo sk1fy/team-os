@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { authApi } from '@/api';
+import { ApiError } from '@/api/client';
 import type { Company, User } from '@/types';
 import {
   fullName,
@@ -32,6 +33,7 @@ import { Avatar, Badge, Button, Input } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
+import { registrationTokenErrorView } from '@/pages/auth/publicAuthFlow';
 
 function PreviewSkeleton() {
   return (
@@ -338,33 +340,28 @@ function CompanyProfileSection() {
 
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
-  const [amoAccountId, setAmoAccountId] = useState('');
+  const [registrationToken, setRegistrationToken] = useState('');
+  const [integrationError, setIntegrationError] = useState<string>();
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (companyQuery.data) {
       setName(companyQuery.data.name);
       setLogoUrl(companyQuery.data.logoUrl ?? '');
-      setAmoAccountId(companyQuery.data.amoAccountId ?? '');
     }
   }, [companyQuery.data]);
 
   const isDirty = useMemo(() => {
     const data = companyQuery.data;
     if (!data) return false;
-    return (
-      name.trim() !== data.name ||
-      (logoUrl.trim() || '') !== (data.logoUrl ?? '') ||
-      (amoAccountId.trim() || '') !== (data.amoAccountId ?? '')
-    );
-  }, [companyQuery.data, name, logoUrl, amoAccountId]);
+    return name.trim() !== data.name || (logoUrl.trim() || '') !== (data.logoUrl ?? '');
+  }, [companyQuery.data, name, logoUrl]);
 
   const save = useMutation({
     mutationFn: () =>
       authApi.updateCompany({
         name: name.trim(),
         logoUrl: logoUrl.trim(),
-        amoAccountId: amoAccountId.trim(),
       }),
     onSuccess: (company) => {
       queryClient.setQueryData(queryKeys.company, company);
@@ -374,6 +371,39 @@ function CompanyProfileSection() {
       toast.success('Название и логотип компании обновлены');
     },
     onError: () => toast.error('Не удалось сохранить данные компании'),
+  });
+
+  const connectAmo = useMutation({
+    mutationFn: async () => {
+      const token = registrationToken.trim();
+      if (!token) throw new ApiError('Введите токен подключения amoCRM', 400);
+
+      const validation = await authApi.validateCompanyRegistrationToken(token);
+      if (validation.valid !== true || validation.state !== 'valid' || !validation.amoAccountId) {
+        throw new ApiError(
+          registrationTokenErrorView(undefined, validation.state).description,
+          400,
+        );
+      }
+      return authApi.updateCompany({ amoAccountId: validation.amoAccountId });
+    },
+    onSuccess: (company) => {
+      setRegistrationToken('');
+      setIntegrationError(undefined);
+      queryClient.setQueryData(queryKeys.company, company);
+      queryClient.invalidateQueries({ queryKey: queryKeys.company });
+      toast.success('amoCRM подключена к компании');
+    },
+    onError: (caught) => {
+      const message =
+        caught instanceof ApiError
+          ? caught.code?.startsWith('REGISTRATION_TOKEN_') ||
+            caught.code === 'AMO_ACCOUNT_ALREADY_EXISTS'
+            ? registrationTokenErrorView(caught).description
+            : caught.message
+          : 'Не удалось проверить токен amoCRM';
+      setIntegrationError(message);
+    },
   });
 
   const handleSubmit = (event: FormEvent) => {
@@ -428,14 +458,38 @@ function CompanyProfileSection() {
           disabled={busy}
         />
 
-        <Input
-          label="amoCRM Account ID"
-          value={amoAccountId}
-          onChange={(event) => setAmoAccountId(event.target.value)}
-          placeholder="31355990"
-          hint="ID аккаунта amoCRM для интеграции сотрудников и сделок."
-          disabled={busy}
-        />
+        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+          <p className="text-sm font-medium text-slate-800">Интеграция amoCRM</p>
+          {companyQuery.data?.amoAccountId ? (
+            <p className="mt-1 text-sm text-success-700">Интеграция подключена</p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <Input
+                label="Токен подключения"
+                type="password"
+                autoComplete="off"
+                value={registrationToken}
+                onChange={(event) => {
+                  setRegistrationToken(event.target.value);
+                  setIntegrationError(undefined);
+                }}
+                placeholder="Одноразовый токен регистрации"
+                hint="Токен проверяется публичным API и не сохраняется в браузере."
+                error={integrationError}
+                disabled={busy || connectAmo.isPending}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                loading={connectAmo.isPending}
+                disabled={!registrationToken.trim() || connectAmo.isPending}
+                onClick={() => connectAmo.mutate()}
+              >
+                Подключить amoCRM
+              </Button>
+            </div>
+          )}
+        </div>
 
         {companyQuery.data && (
           <div className="grid gap-3 sm:grid-cols-2">

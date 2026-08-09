@@ -90,19 +90,54 @@ describe('onboarding auth API', () => {
     expect(result.onboarding.pendingUser?.id).toBe('user-2');
   });
 
-  it('обменивает SSO-токен ровно в body и запоминает access token', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ accessToken: 'sso-access', user: wireUser }));
+  it('проверяет registration-токен публично и не меняет сессию', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        valid: true,
+        state: 'valid',
+        amoAccountId: '31355990',
+        expiresAt: '2026-08-10T12:00:00Z',
+      }),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
-    await httpAuthApi.exchangeSso('one-time-sso');
+    await expect(
+      httpAuthApi.validateCompanyRegistrationToken('one-time-registration-token'),
+    ).resolves.toMatchObject({ valid: true, state: 'valid', amoAccountId: '31355990' });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('http://localhost:8080/api/v1/auth/sso/exchange');
-    expect(JSON.parse(String(init.body))).toEqual({ token: 'one-time-sso' });
+    expect(url).toBe('http://localhost:8080/api/v1/public/company-registration-tokens/validate');
+    expect(JSON.parse(String(init.body))).toEqual({
+      registrationToken: 'one-time-registration-token',
+    });
     expect(new Headers(init.headers).has('Authorization')).toBe(false);
-    expect(useAuthStore.getState().accessToken).toBe('sso-access');
+    expect(useAuthStore.getState().accessToken).toBeNull();
+  });
+
+  it('передаёт тот же registration-токен при регистрации', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ accessToken: 'registered-access', user: wireUser }, 201));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await httpAuthApi.register({
+      companyName: 'ООО Ромашка',
+      email: 'owner@example.com',
+      password: 'long-password',
+      firstName: 'Иван',
+      lastName: 'Петров',
+      registrationToken: 'one-time-registration-token',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:8080/api/v1/auth/register');
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      companyName: 'ООО Ромашка',
+      registrationToken: 'one-time-registration-token',
+    });
+    expect(new Headers(init.headers).has('Authorization')).toBe(false);
+    expect(init.credentials).toBe('include');
+    expect(useAuthStore.getState().accessToken).toBe('registered-access');
   });
 
   it('читает и перевыпускает onboarding с внутренней авторизацией', async () => {

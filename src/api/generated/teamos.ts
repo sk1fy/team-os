@@ -126,6 +126,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/amocrm/accounts/{amoAccountId}/exists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Проверить наличие amoCRM Account ID в TeamOS */
+        get: operations["checkAmoAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/company-registration-tokens/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Проверить токен регистрации компании */
+        post: operations["validateCompanyRegistrationToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/invites/{token}": {
         parameters: {
             query?: never;
@@ -173,7 +207,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Получить данные активации владельца или администратора */
+        /**
+         * Получить данные активации владельца или администратора
+         * @deprecated
+         */
         get: operations["getBootstrapActivation"];
         put?: never;
         post?: never;
@@ -194,7 +231,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Задать пароль и активировать владельца или администратора */
+        /**
+         * Задать пароль и активировать владельца или администратора
+         * @deprecated
+         */
         post: operations["completeBootstrapActivation"];
         delete?: never;
         options?: never;
@@ -211,7 +251,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Обменять одноразовый SSO-токен на сессию TeamOS */
+        /**
+         * Обменять одноразовый SSO-токен на сессию TeamOS
+         * @deprecated
+         */
         post: operations["exchangeSsoToken"];
         delete?: never;
         options?: never;
@@ -228,8 +271,28 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Создать компанию с владельцем и администратором из внешнего сервиса */
+        /**
+         * Создать компанию с владельцем и администратором из внешнего сервиса
+         * @deprecated
+         */
         post: operations["provisionCompany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/provisioning/amocrm/registration-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Зарезервировать amoCRM Account ID и выдать токен регистрации */
+        post: operations["issueCompanyRegistrationToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -245,6 +308,7 @@ export interface paths {
         };
         /**
          * Проверить создание компании по ID аккаунта внешнего сервиса
+         * @deprecated
          * @description Провайдер определяется служебной учётной записью. Для Rakurs значение externalAccountId соответствует amoCRM Account ID.
          */
         get: operations["getProvisionedCompanyStatus"];
@@ -265,7 +329,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Выдать одноразовый SSO-токен сотруднику внешнего сервиса */
+        /**
+         * Выдать одноразовый SSO-токен сотруднику внешнего сервиса
+         * @deprecated
+         */
         post: operations["issueSsoToken"];
         delete?: never;
         options?: never;
@@ -298,7 +365,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Получить состояние онбординга текущей компании */
+        /**
+         * Получить состояние онбординга текущей компании
+         * @deprecated
+         */
         get: operations["getOnboardingStatus"];
         put?: never;
         post?: never;
@@ -317,7 +387,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Перевыпустить ссылку активации второго пользователя */
+        /**
+         * Перевыпустить ссылку активации второго пользователя
+         * @deprecated
+         */
         post: operations["reissueOnboardingActivation"];
         delete?: never;
         options?: never;
@@ -3320,6 +3393,28 @@ export interface components {
             password: string;
             firstName: string;
             lastName: string;
+            registrationToken?: string;
+        };
+        AmoAccountAvailabilityResponse: {
+            exists: boolean;
+        };
+        IssueCompanyRegistrationTokenInput: {
+            amoAccountId: string;
+        };
+        CompanyRegistrationTokenResponse: {
+            registrationToken: string;
+            expiresAt: components["schemas"]["ISODateTime"];
+        };
+        ValidateCompanyRegistrationTokenInput: {
+            registrationToken: string;
+        };
+        /** @enum {string} */
+        CompanyRegistrationTokenState: "valid" | "invalid" | "expired" | "consumed" | "revoked";
+        CompanyRegistrationTokenValidationResponse: {
+            valid: boolean;
+            state: components["schemas"]["CompanyRegistrationTokenState"];
+            amoAccountId?: string;
+            expiresAt?: components["schemas"]["ISODateTime"];
         };
         CompleteBootstrapActivationInput: {
             /** Format: password */
@@ -5051,6 +5146,33 @@ export interface components {
                 "application/json": components["schemas"]["AuthResponse"];
             };
         };
+        /** @description Признак наличия или активной резервации amoCRM Account ID */
+        AmoAccountAvailability: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AmoAccountAvailabilityResponse"];
+            };
+        };
+        /** @description Одноразовый токен регистрации компании */
+        CompanyRegistrationToken: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CompanyRegistrationTokenResponse"];
+            };
+        };
+        /** @description Текущее состояние токена регистрации компании */
+        CompanyRegistrationTokenValidation: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CompanyRegistrationTokenValidationResponse"];
+            };
+        };
         /** @description Результат создания компании или идемпотентного повтора операции */
         ProvisionCompany: {
             headers: {
@@ -6247,6 +6369,40 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    checkAmoAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                amoAccountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AmoAccountAvailability"];
+            400: components["responses"]["BadRequest"];
+            default: components["responses"]["Error"];
+        };
+    };
+    validateCompanyRegistrationToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateCompanyRegistrationTokenInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["CompanyRegistrationTokenValidation"];
+            400: components["responses"]["BadRequest"];
+            default: components["responses"]["Error"];
+        };
+    };
     getInviteByToken: {
         parameters: {
             query?: never;
@@ -6368,6 +6524,26 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    issueCompanyRegistrationToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueCompanyRegistrationTokenInput"];
+            };
+        };
+        responses: {
+            201: components["responses"]["CompanyRegistrationToken"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             409: components["responses"]["Conflict"];
             default: components["responses"]["Error"];
         };
