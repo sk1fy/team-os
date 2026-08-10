@@ -12,7 +12,8 @@ export function AuthBootstrap({ children }: { children: ReactNode }) {
   const initialized = useAuthStore((state) => state.initialized);
   const setInitialized = useAuthStore((state) => state.setInitialized);
   const startedRef = useRef(false);
-  const isPublicTokenRoute = pathname === '/onboarding' || pathname === '/register-company';
+  const isPublicTokenRoute =
+    pathname === '/onboarding' || pathname === '/register-company' || pathname === '/auth/amocrm';
 
   useEffect(() => {
     if (isPublicTokenRoute || initialized) return;

@@ -140,6 +140,50 @@ describe('onboarding auth API', () => {
     expect(useAuthStore.getState().accessToken).toBe('registered-access');
   });
 
+  it('проверяет одноразовый переход из amoCRM без внутренней авторизации', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        email: 'owner@example.com',
+        companyName: 'Ракурс',
+        requiresPasswordSetup: true,
+        expiresAt: '2026-08-10T12:10:00Z',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      httpAuthApi.validateAmoWidgetContinuation('amo-widget-session-token'),
+    ).resolves.toMatchObject({ email: 'owner@example.com', requiresPasswordSetup: true });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:8080/api/v1/public/amocrm/widget-sessions/validate');
+    expect(JSON.parse(String(init.body))).toEqual({ sessionToken: 'amo-widget-session-token' });
+    expect(new Headers(init.headers).has('Authorization')).toBe(false);
+    expect(useAuthStore.getState().accessToken).toBeNull();
+  });
+
+  it('завершает вход из amoCRM паролем и запоминает сессию', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ accessToken: 'amo-access', user: wireUser }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await httpAuthApi.completeAmoWidgetContinuation({
+      sessionToken: 'amo-widget-session-token',
+      password: 'reliable-password',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:8080/api/v1/auth/amocrm/complete');
+    expect(JSON.parse(String(init.body))).toEqual({
+      sessionToken: 'amo-widget-session-token',
+      password: 'reliable-password',
+    });
+    expect(new Headers(init.headers).has('Authorization')).toBe(false);
+    expect(init.credentials).toBe('include');
+    expect(useAuthStore.getState().accessToken).toBe('amo-access');
+  });
+
   it('читает и перевыпускает onboarding с внутренней авторизацией', async () => {
     useAuthStore.getState().setAccessToken('internal-access');
     const fetchMock = vi

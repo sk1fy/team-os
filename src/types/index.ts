@@ -44,6 +44,13 @@ export interface CompanyRegistrationTokenValidation {
   expiresAt?: ISODate;
 }
 
+export interface AmoWidgetContinuation {
+  email: string;
+  companyName: string;
+  requiresPasswordSetup: boolean;
+  expiresAt: ISODate;
+}
+
 export type CompanyStatus = 'onboarding' | 'active' | 'frozen' | 'suspended';
 export type BootstrapRole = 'owner' | 'admin';
 export type BootstrapActivationState = 'pending' | 'expired' | 'consumed' | 'completed';

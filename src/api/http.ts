@@ -2,6 +2,7 @@ import { httpRequest, jsonBody, refreshAccessToken, type AuthSession } from './c
 import { useAuthStore } from '@/stores/auth';
 import type {
   Acknowledgement,
+  AmoWidgetContinuation,
   AppNotification,
   Article,
   ArticleSection,
@@ -96,6 +97,8 @@ export const httpAuthApi = {
     registrationToken: string,
   ): Promise<CompanyRegistrationTokenValidation> =>
     publicRequest('/public/company-registration-tokens/validate', 'POST', { registrationToken }),
+  validateAmoWidgetContinuation: (sessionToken: string): Promise<AmoWidgetContinuation> =>
+    publicRequest('/public/amocrm/widget-sessions/validate', 'POST', { sessionToken }),
   updateCompany: (input: {
     name?: string;
     logoUrl?: string;
@@ -129,6 +132,11 @@ export const httpAuthApi = {
     registrationToken?: string;
   }): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest('/auth/register', 'POST', input)),
+  completeAmoWidgetContinuation: async (input: {
+    sessionToken: string;
+    password: string;
+  }): Promise<AuthSession<User>> =>
+    rememberSession(await publicRequest('/auth/amocrm/complete', 'POST', input)),
   acceptInvite: async (
     token: string,
     input: { email?: string; firstName: string; lastName: string; password: string },

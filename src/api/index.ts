@@ -27,6 +27,7 @@ import { canAccessCourse } from '@/lib/contentVisibility';
 import { canManageAccess } from '@/lib/permissions';
 import type {
   AppNotification,
+  AmoWidgetContinuation,
   Article,
   ArticleSection,
   ArticleVersion,
@@ -94,6 +95,26 @@ const mockAuthApi = {
               expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
             }
           : { valid: false, state: 'invalid' as const },
+      { noFail: true },
+    ),
+
+  validateAmoWidgetContinuation: (sessionToken: string): Promise<AmoWidgetContinuation> =>
+    mockRequest(
+      () => {
+        if (!sessionToken.trim()) {
+          throw new ApiError('Ссылка входа из amoCRM недействительна', 401, {
+            code: 'AMO_WIDGET_CONTINUATION_INVALID',
+          });
+        }
+        const user =
+          db.users.find((item) => item.id === db.CURRENT_USER_ID) ?? notFound('Пользователь');
+        return {
+          email: user.email,
+          companyName: db.company.name,
+          requiresPasswordSetup: false,
+          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        };
+      },
       { noFail: true },
     ),
 
@@ -186,6 +207,19 @@ const mockAuthApi = {
       user: db.users.find((user) => user.id === db.CURRENT_USER_ID) ?? notFound('Пользователь'),
     }));
   },
+
+  completeAmoWidgetContinuation: (input: {
+    sessionToken: string;
+    password: string;
+  }): Promise<AuthSession<User>> =>
+    mockRequest(() => {
+      if (!input.sessionToken.trim() || input.password.length < 8) {
+        throw new ApiError('Не удалось завершить вход из amoCRM', 400);
+      }
+      const user =
+        db.users.find((item) => item.id === db.CURRENT_USER_ID) ?? notFound('Пользователь');
+      return { accessToken: 'mock-amo-widget-access-token', user };
+    }),
 
   acceptInvite: (
     token: string,

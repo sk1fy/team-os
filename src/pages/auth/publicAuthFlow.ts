@@ -119,6 +119,36 @@ export function registrationTokenErrorView(
   };
 }
 
+export function amoWidgetContinuationErrorView(error: unknown): PublicAuthErrorView {
+  const code = error instanceof ApiError ? error.code : undefined;
+  if (code === 'AMO_WIDGET_CONTINUATION_EXPIRED') {
+    return {
+      title: 'Срок действия перехода истёк',
+      description: 'Вернитесь в amoCRM и снова нажмите кнопку TeamOS.',
+      action: 'none',
+    };
+  }
+  if (code === 'AMO_WIDGET_CONTINUATION_INVALID' || code === 'AMO_WIDGET_CONTINUATION_CONSUMED') {
+    return {
+      title: 'Переход уже недействителен',
+      description: 'Вернитесь в amoCRM и откройте TeamOS ещё раз.',
+      action: 'none',
+    };
+  }
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+    return {
+      title: 'Не удалось продолжить вход',
+      description: error.message,
+      action: 'none',
+    };
+  }
+  return {
+    title: 'Не удалось связаться с TeamOS',
+    description: 'Проверьте подключение к интернету и повторите попытку.',
+    action: 'retry',
+  };
+}
+
 export function activationStateError(state: BootstrapActivationState): ApiError | undefined {
   if (state === 'pending') return undefined;
   const code =

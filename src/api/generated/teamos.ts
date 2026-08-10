@@ -143,6 +143,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/amocrm/widget-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Обменять одноразовый токен виджета amoCRM на продолжение входа
+         * @description Клиент TeamOS передаёт токен в JSON-теле. Официальный WEB SDK amoCRM
+         *     передаёт тот же токен в заголовке `X-Auth-Token`. Должен быть указан
+         *     ровно один источник токена.
+         *
+         */
+        post: operations["exchangeAmoWidgetSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/amocrm/widget-sessions/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Проверить одноразовое продолжение входа из виджета amoCRM */
+        post: operations["validateAmoWidgetContinuation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/amocrm/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Установить или проверить пароль и завершить вход из amoCRM */
+        post: operations["completeAmoWidgetContinuation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/company-registration-tokens/validate": {
         parameters: {
             query?: never;
@@ -3400,6 +3457,46 @@ export interface components {
         AmoAccountAvailabilityResponse: {
             exists: boolean;
         };
+        AmoWidgetSessionInput: {
+            token?: string;
+            user?: components["schemas"]["AmoWidgetUserInput"];
+            account?: components["schemas"]["AmoWidgetAccountInput"];
+        };
+        AmoWidgetUserInput: {
+            id: string;
+            email: components["schemas"]["Email"];
+            name?: string;
+        };
+        AmoWidgetAccountInput: {
+            name?: string;
+            subdomain?: string;
+        };
+        /** @enum {string} */
+        AmoWidgetSessionAction: "register" | "login";
+        AmoWidgetSessionResponse: {
+            action: components["schemas"]["AmoWidgetSessionAction"];
+            amoAccountId?: string;
+            registrationToken?: string;
+            sessionToken?: string;
+            email?: components["schemas"]["Email"];
+            companyName?: string;
+            requiresPasswordSetup?: boolean;
+            expiresAt?: components["schemas"]["ISODateTime"];
+        };
+        AmoWidgetContinuationInput: {
+            sessionToken: string;
+        };
+        AmoWidgetContinuationResponse: {
+            email: components["schemas"]["Email"];
+            companyName: string;
+            requiresPasswordSetup: boolean;
+            expiresAt: components["schemas"]["ISODateTime"];
+        };
+        CompleteAmoWidgetContinuationInput: {
+            sessionToken: string;
+            /** Format: password */
+            password: string;
+        };
         IssueCompanyRegistrationTokenInput: {
             amoAccountId: string;
         };
@@ -5158,6 +5255,24 @@ export interface components {
                 "application/json": components["schemas"]["AmoAccountAvailabilityResponse"];
             };
         };
+        /** @description Продолжение входа или регистрации компании из виджета amoCRM */
+        AmoWidgetSession: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AmoWidgetSessionResponse"];
+            };
+        };
+        /** @description Данные одноразового продолжения входа из виджета amoCRM */
+        AmoWidgetContinuation: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AmoWidgetContinuationResponse"];
+            };
+        };
         /** @description Одноразовый токен регистрации компании */
         CompanyRegistrationToken: {
             headers: {
@@ -6385,6 +6500,69 @@ export interface operations {
         responses: {
             200: components["responses"]["AmoAccountAvailability"];
             400: components["responses"]["BadRequest"];
+            default: components["responses"]["Error"];
+        };
+    };
+    exchangeAmoWidgetSession: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Одноразовый JWT, автоматически добавляемый `self.$authorizedAjax()`. */
+                "X-Auth-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AmoWidgetSessionInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AmoWidgetSession"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    validateAmoWidgetContinuation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmoWidgetContinuationInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AmoWidgetContinuation"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    completeAmoWidgetContinuation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteAmoWidgetContinuationInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AuthSession"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
         };
     };
