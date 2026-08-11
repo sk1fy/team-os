@@ -92,10 +92,10 @@ export function PositionDrawer({
           <Section title="Уровень">
             <Badge
               variant={
-                position.level === 4 ? 'primary' : position.level === 0 ? 'warning' : 'neutral'
+                position.level === 5 ? 'primary' : position.level === 1 ? 'warning' : 'neutral'
               }
             >
-              Уровень {position.level ?? 0}
+              Уровень {position.level ?? 1}
             </Badge>
           </Section>
 

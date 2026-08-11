@@ -28,6 +28,7 @@ interface FormModalProps {
   withValuableFinalProduct?: boolean;
   withHead?: boolean;
   withDepartment?: boolean;
+  headLabel?: string;
   headOptions?: Array<{ value: string; label: string }>;
   departmentOptions?: Array<{ value: string; label: string }>;
   pending: boolean;
@@ -43,11 +44,11 @@ interface FormModalProps {
 }
 
 const positionLevelOptions = [
-  { value: '4', label: '4 — Руководитель компании' },
-  { value: '3', label: '3 — Руководитель отдела' },
-  { value: '2', label: '2 — Руководитель группы' },
-  { value: '1', label: '1 — Старший специалист' },
-  { value: '0', label: '0 — Специалист' },
+  { value: '5', label: '5 — Руководитель компании' },
+  { value: '4', label: '4 — Руководитель отдела' },
+  { value: '3', label: '3 — Руководитель группы' },
+  { value: '2', label: '2 — Старший специалист' },
+  { value: '1', label: '1 — Специалист' },
 ];
 
 const NO_HEAD_VALUE = '__no_head__';
@@ -58,7 +59,7 @@ function FormModal({
   initialName = '',
   initialDescription = '',
   initialValuableFinalProduct = '',
-  initialLevel = 0,
+  initialLevel = 1,
   initialHeadUserId,
   initialDepartmentId = '',
   nameDisabled = false,
@@ -67,6 +68,7 @@ function FormModal({
   withValuableFinalProduct = false,
   withHead = false,
   withDepartment = false,
+  headLabel = 'Руководитель',
   headOptions = [],
   departmentOptions = [],
   pending,
@@ -142,7 +144,7 @@ function FormModal({
         )}
         {withHead && (
           <Select
-            label="Руководитель"
+            label={headLabel}
             value={headUserId}
             onValueChange={setHeadUserId}
             options={[{ value: NO_HEAD_VALUE, label: 'Не назначен' }, ...headOptions]}
@@ -300,19 +302,20 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
       const isImportedDepartment = dialog.department.source === 'amo';
       return (
         <FormModal
-          title="Настройки отдела"
+          title={isRootDepartment ? 'Настройки компании' : 'Настройки отдела'}
           submitLabel="Сохранить"
           initialName={dialog.department.name}
           initialHeadUserId={dialog.department.headUserId}
           initialValuableFinalProduct={dialog.department.valuableFinalProduct}
           nameDisabled={isImportedDepartment}
-          withHead={!isRootDepartment}
+          withHead
+          headLabel={isRootDepartment ? 'Глава компании' : 'Руководитель'}
           withValuableFinalProduct={!isRootDepartment}
           headOptions={headOptions}
           pending={updateDepartment.isPending}
           onSubmit={({ name, headUserId, valuableFinalProduct }) => {
             if (isRootDepartment) {
-              updateDepartment.mutate({ id: dialog.department.id, name });
+              updateDepartment.mutate({ id: dialog.department.id, name, headUserId });
               return;
             }
             if (isImportedDepartment) {
@@ -369,7 +372,7 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           submitLabel="Сохранить"
           initialName={dialog.position.name}
           initialDescription={dialog.position.description}
-          initialLevel={dialog.position.level ?? 0}
+          initialLevel={dialog.position.level ?? 1}
           initialDepartmentId={dialog.position.departmentId}
           withLevel
           withDescription

@@ -33,7 +33,7 @@ interface NodeContext {
 
 function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }) {
   const occupants = ctx.usersByPosition.get(position.id) ?? [];
-  const level = position.level ?? 0;
+  const level = position.level ?? 1;
 
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `drag-position-${position.id}`,
@@ -55,7 +55,7 @@ function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }
         >
           {position.name}
         </button>
-        <Badge variant={level === 4 ? 'primary' : level === 0 ? 'warning' : 'neutral'}>
+        <Badge variant={level === 5 ? 'primary' : level === 1 ? 'warning' : 'neutral'}>
           Уровень {level}
         </Badge>
         {occupants.length === 0 && <Badge variant="warning">Вакантно</Badge>}
@@ -234,7 +234,7 @@ export function DepartmentNode({ node, ctx }: { node: DepartmentTreeNode; ctx: N
             items={[
               {
                 key: 'edit',
-                label: 'Настройки отдела',
+                label: isRoot ? 'Настройки компании' : 'Настройки отдела',
                 icon: Pencil,
                 onSelect: () => ctx.onDialog({ type: 'editDepartment', department: node }),
               },

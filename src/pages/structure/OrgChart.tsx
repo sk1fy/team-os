@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef } from 'react';
-import { Briefcase, ChevronDown, Target, Users } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Briefcase, ChevronDown, ListChecks, Target, Users } from 'lucide-react';
 import type { ID, Position, User } from '@/types';
 import type { DepartmentTreeNode } from '@/lib/orgTree';
 import { fullName } from '@/lib/labels';
@@ -24,6 +24,98 @@ type OrgChartNodeProps = Omit<OrgChartProps, 'tree' | 'zoom'> & {
   node: DepartmentTreeNode;
 };
 
+function DepartmentPositionsSummary({
+  positions,
+  onOpenPosition,
+}: {
+  positions: Position[];
+  onOpenPosition: (id: ID) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative ml-auto shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          'flex size-6 items-center justify-center rounded-md border bg-surface transition-colors',
+          open
+            ? 'border-primary-300 text-primary-700 shadow-sm'
+            : 'border-primary-100 text-slate-500 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700',
+        )}
+        aria-label="Показать функции должностей"
+        aria-expanded={open}
+        title="Функции должностей"
+      >
+        <ListChecks className="size-3.5" />
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-label="Должности и их функции"
+          className="absolute top-1/2 left-[calc(100%+0.5rem)] z-50 w-64 -translate-y-1/2 overflow-hidden rounded-lg border border-slate-200 bg-surface text-left shadow-xl"
+        >
+          <div className="border-b border-slate-100 px-3 py-2.5">
+            <p className="text-xs font-semibold text-slate-800">Должности и функции</p>
+          </div>
+          <div className="max-h-72 overflow-y-auto">
+            {positions.length > 0 ? (
+              positions.map((position) => (
+                <div
+                  key={position.id}
+                  className="border-b border-slate-100 px-3 py-2.5 last:border-0"
+                >
+                  <div className="flex items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        onOpenPosition(position.id);
+                      }}
+                      className="min-w-0 flex-1 text-left text-xs font-semibold text-slate-800 hover:text-primary-700 hover:underline"
+                    >
+                      {position.name}
+                    </button>
+                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                      ур. {position.level ?? 1}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-relaxed whitespace-pre-line text-slate-600">
+                    {position.description || 'Описание функций не заполнено'}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="px-3 py-3 text-[11px] text-slate-400">Должности пока не добавлены</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PositionItem({
   position,
   users,
@@ -47,7 +139,7 @@ function PositionItem({
           {position.name}
         </button>
         <span className="shrink-0 text-[10px] font-semibold text-slate-400">
-          Ур. {position.level ?? 0}
+          Ур. {position.level ?? 1}
         </span>
       </div>
 
@@ -99,19 +191,22 @@ function OrgChartNode({
 
   return (
     <div className="org-chart-node">
-      <article className="w-72 overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-card">
-        <div className="border-b border-slate-100 bg-primary-50/70 px-4 py-3">
+      <article className="w-72 rounded-lg border border-slate-200 bg-surface shadow-card">
+        <div className="rounded-t-lg border-b border-slate-100 bg-primary-50/70 px-4 py-3">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-slate-900" title={node.name}>
               {node.name}
             </h3>
-            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
-              <Users className="size-3" />
-              {employeeIds.size}{' '}
-              {plural(employeeIds.size, ['сотрудник', 'сотрудника', 'сотрудников'])}
-              <span aria-hidden="true">·</span>
-              {positions.length}{' '}
-              {plural(positions.length, ['должность', 'должности', 'должностей'])}
+            <div className="mt-0.5 flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-1 text-[11px] text-slate-500">
+                <Users className="size-3 shrink-0" />
+                {employeeIds.size}{' '}
+                {plural(employeeIds.size, ['сотрудник', 'сотрудника', 'сотрудников'])}
+                <span aria-hidden="true">·</span>
+                {positions.length}{' '}
+                {plural(positions.length, ['должность', 'должности', 'должностей'])}
+              </div>
+              <DepartmentPositionsSummary positions={positions} onOpenPosition={onOpenPosition} />
             </div>
           </div>
 

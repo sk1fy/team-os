@@ -80,7 +80,7 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
       map.set(position.departmentId, list);
     }
     for (const list of map.values()) {
-      list.sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || a.name.localeCompare(b.name, 'ru'));
+      list.sort((a, b) => (b.level ?? 1) - (a.level ?? 1) || a.name.localeCompare(b.name, 'ru'));
     }
     return map;
   }, [positionsQuery.data]);
@@ -200,8 +200,8 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
       {embedded ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-2xl text-sm text-slate-500">
-            Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех, 0
-            — нижний уровень.
+            Отделы, должности и сотрудники компании. Уровни задаются у должностей: 5 — руководитель
+            компании, 1 — специалист.
           </p>
           <Button
             onClick={() =>
@@ -215,7 +215,7 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
       ) : (
         <PageHeader
           title="Оргструктура"
-          description="Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех, 0 — нижний уровень."
+          description="Отделы, должности и сотрудники компании. Уровни задаются у должностей: 5 — руководитель компании, 1 — специалист."
           actions={
             <Button
               onClick={() =>

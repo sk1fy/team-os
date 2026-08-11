@@ -11,7 +11,7 @@ const position = (id: string, name: string, departmentId: string): Position => (
   id,
   name,
   departmentId,
-  level: 0,
+  level: 1,
   articleIds: [],
   requiredCourseIds: [],
 });

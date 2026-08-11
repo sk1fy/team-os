@@ -481,7 +481,7 @@ const mockOrgApi = {
         id: uid(),
         name: input.name,
         departmentId: input.departmentId,
-        level: input.level ?? 0,
+        level: input.level ?? 1,
         description: input.description,
         articleIds: [],
         requiredCourseIds: [],
