@@ -590,7 +590,7 @@ export function SchedulePage() {
     const byDepartment = new Map<ID | 'none', User[]>();
     for (const user of visibleUsers) {
       const position = user.positionIds[0] ? positionById.get(user.positionIds[0]) : undefined;
-      const departmentId = position?.departmentId ?? 'none';
+      const departmentId = position?.departmentId ?? user.departmentIds?.[0] ?? 'none';
       if (!byDepartment.has(departmentId)) byDepartment.set(departmentId, []);
       byDepartment.get(departmentId)!.push(user);
     }
@@ -696,7 +696,7 @@ export function SchedulePage() {
       .map((user): UserMonthStats => {
         const schedule = scheduleByUser.get(user.id)!;
         const position = user.positionIds[0] ? positionById.get(user.positionIds[0]) : undefined;
-        const departmentId = position?.departmentId ?? 'none';
+        const departmentId = position?.departmentId ?? user.departmentIds?.[0] ?? 'none';
         let workDays = 0;
         let workHours = 0;
         let planHours = 0;

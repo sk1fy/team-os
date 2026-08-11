@@ -19,19 +19,25 @@ export interface EmployeeLookups {
 export function getUserDepartmentNames(
   positionIds: ID[],
   { positionById, departmentById }: EmployeeLookups,
+  departmentIds: ID[] = [],
 ): string {
   const names = new Set(
-    positionIds
-      .map((pid) => positionById.get(pid)?.departmentId)
+    [...departmentIds, ...positionIds.map((pid) => positionById.get(pid)?.departmentId)]
       .map((did) => (did ? departmentById.get(did)?.name : undefined))
       .filter((name): name is string => Boolean(name)),
   );
   return [...names].sort((a, b) => a.localeCompare(b, 'ru')).join(', ');
 }
 
-export function getUserDepartmentSortKey(positionIds: ID[], lookups: EmployeeLookups): string {
-  const names = positionIds
-    .map((pid) => lookups.positionById.get(pid)?.departmentId)
+export function getUserDepartmentSortKey(
+  positionIds: ID[],
+  lookups: EmployeeLookups,
+  departmentIds: ID[] = [],
+): string {
+  const names = [
+    ...departmentIds,
+    ...positionIds.map((pid) => lookups.positionById.get(pid)?.departmentId),
+  ]
     .map((did) => (did ? lookups.departmentById.get(did)?.name : undefined))
     .filter((name): name is string => Boolean(name))
     .sort((a, b) => a.localeCompare(b, 'ru'));
@@ -52,9 +58,10 @@ export function filterEmployees(
     }
 
     if (filters.departmentId !== 'all') {
-      const userDepartmentIds = user.positionIds
-        .map((pid) => lookups.positionById.get(pid)?.departmentId)
-        .filter((id): id is ID => Boolean(id));
+      const userDepartmentIds = [
+        ...(user.departmentIds ?? []),
+        ...user.positionIds.map((pid) => lookups.positionById.get(pid)?.departmentId),
+      ].filter((id): id is ID => Boolean(id));
       if (!userDepartmentIds.includes(filters.departmentId)) return false;
     }
 
@@ -92,8 +99,8 @@ export function sortEmployees(
         cmp = fullName(a).localeCompare(fullName(b), 'ru');
         break;
       case 'department':
-        cmp = getUserDepartmentSortKey(a.positionIds, lookups).localeCompare(
-          getUserDepartmentSortKey(b.positionIds, lookups),
+        cmp = getUserDepartmentSortKey(a.positionIds, lookups, a.departmentIds).localeCompare(
+          getUserDepartmentSortKey(b.positionIds, lookups, b.departmentIds),
           'ru',
         );
         break;

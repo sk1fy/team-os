@@ -127,10 +127,18 @@ export function EmployeesPage() {
     queryFn: orgApi.getUsers,
     refetchOnMount: true,
   });
-  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
+  const orgSyncReady = usersQuery.isSuccess && !usersQuery.isFetching;
+  const positionsQuery = useQuery({
+    queryKey: queryKeys.positions,
+    queryFn: orgApi.getPositions,
+    enabled: orgSyncReady,
+    staleTime: 0,
+  });
   const departmentsQuery = useQuery({
     queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
+    enabled: orgSyncReady,
+    staleTime: 0,
   });
 
   const deleteMutation = useMutation({
@@ -320,7 +328,7 @@ export function EmployeesPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-600">
-                  {getUserDepartmentNames(user.positionIds, lookups) || '—'}
+                  {getUserDepartmentNames(user.positionIds, lookups, user.departmentIds) || '—'}
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>

@@ -153,10 +153,13 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Обменять одноразовый токен виджета amoCRM на продолжение входа
+         * Подготовить создание компании или вход из виджета amoCRM
          * @description Клиент TeamOS передаёт токен в JSON-теле. Официальный WEB SDK amoCRM
          *     передаёт тот же токен в заголовке `X-Auth-Token`. Должен быть указан
-         *     ровно один источник токена.
+         *     ровно один источник токена. Во временном unsigned-режиме токен можно
+         *     не передавать: тогда Account ID берётся из `account.id`, а endpoint
+         *     работает только как создание новой компании и возвращает конфликт,
+         *     если аккаунт amoCRM уже зарегистрирован.
          *
          */
         post: operations["exchangeAmoWidgetSession"];
@@ -3313,6 +3316,8 @@ export interface components {
             accessMode?: components["schemas"]["UserAccessMode"];
             sectionAccess?: components["schemas"]["EmployeeSection"][];
             positionIds: components["schemas"]["ID"][];
+            /** @description Прямое назначение в отдел, в том числе для импортированных сотрудников без должности. */
+            departmentIds?: components["schemas"]["ID"][];
             birthDate?: components["schemas"]["LocalDate"];
             hiredAt?: components["schemas"]["LocalDate"];
             vacationAllowance?: number;
@@ -3463,11 +3468,13 @@ export interface components {
             account?: components["schemas"]["AmoWidgetAccountInput"];
         };
         AmoWidgetUserInput: {
+            /** @description Account ID amoCRM для временного unsigned-создания компании. */
             id: string;
             email: components["schemas"]["Email"];
             name?: string;
         };
         AmoWidgetAccountInput: {
+            id?: string;
             name?: string;
             subdomain?: string;
         };

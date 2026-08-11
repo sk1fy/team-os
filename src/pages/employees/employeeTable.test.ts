@@ -103,7 +103,21 @@ describe('employeeTable helpers', () => {
 
   it('собирает названия отделов для сотрудника без должностей', () => {
     expect(getUserDepartmentNames([], lookups)).toBe('');
+    expect(getUserDepartmentNames([], lookups, ['dep-sales'])).toBe('Продажи');
     expect(getUserDepartmentNames(['pos-sales', 'pos-dev'], lookups)).toBe('Продажи, Разработка');
+  });
+
+  it('фильтрует по прямому отделу сотрудника без должности', () => {
+    const importedUser: User = {
+      ...users[2],
+      departmentIds: ['dep-sales'],
+    };
+    const filtered = filterEmployees(
+      [importedUser],
+      { search: '', departmentId: 'dep-sales', role: 'all', status: 'all' },
+      lookups,
+    );
+    expect(filtered.map((user) => user.id)).toEqual(['u-3']);
   });
 
   it('сортирует по имени и роли', () => {

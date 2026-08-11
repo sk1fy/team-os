@@ -1,4 +1,4 @@
-import { Briefcase, CalendarDays, Mail, Phone } from 'lucide-react';
+import { Briefcase, Building2, CalendarDays, Mail, Phone } from 'lucide-react';
 import type { Department, Position, User } from '@/types';
 import { formatDate } from '@/lib/format';
 import {
@@ -26,6 +26,11 @@ export function EmployeeProfileHeader({
   actions,
 }: EmployeeProfileHeaderProps) {
   const userPositions = positions.filter((position) => user.positionIds.includes(position.id));
+  const positionedDepartmentIds = new Set(userPositions.map((position) => position.departmentId));
+  const directDepartments = departments.filter(
+    (department) =>
+      user.departmentIds?.includes(department.id) && !positionedDepartmentIds.has(department.id),
+  );
   const Heading = headingLevel;
 
   return (
@@ -57,7 +62,7 @@ export function EmployeeProfileHeader({
               {formatDate(user.createdAt)}
             </span>
           </div>
-          {userPositions.length > 0 && (
+          {(userPositions.length > 0 || directDepartments.length > 0) && (
             <div className="mt-4 flex flex-wrap gap-2">
               {userPositions.map((position) => {
                 const department = departments.find((item) => item.id === position.departmentId);
@@ -72,6 +77,15 @@ export function EmployeeProfileHeader({
                   </span>
                 );
               })}
+              {directDepartments.map((department) => (
+                <span
+                  key={department.id}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-surface-muted px-2.5 py-1 text-sm text-slate-700"
+                >
+                  <Building2 className="size-3.5 text-slate-400" />
+                  {department.name}
+                </span>
+              ))}
             </div>
           )}
         </div>

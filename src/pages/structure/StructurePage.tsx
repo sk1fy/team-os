@@ -35,12 +35,24 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
   useTitle(embedded ? 'Сотрудники — TeamOS' : 'Оргструктура — TeamOS');
   const queryClient = useQueryClient();
 
+  const usersQuery = useQuery({
+    queryKey: queryKeys.users.all,
+    queryFn: orgApi.getUsers,
+    refetchOnMount: true,
+  });
+  const orgSyncReady = usersQuery.isSuccess && !usersQuery.isFetching;
   const departmentsQuery = useQuery({
     queryKey: queryKeys.departments,
     queryFn: orgApi.getDepartments,
+    enabled: orgSyncReady,
+    staleTime: 0,
   });
-  const positionsQuery = useQuery({ queryKey: queryKeys.positions, queryFn: orgApi.getPositions });
-  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
+  const positionsQuery = useQuery({
+    queryKey: queryKeys.positions,
+    queryFn: orgApi.getPositions,
+    enabled: orgSyncReady,
+    staleTime: 0,
+  });
 
   const [collapsed, setCollapsed] = useState<Set<ID>>(new Set());
   const [diagramCollapsed, setDiagramCollapsed] = useState<Set<ID>>(new Set());
@@ -76,6 +88,19 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
         const list = map.get(positionId) ?? [];
         list.push(user);
         map.set(positionId, list);
+      }
+    }
+    return map;
+  }, [usersQuery.data]);
+
+  const usersWithoutPositionByDepartment = useMemo(() => {
+    const map = new Map<ID, User[]>();
+    for (const user of usersQuery.data ?? []) {
+      if (user.positionIds.length > 0) continue;
+      for (const departmentId of user.departmentIds ?? []) {
+        const list = map.get(departmentId) ?? [];
+        list.push(user);
+        map.set(departmentId, list);
       }
     }
     return map;
@@ -343,6 +368,7 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
                   departments,
                   positionsByDepartment,
                   usersByPosition,
+                  usersWithoutPositionByDepartment,
                   collapsed,
                   onToggleCollapse: toggleCollapse,
                   onDialog: setDialog,

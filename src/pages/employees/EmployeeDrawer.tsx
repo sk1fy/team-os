@@ -191,7 +191,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   const primaryPosition = userPositions[0];
   const primaryDepartment = primaryPosition
     ? departments.find((department) => department.id === primaryPosition.departmentId)
-    : undefined;
+    : departments.find((department) => user?.departmentIds?.includes(department.id));
   const positionOptions = useMemo(
     () => buildPositionOptions(positions, departments),
     [positions, departments],

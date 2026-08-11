@@ -22,6 +22,7 @@ interface NodeContext {
   departments: Department[];
   positionsByDepartment: Map<ID, Position[]>;
   usersByPosition: Map<ID, User[]>;
+  usersWithoutPositionByDepartment: Map<ID, User[]>;
   collapsed: Set<ID>;
   onToggleCollapse: (id: ID) => void;
   onDialog: (dialog: StructureDialog) => void;
@@ -113,13 +114,15 @@ function PositionRow({ position, ctx }: { position: Position; ctx: NodeContext }
 
 export function DepartmentNode({ node, ctx }: { node: DepartmentTreeNode; ctx: NodeContext }) {
   const positions = ctx.positionsByDepartment.get(node.id) ?? [];
+  const usersWithoutPosition = ctx.usersWithoutPositionByDepartment.get(node.id) ?? [];
   const isRoot = node.parentId === null;
   const isCollapsed = ctx.collapsed.has(node.id);
-  const hasContent = node.children.length > 0 || positions.length > 0;
+  const hasContent =
+    node.children.length > 0 || positions.length > 0 || usersWithoutPosition.length > 0;
 
   const employeeCount = positions.reduce(
     (sum, p) => sum + (ctx.usersByPosition.get(p.id)?.length ?? 0),
-    0,
+    usersWithoutPosition.length,
   );
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -252,6 +255,21 @@ export function DepartmentNode({ node, ctx }: { node: DepartmentTreeNode; ctx: N
           {positions.map((position) => (
             <PositionRow key={position.id} position={position} ctx={ctx} />
           ))}
+          {usersWithoutPosition.length > 0 && (
+            <div className="mb-1 ml-4 space-y-0.5 border-l border-slate-200 pl-4">
+              {usersWithoutPosition.map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => ctx.onOpenUser(user.id)}
+                  className="flex h-7 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-slate-50"
+                >
+                  <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" />
+                  <span className="truncate text-sm text-slate-600">{fullName(user)}</span>
+                  <span className="text-xs text-slate-400">Без должности</span>
+                </button>
+              ))}
+            </div>
+          )}
           {node.children.map((child) => (
             <DepartmentNode key={child.id} node={child} ctx={ctx} />
           ))}
