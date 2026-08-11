@@ -22,6 +22,7 @@ interface FormModalProps {
   initialLevel?: Position['level'];
   initialHeadUserId?: ID;
   initialDepartmentId?: ID;
+  nameDisabled?: boolean;
   withLevel?: boolean;
   withDescription?: boolean;
   withValuableFinalProduct?: boolean;
@@ -42,11 +43,11 @@ interface FormModalProps {
 }
 
 const positionLevelOptions = [
-  { value: '4', label: 'Уровень 4 — руководство компании' },
-  { value: '3', label: 'Уровень 3 — руководитель направления' },
-  { value: '2', label: 'Уровень 2 — руководитель команды' },
-  { value: '1', label: 'Уровень 1 — ведущий специалист' },
-  { value: '0', label: 'Уровень 0 — специалист' },
+  { value: '4', label: '4 — Руководитель компании' },
+  { value: '3', label: '3 — Руководитель отдела' },
+  { value: '2', label: '2 — Руководитель группы' },
+  { value: '1', label: '1 — Старший специалист' },
+  { value: '0', label: '0 — Специалист' },
 ];
 
 const NO_HEAD_VALUE = '__no_head__';
@@ -60,6 +61,7 @@ function FormModal({
   initialLevel = 0,
   initialHeadUserId,
   initialDepartmentId = '',
+  nameDisabled = false,
   withLevel = false,
   withDescription = false,
   withValuableFinalProduct = false,
@@ -118,7 +120,8 @@ function FormModal({
           label="Название"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          autoFocus
+          autoFocus={!nameDisabled}
+          disabled={nameDisabled}
           required
         />
         {withDepartment && (
@@ -219,7 +222,7 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'))
     .map((user) => ({ value: user.id, label: fullName(user) }));
   const departmentOptions = (departmentsQuery.data ?? [])
-    .filter((department) => !department.source || department.source === 'local')
+    .filter((department) => department.isRoot !== true && department.source !== 'system')
     .map((department) => ({
       value: department.id,
       label: department.name,
@@ -294,6 +297,7 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
     case 'editDepartment': {
       const isRootDepartment =
         dialog.department.isRoot === true || dialog.department.source === 'system';
+      const isImportedDepartment = dialog.department.source === 'amo';
       return (
         <FormModal
           title="Настройки отдела"
@@ -301,6 +305,7 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           initialName={dialog.department.name}
           initialHeadUserId={dialog.department.headUserId}
           initialValuableFinalProduct={dialog.department.valuableFinalProduct}
+          nameDisabled={isImportedDepartment}
           withHead={!isRootDepartment}
           withValuableFinalProduct={!isRootDepartment}
           headOptions={headOptions}
@@ -308,6 +313,14 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           onSubmit={({ name, headUserId, valuableFinalProduct }) => {
             if (isRootDepartment) {
               updateDepartment.mutate({ id: dialog.department.id, name });
+              return;
+            }
+            if (isImportedDepartment) {
+              updateDepartment.mutate({
+                id: dialog.department.id,
+                headUserId,
+                valuableFinalProduct: valuableFinalProduct || null,
+              });
               return;
             }
             updateDepartment.mutate({

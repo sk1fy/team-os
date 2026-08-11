@@ -188,15 +188,19 @@ export function DepartmentNode({ node, ctx }: { node: DepartmentTreeNode; ctx: N
           </span>
         )}
 
-        {isImported ? (
+        {isImported && (
           <Badge variant="warning" className="ml-auto">
             amoCRM
           </Badge>
-        ) : !isRoot ? (
+        )}
+        {!isRoot ? (
           <button
             type="button"
             onClick={() => ctx.onDialog({ type: 'createPosition', departmentId: node.id })}
-            className="ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-primary-100 bg-primary-50 px-2 text-xs font-semibold text-primary-700 hover:border-primary-200 hover:bg-primary-100"
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-primary-100 bg-primary-50 px-2 text-xs font-semibold text-primary-700 hover:border-primary-200 hover:bg-primary-100',
+              !isImported && 'ml-auto',
+            )}
             aria-label={`Добавить должность в отдел «${node.name}»`}
           >
             <Plus className="size-3.5" />
@@ -208,49 +212,46 @@ export function DepartmentNode({ node, ctx }: { node: DepartmentTreeNode; ctx: N
 
         <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
           {!isImported && (
-            <>
-              <button
-                type="button"
-                onClick={() => ctx.onDialog({ type: 'createDepartment', parentId: node.id })}
-                className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                aria-label={`Добавить подотдел в «${node.name}»`}
-                title="Добавить подотдел"
-              >
-                <Building2 className="size-4" />
-              </button>
-              <Dropdown
-                trigger={
-                  <button
-                    className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                    aria-label={`Действия с отделом «${node.name}»`}
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                }
-                items={[
-                  {
-                    key: 'edit',
-                    label: 'Настройки отдела',
-                    icon: Pencil,
-                    onSelect: () => ctx.onDialog({ type: 'editDepartment', department: node }),
-                  },
-                  ...(isRoot
-                    ? []
-                    : [
-                        'separator' as const,
-                        {
-                          key: 'delete',
-                          label: 'Удалить',
-                          icon: Trash2,
-                          danger: true,
-                          onSelect: () =>
-                            ctx.onDialog({ type: 'deleteDepartment', department: node }),
-                        },
-                      ]),
-                ]}
-              />
-            </>
+            <button
+              type="button"
+              onClick={() => ctx.onDialog({ type: 'createDepartment', parentId: node.id })}
+              className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+              aria-label={`Добавить подотдел в «${node.name}»`}
+              title="Добавить подотдел"
+            >
+              <Building2 className="size-4" />
+            </button>
           )}
+          <Dropdown
+            trigger={
+              <button
+                className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                aria-label={`Действия с отделом «${node.name}»`}
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+            }
+            items={[
+              {
+                key: 'edit',
+                label: 'Настройки отдела',
+                icon: Pencil,
+                onSelect: () => ctx.onDialog({ type: 'editDepartment', department: node }),
+              },
+              ...(!isRoot && !isImported
+                ? [
+                    'separator' as const,
+                    {
+                      key: 'delete',
+                      label: 'Удалить',
+                      icon: Trash2,
+                      danger: true,
+                      onSelect: () => ctx.onDialog({ type: 'deleteDepartment', department: node }),
+                    },
+                  ]
+                : []),
+            ]}
+          />
           {!isRoot && (
             <button
               {...listeners}
