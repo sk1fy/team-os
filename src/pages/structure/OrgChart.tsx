@@ -179,6 +179,10 @@ function OrgChartNode({
   onOpenUser,
 }: OrgChartNodeProps) {
   const positions = positionsByDepartment.get(node.id) ?? [];
+  const isRoot = node.isRoot === true || node.source === 'system';
+  const occupiedPositions = positions.filter(
+    (position) => (usersByPosition.get(position.id)?.length ?? 0) > 0,
+  );
   const head = node.headUserId ? usersById.get(node.headUserId) : undefined;
   const usersWithoutPosition = usersWithoutPositionByDepartment.get(node.id) ?? [];
   const isCollapsed = collapsed.has(node.id);
@@ -206,7 +210,9 @@ function OrgChartNode({
                 {positions.length}{' '}
                 {plural(positions.length, ['должность', 'должности', 'должностей'])}
               </div>
-              <DepartmentPositionsSummary positions={positions} onOpenPosition={onOpenPosition} />
+              {!isRoot && (
+                <DepartmentPositionsSummary positions={positions} onOpenPosition={onOpenPosition} />
+              )}
             </div>
           </div>
 
@@ -240,9 +246,9 @@ function OrgChartNode({
           )}
         </div>
 
-        {positions.length > 0 || usersWithoutPosition.length > 0 ? (
+        {occupiedPositions.length > 0 || usersWithoutPosition.length > 0 ? (
           <div>
-            {positions.map((position) => (
+            {occupiedPositions.map((position) => (
               <PositionItem
                 key={position.id}
                 position={position}
@@ -276,7 +282,11 @@ function OrgChartNode({
             )}
           </div>
         ) : (
-          <p className="px-4 py-3 text-xs text-slate-400">Должности пока не добавлены</p>
+          <p className="px-4 py-3 text-xs text-slate-400">
+            {positions.length > 0
+              ? 'Сотрудникам пока не назначены должности'
+              : 'Должности пока не добавлены'}
+          </p>
         )}
 
         {node.children.length > 0 && (
