@@ -581,13 +581,7 @@ export function DashboardPage() {
 
       <section className="mt-4">
         <h2 className="mb-3 text-base font-semibold text-slate-950">Быстрые действия</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <QuickAction
-            label="Добавить пользователя"
-            description="Открыть список людей"
-            to="/employees"
-            icon={UserPlus}
-          />
+        <div className="grid gap-3 md:grid-cols-3">
           <QuickAction
             label="Проверить график"
             description="Смены и отсутствия"

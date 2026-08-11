@@ -236,7 +236,15 @@ for (const user of users) {
 }
 
 export const departments: Department[] = [
-  { id: 'department-1', name: 'Ромашка Digital', parentId: null, headUserId: 'user-1', order: 0 },
+  {
+    id: 'department-1',
+    name: 'Ромашка Digital',
+    parentId: null,
+    headUserId: 'user-1',
+    order: 0,
+    source: 'system',
+    isRoot: true,
+  },
   {
     id: 'department-2',
     name: 'Продажи',

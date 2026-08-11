@@ -67,6 +67,10 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
 
   const departments = useMemo(() => departmentsQuery.data ?? [], [departmentsQuery.data]);
   const tree = useMemo(() => buildDepartmentTree(departments), [departments]);
+  const rootDepartment = useMemo(
+    () => departments.find((department) => department.isRoot || department.source === 'system'),
+    [departments],
+  );
 
   const positionsByDepartment = useMemo(() => {
     const map = new Map<ID, Position[]>();
@@ -200,7 +204,9 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
             — нижний уровень.
           </p>
           <Button
-            onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}
+            onClick={() =>
+              setDialog({ type: 'createDepartment', parentId: rootDepartment?.id ?? null })
+            }
           >
             <Plus className="size-4" />
             Добавить отдел
@@ -212,7 +218,9 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
           description="Отделы, должности и сотрудники компании. Уровни задаются у должностей: 4 — выше всех, 0 — нижний уровень."
           actions={
             <Button
-              onClick={() => setDialog({ type: 'createDepartment', parentId: tree[0]?.id ?? null })}
+              onClick={() =>
+                setDialog({ type: 'createDepartment', parentId: rootDepartment?.id ?? null })
+              }
             >
               <Plus className="size-4" />
               Добавить отдел
@@ -344,6 +352,7 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
             zoom={diagramZoom}
             positionsByDepartment={positionsByDepartment}
             usersByPosition={usersByPosition}
+            usersWithoutPositionByDepartment={usersWithoutPositionByDepartment}
             usersById={usersById}
             collapsed={diagramCollapsed}
             onToggleCollapse={toggleDiagramCollapse}

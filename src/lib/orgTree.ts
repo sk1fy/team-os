@@ -70,6 +70,14 @@ export function canMoveDepartment(
   const source = departments.find((d) => d.id === sourceId);
   if (!source) return { allowed: false, reason: 'Отдел не найден' };
 
+  if (source.isRoot || source.source === 'system') {
+    return { allowed: false, reason: 'Головной отдел нельзя перемещать' };
+  }
+
+  if (targetParentId === null) {
+    return { allowed: false, reason: 'Отдел должен находиться внутри головного отдела' };
+  }
+
   if (targetParentId === sourceId) {
     return { allowed: false, reason: 'Нельзя переместить отдел в самого себя' };
   }

@@ -218,10 +218,12 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
     .filter((user: User) => user.status === 'active' && user.role !== 'partner')
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'))
     .map((user) => ({ value: user.id, label: fullName(user) }));
-  const departmentOptions = (departmentsQuery.data ?? []).map((department) => ({
-    value: department.id,
-    label: department.name,
-  }));
+  const departmentOptions = (departmentsQuery.data ?? [])
+    .filter((department) => !department.source || department.source === 'local')
+    .map((department) => ({
+      value: department.id,
+      label: department.name,
+    }));
 
   const onError = (error: unknown) =>
     toast.error(error instanceof Error ? error.message : 'Что-то пошло не так');
@@ -289,7 +291,9 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           onClose={onClose}
         />
       );
-    case 'editDepartment':
+    case 'editDepartment': {
+      const isRootDepartment =
+        dialog.department.isRoot === true || dialog.department.source === 'system';
       return (
         <FormModal
           title="Настройки отдела"
@@ -297,21 +301,26 @@ export function StructureDialogs({ dialog, onClose }: StructureDialogsProps) {
           initialName={dialog.department.name}
           initialHeadUserId={dialog.department.headUserId}
           initialValuableFinalProduct={dialog.department.valuableFinalProduct}
-          withHead
-          withValuableFinalProduct
+          withHead={!isRootDepartment}
+          withValuableFinalProduct={!isRootDepartment}
           headOptions={headOptions}
           pending={updateDepartment.isPending}
-          onSubmit={({ name, headUserId, valuableFinalProduct }) =>
+          onSubmit={({ name, headUserId, valuableFinalProduct }) => {
+            if (isRootDepartment) {
+              updateDepartment.mutate({ id: dialog.department.id, name });
+              return;
+            }
             updateDepartment.mutate({
               id: dialog.department.id,
               name,
               headUserId,
               valuableFinalProduct: valuableFinalProduct || null,
-            })
-          }
+            });
+          }}
           onClose={onClose}
         />
       );
+    }
     case 'deleteDepartment':
       return (
         <ConfirmModal

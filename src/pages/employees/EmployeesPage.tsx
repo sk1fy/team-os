@@ -3,15 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Search,
-} from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { orgApi } from '@/api';
 import type { ID } from '@/types';
 import {
@@ -387,12 +379,6 @@ export function EmployeesPage() {
           usersQuery.data
             ? `${usersQuery.data.length} ${plural(usersQuery.data.length, ['человек', 'человека', 'человек'])} в компании`
             : undefined
-        }
-        actions={
-          <Button onClick={() => updateParams({ addUser: '1' })}>
-            <Plus className="size-4" />
-            Добавить пользователя
-          </Button>
         }
       />
 

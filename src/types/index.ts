@@ -139,6 +139,10 @@ export interface Department {
   valuableFinalProduct?: string;
   /** Порядок среди соседей в дереве. */
   order: number;
+  /** local — создан вручную, amo — импортирован, system — головной отдел компании. */
+  source?: 'local' | 'amo' | 'system';
+  /** Единственный защищённый головной отдел компании. */
+  isRoot?: boolean;
 }
 
 export interface Position {

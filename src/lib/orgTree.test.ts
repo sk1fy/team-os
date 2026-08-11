@@ -11,7 +11,7 @@ import { buildDepartmentTree, canMoveDepartment, getDescendantIds } from './orgT
  * └── dev
  */
 const departments: Department[] = [
-  { id: 'root', name: 'Компания', parentId: null, order: 0 },
+  { id: 'root', name: 'Компания', parentId: null, order: 0, source: 'system', isRoot: true },
   { id: 'sales', name: 'Продажи', parentId: 'root', order: 0 },
   { id: 'marketing', name: 'Маркетинг', parentId: 'root', order: 1 },
   { id: 'dev', name: 'Разработка', parentId: 'root', order: 2 },
@@ -57,8 +57,8 @@ describe('canMoveDepartment', () => {
     expect(canMoveDepartment(departments, 'content', 'dev').allowed).toBe(true);
   });
 
-  it('разрешает перемещение в корень', () => {
-    expect(canMoveDepartment(departments, 'content', null).allowed).toBe(true);
+  it('запрещает перемещение мимо головного отдела', () => {
+    expect(canMoveDepartment(departments, 'content', null).allowed).toBe(false);
   });
 
   it('запрещает перемещение отдела в самого себя', () => {

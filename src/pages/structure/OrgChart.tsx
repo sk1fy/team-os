@@ -12,6 +12,7 @@ interface OrgChartProps {
   zoom: number;
   positionsByDepartment: Map<ID, Position[]>;
   usersByPosition: Map<ID, User[]>;
+  usersWithoutPositionByDepartment: Map<ID, User[]>;
   usersById: Map<ID, User>;
   collapsed: Set<ID>;
   onToggleCollapse: (id: ID) => void;
@@ -78,6 +79,7 @@ function OrgChartNode({
   node,
   positionsByDepartment,
   usersByPosition,
+  usersWithoutPositionByDepartment,
   usersById,
   collapsed,
   onToggleCollapse,
@@ -86,12 +88,14 @@ function OrgChartNode({
 }: OrgChartNodeProps) {
   const positions = positionsByDepartment.get(node.id) ?? [];
   const head = node.headUserId ? usersById.get(node.headUserId) : undefined;
+  const usersWithoutPosition = usersWithoutPositionByDepartment.get(node.id) ?? [];
   const isCollapsed = collapsed.has(node.id);
-  const employeeIds = new Set(
-    positions.flatMap((position) =>
+  const employeeIds = new Set([
+    ...positions.flatMap((position) =>
       (usersByPosition.get(position.id) ?? []).map((user) => user.id),
     ),
-  );
+    ...usersWithoutPosition.map((user) => user.id),
+  ]);
 
   return (
     <div className="org-chart-node">
@@ -141,7 +145,7 @@ function OrgChartNode({
           )}
         </div>
 
-        {positions.length > 0 ? (
+        {positions.length > 0 || usersWithoutPosition.length > 0 ? (
           <div>
             {positions.map((position) => (
               <PositionItem
@@ -152,6 +156,29 @@ function OrgChartNode({
                 onOpenUser={onOpenUser}
               />
             ))}
+            {usersWithoutPosition.length > 0 && (
+              <div className="border-t border-slate-100 px-3 py-2.5">
+                <p className="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
+                  Без должности
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {usersWithoutPosition.map((user) => (
+                    <button
+                      type="button"
+                      key={user.id}
+                      onClick={() => onOpenUser(user.id)}
+                      className="flex min-w-0 items-center gap-1.5 rounded-full bg-slate-50 py-1 pr-2 pl-1 text-left hover:bg-primary-50"
+                      title={fullName(user)}
+                    >
+                      <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" />
+                      <span className="max-w-32 truncate text-[11px] text-slate-600">
+                        {fullName(user)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <p className="px-4 py-3 text-xs text-slate-400">Должности пока не добавлены</p>
@@ -182,6 +209,7 @@ function OrgChartNode({
               node={child}
               positionsByDepartment={positionsByDepartment}
               usersByPosition={usersByPosition}
+              usersWithoutPositionByDepartment={usersWithoutPositionByDepartment}
               usersById={usersById}
               collapsed={collapsed}
               onToggleCollapse={onToggleCollapse}

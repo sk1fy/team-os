@@ -3350,6 +3350,9 @@ export interface components {
             headUserId?: components["schemas"]["ID"];
             valuableFinalProduct?: string;
             order: number;
+            /** @enum {string} */
+            source?: "local" | "amo" | "system";
+            isRoot?: boolean;
         };
         Position: {
             id: components["schemas"]["ID"];
