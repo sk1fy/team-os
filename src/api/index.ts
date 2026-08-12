@@ -145,16 +145,22 @@ const mockAuthApi = {
       return user;
     }),
 
-  login: (input: { email: string; password: string }): Promise<AuthSession<User>> =>
+  login: (input: { login: string; password: string }): Promise<AuthSession<User>> =>
     mockRequest(() => {
-      const user = db.users.find((item) => item.email.toLowerCase() === input.email.toLowerCase());
+      const identifier = input.login.trim().toLowerCase();
+      const user = db.users.find(
+        (item) =>
+          item.login?.toLowerCase() === identifier ||
+          ((item.role === 'owner' || item.role === 'admin') &&
+            item.email.toLowerCase() === identifier),
+      );
       const isOwner = user?.role === 'owner';
       if (
         !user ||
         user.status !== 'active' ||
         (!isOwner && db.employeePasswords.get(user.id) !== input.password)
       ) {
-        throw new ApiError('Неверный email или пароль', 401);
+        throw new ApiError('Неверный логин или пароль', 401);
       }
       db.setCurrentUserId(user.id);
       return { accessToken: 'mock-access-token', user };
@@ -328,6 +334,20 @@ function employeeAccessTarget(userId: ID): User {
   return user;
 }
 
+function mockEmployeeAccess(userId: ID): EmployeeAccess {
+  const stored = db.employeeAccess.get(userId);
+  const passwordEnabled = db.employeePasswords.has(userId);
+  const linkEnabled = Boolean(stored?.linkToken);
+  const user = db.users.find((item) => item.id === userId);
+  return {
+    ...stored,
+    mode: linkEnabled ? 'link' : passwordEnabled ? 'password' : 'none',
+    login: user?.login,
+    passwordEnabled,
+    linkEnabled,
+  };
+}
+
 const mockOrgApi = {
   getDepartments: (): Promise<Department[]> => mockRequest(() => db.departments),
 
@@ -342,12 +362,12 @@ const mockOrgApi = {
     mockRequest(() => db.users.find((u) => u.id === id) ?? notFound('Сотрудник')),
 
   getUserAccess: (userId: ID): Promise<EmployeeAccess> =>
-    mockRequest(() => db.employeeAccess.get(userId) ?? { mode: 'none' }, { noFail: true }),
+    mockRequest(() => mockEmployeeAccess(userId), { noFail: true }),
 
   setUserPasswordAccess: (
     userId: ID,
     input: { password?: string },
-  ): Promise<{ password: string }> =>
+  ): Promise<{ login?: string; password: string }> =>
     mockRequest(() => {
       const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
       if (!canManageAccess(actor?.role))
@@ -360,10 +380,16 @@ const mockOrgApi = {
           (value) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'[value % 57],
         ).join('');
       db.employeePasswords.set(userId, password);
-      db.employeeAccess.set(userId, { mode: 'password' });
+      const current = mockEmployeeAccess(userId);
+      db.employeeAccess.set(userId, {
+        ...current,
+        mode: current.linkEnabled ? 'link' : 'password',
+        login: user.login,
+        passwordEnabled: true,
+      });
       db.persistEmployeeAccess();
-      user.accessMode = 'password';
-      return { password };
+      user.accessMode = current.linkEnabled ? 'link' : 'password';
+      return { login: user.login, password };
     }),
 
   setUserLinkAccess: (userId: ID): Promise<{ token: string; createdAt: string }> =>
@@ -378,11 +404,55 @@ const mockOrgApi = {
         .replaceAll('/', '_')
         .replace(/=+$/, '');
       const createdAt = now();
-      db.employeePasswords.delete(userId);
-      db.employeeAccess.set(userId, { mode: 'link', linkToken: token, linkCreatedAt: createdAt });
+      const current = mockEmployeeAccess(userId);
+      db.employeeAccess.set(userId, {
+        ...current,
+        mode: 'link',
+        login: user.login,
+        passwordEnabled: current.passwordEnabled,
+        linkEnabled: true,
+        linkToken: token,
+        linkCreatedAt: createdAt,
+      });
       db.persistEmployeeAccess();
       user.accessMode = 'link';
       return { token, createdAt };
+    }),
+
+  revokeUserPasswordAccess: (userId: ID): Promise<void> =>
+    mockRequest(() => {
+      const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
+      if (!canManageAccess(actor?.role))
+        throw new ApiError('Управлять доступом сотрудников может владелец или администратор', 403);
+      const user = employeeAccessTarget(userId);
+      db.employeePasswords.delete(userId);
+      const current = mockEmployeeAccess(userId);
+      const next: EmployeeAccess = {
+        ...current,
+        mode: current.linkEnabled ? 'link' : 'none',
+        passwordEnabled: false,
+      };
+      db.employeeAccess.set(userId, next);
+      db.persistEmployeeAccess();
+      user.accessMode = next.mode;
+    }),
+
+  revokeUserLinkAccess: (userId: ID): Promise<void> =>
+    mockRequest(() => {
+      const actor = db.users.find((user) => user.id === db.CURRENT_USER_ID);
+      if (!canManageAccess(actor?.role))
+        throw new ApiError('Управлять доступом сотрудников может владелец или администратор', 403);
+      const user = employeeAccessTarget(userId);
+      const current = mockEmployeeAccess(userId);
+      const next: EmployeeAccess = {
+        mode: current.passwordEnabled ? 'password' : 'none',
+        login: user.login,
+        passwordEnabled: current.passwordEnabled,
+        linkEnabled: false,
+      };
+      db.employeeAccess.set(userId, next);
+      db.persistEmployeeAccess();
+      user.accessMode = next.mode;
     }),
 
   revokeUserAccess: (userId: ID): Promise<void> =>

@@ -17,12 +17,28 @@ describe('mock employee access targets', () => {
 
     await expect(
       orgApi.setUserPasswordAccess('user-3', { password: 'AdminPassword123' }),
-    ).resolves.toEqual({ password: 'AdminPassword123' });
+    ).resolves.toMatchObject({
+      login: expect.stringMatching(/^tm\d{7}$/),
+      password: 'AdminPassword123',
+    });
     await expect(orgApi.setUserLinkAccess('user-3')).resolves.toMatchObject({
       token: expect.any(String),
       createdAt: expect.any(String),
     });
-    await expect(orgApi.revokeUserAccess('user-3')).resolves.toBeUndefined();
+    await expect(orgApi.getUserAccess('user-3')).resolves.toMatchObject({
+      passwordEnabled: true,
+      linkEnabled: true,
+    });
+    await expect(orgApi.revokeUserPasswordAccess('user-3')).resolves.toBeUndefined();
+    await expect(orgApi.getUserAccess('user-3')).resolves.toMatchObject({
+      passwordEnabled: false,
+      linkEnabled: true,
+    });
+    await expect(orgApi.revokeUserLinkAccess('user-3')).resolves.toBeUndefined();
+    await expect(orgApi.getUserAccess('user-3')).resolves.toMatchObject({
+      passwordEnabled: false,
+      linkEnabled: false,
+    });
   });
 
   it('не позволяет отозвать доступ владельца', async () => {

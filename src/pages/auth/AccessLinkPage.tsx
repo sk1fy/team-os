@@ -45,7 +45,7 @@ export function AccessLinkPage() {
               className="mt-6 inline-block text-sm font-medium text-primary-600 hover:underline"
               to="/auth/login"
             >
-              Войти по email и паролю
+              Войти по логину и паролю
             </Link>
           </>
         ) : (

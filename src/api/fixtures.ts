@@ -231,7 +231,8 @@ export const users: User[] = [
   },
 ];
 
-for (const user of users) {
+for (const [index, user] of users.entries()) {
+  user.login ??= `tm${String((8_901_912 + index * 7_415_541) % 10_000_000).padStart(7, '0')}`;
   user.accessMode = employeeAccess.get(user.id)?.mode ?? 'none';
 }
 

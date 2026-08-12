@@ -32,7 +32,7 @@ export function publicAuthErrorView(error: unknown): PublicAuthErrorView {
   if (code === 'BOOTSTRAP_CONSUMED') {
     return {
       title: 'Ссылка уже использована',
-      description: 'Войдите по email или откройте TeamOS заново из amoCRM.',
+      description: 'Войдите по логину или откройте TeamOS заново из amoCRM.',
       action: 'login',
     };
   }
@@ -84,7 +84,7 @@ const registrationTokenErrors: Record<
   },
   consumed: {
     title: 'Ссылка уже использована',
-    description: 'Эта компания уже могла быть зарегистрирована. Попробуйте войти по email.',
+    description: 'Эта компания уже могла быть зарегистрирована. Попробуйте войти по логину.',
     action: 'login',
   },
   revoked: {

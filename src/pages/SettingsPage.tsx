@@ -8,6 +8,7 @@ import {
   Check,
   Hash,
   ImageOff,
+  KeyRound,
   Mail,
   Moon,
   RotateCw,
@@ -679,6 +680,12 @@ function MyProfileSection() {
 
         {userQuery.data && (
           <div className="grid gap-3 sm:grid-cols-2">
+            <MetaItem icon={KeyRound} label="Логин">
+              <p className="font-mono">{userQuery.data.login ?? '—'}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Используйте его для входа вместе с паролем.
+              </p>
+            </MetaItem>
             <MetaItem icon={Mail} label="Email">
               <p>{userQuery.data.email}</p>
               <p className="mt-1 text-xs text-slate-500">

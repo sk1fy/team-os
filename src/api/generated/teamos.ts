@@ -31,7 +31,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Войти по email и паролю */
+        /** Войти по логину или email и паролю */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -669,11 +669,15 @@ export interface paths {
         get?: never;
         /**
          * Выдать сотруднику доступ по паролю
-         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании для активного сотрудника, кроме владельца. Удаляет ссылку доступа и завершает активные сессии сотрудника.
+         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании для активного сотрудника, кроме владельца. Ссылка доступа сохраняется. Активные сессии сотрудника завершаются.
          */
         put: operations["setUserPasswordAccess"];
         post?: never;
-        delete?: never;
+        /**
+         * Отозвать вход сотрудника по логину и паролю
+         * @description Удаляет пароль и завершает активные сессии сотрудника. Ссылка доступа сохраняется.
+         */
+        delete: operations["revokeUserPasswordAccess"];
         options?: never;
         head?: never;
         patch?: never;
@@ -691,11 +695,15 @@ export interface paths {
         get?: never;
         /**
          * Выдать сотруднику доступ по постоянной ссылке
-         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании для активного сотрудника, кроме владельца. Аннулирует прежнюю ссылку и пароль и завершает активные сессии сотрудника.
+         * @description Доступно владельцу (`owner`) и администратору (`admin`) своей компании для активного сотрудника, кроме владельца. Аннулирует прежнюю ссылку, но сохраняет пароль, и завершает активные сессии сотрудника.
          */
         put: operations["setUserLinkAccess"];
         post?: never;
-        delete?: never;
+        /**
+         * Отозвать вход сотрудника по ссылке
+         * @description Удаляет ссылку и завершает активные сессии сотрудника. Вход по логину и паролю сохраняется.
+         */
+        delete: operations["revokeUserLinkAccess"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3236,6 +3244,11 @@ export interface components {
          * @description Email с полным доменным именем, включая доменную зону.
          */
         Email: string;
+        /**
+         * @description Уникальный логин TeamOS в формате `tm` и семи цифр.
+         * @example tm8901912
+         */
+        UserLogin: string;
         ClearablePhone: components["schemas"]["Phone"] | "";
         ErrorResponse: {
             error: {
@@ -3304,6 +3317,7 @@ export interface components {
         };
         User: {
             id: components["schemas"]["ID"];
+            login?: components["schemas"]["UserLogin"];
             email: components["schemas"]["Email"];
             firstName: string;
             lastName: string;
@@ -3328,12 +3342,18 @@ export interface components {
         /** @description Фактический способ входа сотрудника. Поля `linkToken` и `linkCreatedAt` возвращаются только для режима `link`. */
         EmployeeAccess: {
             mode: components["schemas"]["UserAccessMode"];
+            login?: components["schemas"]["UserLogin"];
+            /** @description Включён ли вход по логину и паролю. */
+            passwordEnabled?: boolean;
+            /** @description Включён ли вход по постоянной ссылке. */
+            linkEnabled?: boolean;
             linkToken?: string;
             linkCreatedAt?: components["schemas"]["ISODateTime"];
             /** Format: uri */
             linkUrl?: string;
         };
         EmployeePasswordAccess: {
+            login?: components["schemas"]["UserLogin"];
             password: string;
         };
         EmployeeLinkAccess: {
@@ -3444,7 +3464,18 @@ export interface components {
             user: components["schemas"]["User"];
             onboarding: components["schemas"]["OnboardingState"];
         };
-        LoginInput: {
+        LoginInput: components["schemas"]["LoginByIdentifierInput"] | components["schemas"]["LoginByEmailInput"];
+        LoginByIdentifierInput: {
+            /** @description Логин TeamOS или email владельца/администратора. */
+            login: string;
+            /** Format: password */
+            password: string;
+        };
+        LoginByEmailInput: {
+            /**
+             * @deprecated
+             * @description Устаревшее поле для совместимости; используйте `login`.
+             */
             email: components["schemas"]["Email"];
             /** Format: password */
             password: string;
@@ -7238,6 +7269,24 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    revokeUserPasswordAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
     setUserLinkAccess: {
         parameters: {
             query?: never;
@@ -7258,6 +7307,24 @@ export interface operations {
                     "application/json": components["schemas"]["EmployeeLinkAccess"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeUserLinkAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

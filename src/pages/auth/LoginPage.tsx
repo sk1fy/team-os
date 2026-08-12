@@ -6,7 +6,6 @@ import { useTitle } from '@reactuses/core';
 import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
-import { EMAIL_ERROR, isValidEmail } from '@/lib/formValidation';
 import { resolvePostLoginPath } from '@/lib/permissions';
 
 export function LoginPage() {
@@ -16,24 +15,24 @@ export function LoginPage() {
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const [emailError, setEmailError] = useState<string>();
-  const emailRef = useRef<HTMLInputElement>(null);
+  const [loginError, setLoginError] = useState<string>();
+  const loginRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(undefined);
     const form = new FormData(event.currentTarget);
-    const email = String(form.get('email') ?? '').trim();
-    if (!isValidEmail(email)) {
-      setEmailError(EMAIL_ERROR);
-      emailRef.current?.focus();
+    const login = String(form.get('login') ?? '').trim();
+    if (!login) {
+      setLoginError('Укажите логин');
+      loginRef.current?.focus();
       return;
     }
-    setEmailError(undefined);
+    setLoginError(undefined);
     setSubmitting(true);
     try {
       const session = await authApi.login({
-        email,
+        login,
         password: String(form.get('password') ?? ''),
       });
       queryClient.setQueryData(queryKeys.currentUser, session.user);
@@ -66,15 +65,15 @@ export function LoginPage() {
       <h2 className="text-center">Вход в аккаунт</h2>
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <Input
-          label="Email"
-          ref={emailRef}
-          name="email"
-          type="email"
-          placeholder="you@company.ru"
-          autoComplete="email"
+          label="Логин"
+          ref={loginRef}
+          name="login"
+          type="text"
+          placeholder="tm8901912 или you@company.ru"
+          autoComplete="username"
           required
-          error={emailError}
-          onChange={() => emailError && setEmailError(undefined)}
+          error={loginError}
+          onChange={() => loginError && setLoginError(undefined)}
         />
         <Input
           label="Пароль"

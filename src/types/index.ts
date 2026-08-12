@@ -92,12 +92,16 @@ export type EmployeeSection = 'schedule' | 'knowledge' | 'academy' | 'distributi
 
 export interface EmployeeAccess {
   mode: EmployeeAccessMode;
+  login?: string;
+  passwordEnabled?: boolean;
+  linkEnabled?: boolean;
   linkToken?: string;
   linkCreatedAt?: ISODate;
 }
 
 export interface User {
   id: ID;
+  login?: string;
   email: string;
   firstName: string;
   lastName: string;

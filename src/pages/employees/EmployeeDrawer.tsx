@@ -321,8 +321,8 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     },
     onSuccess: ({ updated, passwordAccessEnabled }) => {
       if (passwordAccessEnabled) {
-        updateEmployeeAccessCache(queryClient, updated.id, { mode: 'password' });
         setCustomAccessPassword('');
+        void queryClient.invalidateQueries({ queryKey: queryKeys.users.access(updated.id) });
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.users.byId(updated.id) });
@@ -933,12 +933,6 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   );
 }
 
-const accessLabels = {
-  none: 'Нет доступа',
-  password: 'Email и пароль',
-  link: 'По ссылке',
-} as const;
-
 function EmployeeSectionsSection({
   user,
   value,
@@ -1184,26 +1178,59 @@ function EmployeeAccessSection({
   onCustomPasswordChange: (password: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const [shownPassword, setShownPassword] = useState<string>();
+  const [shownCredentials, setShownCredentials] = useState<{
+    login: string;
+    password: string;
+  }>();
 
-  const copyAccessValue = async (value: string, kind: 'ссылка' | 'пароль') => {
+  const access = loadedAccess ?? { mode: 'none' as const };
+  const passwordEnabled = access.passwordEnabled ?? access.mode === 'password';
+  const linkEnabled = access.linkEnabled ?? access.mode === 'link';
+  const login = access.login ?? user.login ?? '';
+  const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
+
+  const cacheAccess = (next: Partial<EmployeeAccess>) => {
+    const merged = { ...access, ...next };
+    const nextPasswordEnabled = merged.passwordEnabled ?? false;
+    const nextLinkEnabled = merged.linkEnabled ?? false;
+    updateEmployeeAccessCache(queryClient, user.id, {
+      ...merged,
+      mode: nextLinkEnabled ? 'link' : nextPasswordEnabled ? 'password' : 'none',
+    });
+  };
+
+  const copyAccessValue = async (value: string, kind: 'ссылка' | 'логин' | 'пароль') => {
     if (!value) return;
     const copied = await copyText(value);
     if (copied) {
-      toast.success(kind === 'ссылка' ? 'Ссылка скопирована' : 'Пароль скопирован');
+      toast.success(
+        kind === 'ссылка'
+          ? 'Ссылка скопирована'
+          : kind === 'логин'
+            ? 'Логин скопирован'
+            : 'Пароль скопирован',
+      );
     } else {
       toast.error(
-        kind === 'ссылка' ? 'Не удалось скопировать ссылку' : 'Не удалось скопировать пароль',
+        kind === 'ссылка'
+          ? 'Не удалось скопировать ссылку'
+          : kind === 'логин'
+            ? 'Не удалось скопировать логин'
+            : 'Не удалось скопировать пароль',
       );
     }
   };
   const setPassword = useMutation({
     mutationFn: (password?: string) => orgApi.setUserPasswordAccess(user.id, { password }),
-    onSuccess: ({ password }) => {
-      setShownPassword(password);
+    onSuccess: ({ login: issuedLogin, password }) => {
+      setShownCredentials({ login: issuedLogin ?? login, password });
       onCustomPasswordChange('');
-      updateEmployeeAccessCache(queryClient, user.id, { mode: 'password' });
-      toast.success('Вход по email и паролю включён');
+      cacheAccess({
+        login: issuedLogin ?? login,
+        passwordEnabled: true,
+        linkEnabled,
+      });
+      toast.success('Вход по логину и паролю включён');
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось выдать пароль'),
@@ -1211,10 +1238,11 @@ function EmployeeAccessSection({
   const setLink = useMutation({
     mutationFn: () => orgApi.setUserLinkAccess(user.id),
     onSuccess: async ({ token, createdAt }) => {
-      setShownPassword(undefined);
+      setShownCredentials(undefined);
       onCustomPasswordChange('');
-      updateEmployeeAccessCache(queryClient, user.id, {
-        mode: 'link',
+      cacheAccess({
+        passwordEnabled,
+        linkEnabled: true,
         linkToken: token,
         linkCreatedAt: createdAt,
       });
@@ -1223,56 +1251,117 @@ function EmployeeAccessSection({
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось создать ссылку'),
   });
-  const revoke = useMutation({
+  const revokePassword = useMutation({
+    mutationFn: () => orgApi.revokeUserPasswordAccess(user.id),
+    onSuccess: () => {
+      setShownCredentials(undefined);
+      onCustomPasswordChange('');
+      cacheAccess({ passwordEnabled: false, linkEnabled });
+      toast.success('Вход по логину и паролю отозван');
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось отозвать пароль'),
+  });
+  const revokeLink = useMutation({
+    mutationFn: () => orgApi.revokeUserLinkAccess(user.id),
+    onSuccess: () => {
+      cacheAccess({
+        passwordEnabled,
+        linkEnabled: false,
+        linkToken: undefined,
+        linkCreatedAt: undefined,
+      });
+      toast.success('Ссылка доступа отозвана');
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось отозвать ссылку'),
+  });
+  const revokeAll = useMutation({
     mutationFn: () => orgApi.revokeUserAccess(user.id),
     onSuccess: () => {
-      setShownPassword(undefined);
+      setShownCredentials(undefined);
       onCustomPasswordChange('');
-      updateEmployeeAccessCache(queryClient, user.id, { mode: 'none' });
-      toast.success('Доступ отозван');
+      cacheAccess({
+        passwordEnabled: false,
+        linkEnabled: false,
+        linkToken: undefined,
+        linkCreatedAt: undefined,
+      });
+      toast.success('Все способы входа отозваны');
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось отозвать доступ'),
   });
 
-  const access = loadedAccess ?? { mode: 'none' as const };
-  const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
   const confirmSessionReset = () =>
-    access.mode === 'none' || confirm('Текущие сессии сотрудника будут завершены. Продолжить?');
+    (!loading && !passwordEnabled && !linkEnabled) ||
+    confirm('Текущие сессии сотрудника будут завершены. Продолжить?');
   return (
     <PanelSection title="Доступ в систему">
       {loading && <p className="text-sm text-slate-500">Загружаю настройки доступа…</p>}
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-slate-500">Текущий режим</span>
-        <Badge variant={access.mode === 'none' ? 'neutral' : 'success'}>
-          {accessLabels[access.mode]}
-        </Badge>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
+          <span className="text-sm text-slate-600">Логин и пароль</span>
+          <Badge variant={passwordEnabled ? 'success' : 'neutral'}>
+            {passwordEnabled ? 'Включён' : 'Не выдан'}
+          </Badge>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
+          <span className="text-sm text-slate-600">Ссылка</span>
+          <Badge variant={linkEnabled ? 'success' : 'neutral'}>
+            {linkEnabled ? 'Включена' : 'Не выдана'}
+          </Badge>
+        </div>
       </div>
+      {login && (
+        <div className="flex items-center gap-2">
+          <Input label="Логин сотрудника" value={login} readOnly />
+          <Button
+            className="mt-6"
+            size="sm"
+            variant="secondary"
+            onClick={() => void copyAccessValue(login, 'логин')}
+            aria-label="Скопировать логин сотрудника"
+          >
+            <Copy className="size-4" />
+          </Button>
+        </div>
+      )}
       {user.email.endsWith('@users.invalid') && (
         <p className="rounded-md bg-warning-50 px-3 py-2 text-xs text-warning-700">
-          Это служебный email amoCRM. Для сотрудника удобнее вход по ссылке.
+          Это служебный email amoCRM. Используйте логин TeamOS или ссылку доступа.
         </p>
       )}
-      {shownPassword && (
+      {shownCredentials && (
         <div className="rounded-md border border-warning-200 bg-warning-50 p-3 text-sm">
           <p className="font-semibold text-warning-800">Пароль показывается один раз</p>
-          <p className="mt-1 font-mono text-slate-900">{user.email}</p>
           <div className="mt-2 flex items-center gap-2">
             <code className="min-w-0 flex-1 overflow-hidden rounded bg-white px-2 py-1.5 text-ellipsis">
-              {shownPassword}
+              {shownCredentials.login}
             </code>
             <Button
               size="sm"
               variant="secondary"
-              disabled={!shownPassword}
-              onClick={() => void copyAccessValue(shownPassword, 'пароль')}
+              onClick={() => void copyAccessValue(shownCredentials.login, 'логин')}
             >
-              <Copy className="size-4" /> Копировать
+              <Copy className="size-4" /> Копировать логин
+            </Button>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="min-w-0 flex-1 overflow-hidden rounded bg-white px-2 py-1.5 text-ellipsis">
+              {shownCredentials.password}
+            </code>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void copyAccessValue(shownCredentials.password, 'пароль')}
+            >
+              <Copy className="size-4" /> Копировать пароль
             </Button>
           </div>
         </div>
       )}
-      {access.mode === 'link' && accessUrl && (
+      {linkEnabled && accessUrl && (
         <div className="flex items-center gap-2">
           <Input label="Ссылка доступа" value={accessUrl} readOnly />
           <Button
@@ -1305,6 +1394,7 @@ function EmployeeAccessSection({
           <Button
             size="sm"
             variant="secondary"
+            disabled={loading}
             loading={setPassword.isPending}
             onClick={() =>
               confirmSessionReset() && setPassword.mutate(customPassword.trim() || undefined)
@@ -1316,22 +1406,49 @@ function EmployeeAccessSection({
           <Button
             size="sm"
             variant="secondary"
+            disabled={loading}
             loading={setLink.isPending}
             onClick={() => confirmSessionReset() && setLink.mutate()}
           >
             <Link2 className="size-4" />
             {access.mode === 'link' ? 'Перевыпустить ссылку' : 'Выдать ссылку'}
           </Button>
-          {access.mode !== 'none' && (
+          {passwordEnabled && (
             <Button
               size="sm"
               variant="danger"
-              loading={revoke.isPending}
+              loading={revokePassword.isPending}
               onClick={() =>
-                confirm('Отозвать доступ и завершить все сессии сотрудника?') && revoke.mutate()
+                confirm('Отозвать вход по логину и паролю и завершить все сессии?') &&
+                revokePassword.mutate()
               }
             >
-              Отозвать доступ
+              Отозвать пароль
+            </Button>
+          )}
+          {linkEnabled && (
+            <Button
+              size="sm"
+              variant="danger"
+              loading={revokeLink.isPending}
+              onClick={() =>
+                confirm('Отозвать ссылку доступа и завершить все сессии?') && revokeLink.mutate()
+              }
+            >
+              Отозвать ссылку
+            </Button>
+          )}
+          {passwordEnabled && linkEnabled && (
+            <Button
+              size="sm"
+              variant="danger"
+              loading={revokeAll.isPending}
+              onClick={() =>
+                confirm('Отозвать все способы входа и завершить все сессии сотрудника?') &&
+                revokeAll.mutate()
+              }
+            >
+              Отозвать всё
             </Button>
           )}
         </div>

@@ -109,7 +109,7 @@ export const httpAuthApi = {
     lastName?: string;
     phone?: string;
   }): Promise<User> => request('/auth/me', 'PATCH', input),
-  login: async (input: { email: string; password: string }): Promise<AuthSession<User>> =>
+  login: async (input: { login: string; password: string }): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest('/auth/login', 'POST', input)),
   loginWithAccessLink: async (token: string): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest(`/auth/access-link/${id(token)}`, 'POST')),
@@ -175,10 +175,14 @@ export const httpOrgApi = {
   setUserPasswordAccess: (
     userId: ID,
     input: { password?: string },
-  ): Promise<{ password: string }> =>
+  ): Promise<{ login?: string; password: string }> =>
     request(`/org/users/${id(userId)}/access/password`, 'PUT', input),
   setUserLinkAccess: (userId: ID): Promise<{ token: string; createdAt: string }> =>
     request(`/org/users/${id(userId)}/access/link`, 'PUT'),
+  revokeUserPasswordAccess: (userId: ID): Promise<void> =>
+    request(`/org/users/${id(userId)}/access/password`, 'DELETE'),
+  revokeUserLinkAccess: (userId: ID): Promise<void> =>
+    request(`/org/users/${id(userId)}/access/link`, 'DELETE'),
   revokeUserAccess: (userId: ID): Promise<void> =>
     request(`/org/users/${id(userId)}/access`, 'DELETE'),
   createDepartment: (input: {

@@ -23,7 +23,7 @@ export function PublicAuthError({
           to="/auth/login"
           className="mt-6 inline-flex text-sm font-semibold text-primary-600 hover:underline"
         >
-          Войти по email
+          Войти по логину
         </Link>
       ) : null}
     </div>
