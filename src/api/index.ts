@@ -373,6 +373,10 @@ const mockOrgApi = {
       if (!canManageAccess(actor?.role))
         throw new ApiError('Управлять доступом сотрудников может владелец или администратор', 403);
       const user = employeeAccessTarget(userId);
+      const current = mockEmployeeAccess(userId);
+      if (current.linkEnabled) {
+        throw new ApiError('Сначала отзовите ссылку доступа', 409);
+      }
       const password =
         input.password?.trim() ||
         Array.from(
@@ -380,15 +384,14 @@ const mockOrgApi = {
           (value) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'[value % 57],
         ).join('');
       db.employeePasswords.set(userId, password);
-      const current = mockEmployeeAccess(userId);
       db.employeeAccess.set(userId, {
         ...current,
-        mode: current.linkEnabled ? 'link' : 'password',
+        mode: 'password',
         login: user.login,
         passwordEnabled: true,
       });
       db.persistEmployeeAccess();
-      user.accessMode = current.linkEnabled ? 'link' : 'password';
+      user.accessMode = 'password';
       return { login: user.login, password };
     }),
 
@@ -398,18 +401,21 @@ const mockOrgApi = {
       if (!canManageAccess(actor?.role))
         throw new ApiError('Управлять доступом сотрудников может владелец или администратор', 403);
       const user = employeeAccessTarget(userId);
+      const current = mockEmployeeAccess(userId);
+      if (current.passwordEnabled) {
+        throw new ApiError('Сначала отзовите вход по логину и паролю', 409);
+      }
       const bytes = crypto.getRandomValues(new Uint8Array(24));
       const token = btoa(String.fromCharCode(...bytes))
         .replaceAll('+', '-')
         .replaceAll('/', '_')
         .replace(/=+$/, '');
       const createdAt = now();
-      const current = mockEmployeeAccess(userId);
       db.employeeAccess.set(userId, {
         ...current,
         mode: 'link',
         login: user.login,
-        passwordEnabled: current.passwordEnabled,
+        passwordEnabled: false,
         linkEnabled: true,
         linkToken: token,
         linkCreatedAt: createdAt,

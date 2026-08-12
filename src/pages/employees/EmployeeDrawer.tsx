@@ -313,11 +313,12 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       ]);
 
       const password = customAccessPassword.trim();
-      if (password) {
+      const linkEnabled = accessQuery.data?.linkEnabled ?? accessQuery.data?.mode === 'link';
+      if (password && !linkEnabled) {
         await orgApi.setUserPasswordAccess(user.id, { password });
       }
 
-      return { updated, passwordAccessEnabled: Boolean(password) };
+      return { updated, passwordAccessEnabled: Boolean(password && !linkEnabled) };
     },
     onSuccess: ({ updated, passwordAccessEnabled }) => {
       if (passwordAccessEnabled) {
@@ -368,6 +369,24 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось изменить статус сотрудника'),
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: (role: 'employee' | 'admin') => {
+      if (!user) throw new Error('Сотрудник не выбран');
+      return orgApi.updateUser({ id: user.id, role });
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(queryKeys.users.byId(updated.id), updated);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      toast.success(
+        updated.role === 'admin'
+          ? 'Сотрудник назначен администратором'
+          : 'Назначена роль сотрудника',
+      );
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Не удалось изменить роль сотрудника'),
   });
 
   const impersonateMutation = useMutation({
@@ -679,8 +698,10 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                 <EmployeeStatusSection
                   user={user}
                   statusPending={statusMutation.isPending}
+                  rolePending={roleMutation.isPending}
                   deletePending={deleteMutation.isPending}
                   onStatusChange={(status) => statusMutation.mutate(status)}
+                  onRoleChange={(role) => roleMutation.mutate(role)}
                   onDelete={() => deleteMutation.mutate()}
                 />
               )}
@@ -1034,14 +1055,18 @@ function EmployeeSectionsSection({
 function EmployeeStatusSection({
   user,
   statusPending,
+  rolePending,
   deletePending,
   onStatusChange,
+  onRoleChange,
   onDelete,
 }: {
   user: User;
   statusPending: boolean;
+  rolePending: boolean;
   deletePending: boolean;
   onStatusChange: (status: User['status']) => void;
+  onRoleChange: (role: 'employee' | 'admin') => void;
   onDelete: () => void;
 }) {
   const deactivated = user.status === 'deactivated';
@@ -1054,6 +1079,33 @@ function EmployeeStatusSection({
 
   return (
     <PanelSection title="Управление аккаунтом">
+      {user.source === 'amo' && (user.role === 'employee' || user.role === 'admin') && (
+        <div className="rounded-md border border-slate-200 bg-surface p-4">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+              <ShieldCheck className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">Роль в TeamOS</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                Роль действует только в TeamOS и не меняет права сотрудника в amoCRM.
+              </p>
+              <Select
+                className="mt-3 max-w-sm"
+                label="Уровень доступа"
+                value={user.role}
+                disabled={rolePending}
+                onValueChange={(value) => onRoleChange(value as 'employee' | 'admin')}
+                options={[
+                  { value: 'employee', label: 'Сотрудник' },
+                  { value: 'admin', label: 'Администратор' },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <span
@@ -1189,6 +1241,10 @@ function EmployeeAccessSection({
   const login = access.login ?? user.login ?? '';
   const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
 
+  useEffect(() => {
+    if (linkEnabled && customPassword) onCustomPasswordChange('');
+  }, [customPassword, linkEnabled, onCustomPasswordChange]);
+
   const cacheAccess = (next: Partial<EmployeeAccess>) => {
     const merged = { ...access, ...next };
     const nextPasswordEnabled = merged.passwordEnabled ?? false;
@@ -1221,7 +1277,10 @@ function EmployeeAccessSection({
     }
   };
   const setPassword = useMutation({
-    mutationFn: (password?: string) => orgApi.setUserPasswordAccess(user.id, { password }),
+    mutationFn: (password?: string) => {
+      if (linkEnabled) throw new Error('Сначала отзовите ссылку доступа');
+      return orgApi.setUserPasswordAccess(user.id, { password });
+    },
     onSuccess: ({ login: issuedLogin, password }) => {
       setShownCredentials({ login: issuedLogin ?? login, password });
       onCustomPasswordChange('');
@@ -1236,7 +1295,10 @@ function EmployeeAccessSection({
       toast.error(error instanceof Error ? error.message : 'Не удалось выдать пароль'),
   });
   const setLink = useMutation({
-    mutationFn: () => orgApi.setUserLinkAccess(user.id),
+    mutationFn: () => {
+      if (passwordEnabled) throw new Error('Сначала отзовите вход по логину и паролю');
+      return orgApi.setUserLinkAccess(user.id);
+    },
     onSuccess: async ({ token, createdAt }) => {
       setShownCredentials(undefined);
       onCustomPasswordChange('');
@@ -1276,23 +1338,6 @@ function EmployeeAccessSection({
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : 'Не удалось отозвать ссылку'),
   });
-  const revokeAll = useMutation({
-    mutationFn: () => orgApi.revokeUserAccess(user.id),
-    onSuccess: () => {
-      setShownCredentials(undefined);
-      onCustomPasswordChange('');
-      cacheAccess({
-        passwordEnabled: false,
-        linkEnabled: false,
-        linkToken: undefined,
-        linkCreatedAt: undefined,
-      });
-      toast.success('Все способы входа отозваны');
-    },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : 'Не удалось отозвать доступ'),
-  });
-
   const confirmSessionReset = () =>
     (!loading && !passwordEnabled && !linkEnabled) ||
     confirm('Текущие сессии сотрудника будут завершены. Продолжить?');
@@ -1300,80 +1345,123 @@ function EmployeeAccessSection({
     <PanelSection title="Доступ в систему">
       {loading && <p className="text-sm text-slate-500">Загружаю настройки доступа…</p>}
       <div className="grid gap-2 sm:grid-cols-2">
-        <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
-          <span className="text-sm text-slate-600">Логин и пароль</span>
-          <Badge variant={passwordEnabled ? 'success' : 'neutral'}>
-            {passwordEnabled ? 'Включён' : 'Не выдан'}
-          </Badge>
+        <div
+          className={cn(
+            'rounded-lg border p-4',
+            passwordEnabled ? 'border-success-100 bg-success-50/40' : 'border-slate-200 bg-surface',
+          )}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center rounded-full',
+                passwordEnabled ? 'bg-success-100 text-success-700' : 'bg-slate-100 text-slate-500',
+              )}
+            >
+              <KeyRound className="size-4" />
+            </span>
+            <Badge variant={passwordEnabled ? 'success' : 'neutral'}>
+              {passwordEnabled ? 'Выдан' : 'Не выдан'}
+            </Badge>
+          </div>
+          <p className="mt-3 text-sm font-semibold text-ink">Логин и пароль</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            {passwordEnabled
+              ? 'Сотрудник может входить по выданным учётным данным.'
+              : 'Логин появится вместе с новым паролем после выдачи.'}
+          </p>
         </div>
-        <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
-          <span className="text-sm text-slate-600">Ссылка</span>
-          <Badge variant={linkEnabled ? 'success' : 'neutral'}>
-            {linkEnabled ? 'Включена' : 'Не выдана'}
-          </Badge>
+        <div
+          className={cn(
+            'rounded-lg border p-4',
+            linkEnabled ? 'border-primary-100 bg-primary-50/40' : 'border-slate-200 bg-surface',
+          )}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center rounded-full',
+                linkEnabled ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-500',
+              )}
+            >
+              <Link2 className="size-4" />
+            </span>
+            <Badge variant={linkEnabled ? 'primary' : 'neutral'}>
+              {linkEnabled ? 'Выдана' : 'Не выдана'}
+            </Badge>
+          </div>
+          <p className="mt-3 text-sm font-semibold text-ink">Ссылка доступа</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            {linkEnabled
+              ? 'Сотрудник может открыть TeamOS по персональной ссылке.'
+              : 'Одноразовая выдача доступа без передачи пароля.'}
+          </p>
         </div>
       </div>
-      {login && (
-        <div className="flex items-center gap-2">
-          <Input label="Логин сотрудника" value={login} readOnly />
-          <Button
-            className="mt-6"
-            size="sm"
-            variant="secondary"
-            onClick={() => void copyAccessValue(login, 'логин')}
-            aria-label="Скопировать логин сотрудника"
-          >
-            <Copy className="size-4" />
-          </Button>
-        </div>
-      )}
       {user.email.endsWith('@users.invalid') && (
         <p className="rounded-md bg-warning-50 px-3 py-2 text-xs text-warning-700">
           Это служебный email amoCRM. Используйте логин TeamOS или ссылку доступа.
         </p>
       )}
       {shownCredentials && (
-        <div className="rounded-md border border-warning-200 bg-warning-50 p-3 text-sm">
-          <p className="font-semibold text-warning-800">Пароль показывается один раз</p>
-          <div className="mt-2 flex items-center gap-2">
-            <code className="min-w-0 flex-1 overflow-hidden rounded bg-white px-2 py-1.5 text-ellipsis">
-              {shownCredentials.login}
-            </code>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void copyAccessValue(shownCredentials.login, 'логин')}
-            >
-              <Copy className="size-4" /> Копировать логин
-            </Button>
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <code className="min-w-0 flex-1 overflow-hidden rounded bg-white px-2 py-1.5 text-ellipsis">
-              {shownCredentials.password}
-            </code>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void copyAccessValue(shownCredentials.password, 'пароль')}
-            >
-              <Copy className="size-4" /> Копировать пароль
-            </Button>
+        <div className="rounded-lg border border-warning-200 bg-warning-50 p-4 text-sm">
+          <p className="font-semibold text-warning-800">Сохраните данные для входа</p>
+          <p className="mt-1 text-xs leading-relaxed text-warning-700">
+            Пароль показывается только один раз. Передайте логин и пароль сотруднику безопасным
+            способом.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-warning-100 bg-surface p-3">
+              <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+                Логин
+              </p>
+              <p className="mt-1 break-all font-mono text-sm font-semibold text-ink">
+                {shownCredentials.login}
+              </p>
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="secondary"
+                onClick={() => void copyAccessValue(shownCredentials.login, 'логин')}
+              >
+                <Copy className="size-4" /> Копировать логин
+              </Button>
+            </div>
+            <div className="rounded-md border border-warning-100 bg-surface p-3">
+              <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+                Пароль
+              </p>
+              <p className="mt-1 break-all font-mono text-sm font-semibold text-ink">
+                {shownCredentials.password}
+              </p>
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="secondary"
+                onClick={() => void copyAccessValue(shownCredentials.password, 'пароль')}
+              >
+                <Copy className="size-4" /> Копировать пароль
+              </Button>
+            </div>
           </div>
         </div>
       )}
       {linkEnabled && accessUrl && (
-        <div className="flex items-center gap-2">
-          <Input label="Ссылка доступа" value={accessUrl} readOnly />
+        <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary-900">
+            <Link2 className="size-4" />
+            Персональная ссылка
+          </div>
+          <p className="mt-2 break-all font-mono text-sm leading-relaxed text-slate-700">
+            {accessUrl}
+          </p>
           <Button
-            className="mt-6"
+            className="mt-3"
             size="sm"
             variant="secondary"
-            disabled={!accessUrl}
             onClick={() => void copyAccessValue(accessUrl, 'ссылка')}
-            aria-label="Скопировать ссылку доступа"
-            title="Скопировать ссылку"
           >
-            <Copy className="size-4" />
+            <Copy className="size-4" /> Копировать ссылку
           </Button>
         </div>
       )}
@@ -1382,9 +1470,15 @@ function EmployeeAccessSection({
           label="Задать свой пароль"
           type="password"
           value={customPassword}
+          disabled={loading || linkEnabled}
           onChange={(event) => onCustomPasswordChange(event.target.value)}
-          placeholder="Оставьте пустым для генерации"
+          placeholder={linkEnabled ? 'Сначала отзовите ссылку' : 'Оставьте пустым для генерации'}
         />
+        {linkEnabled && (
+          <p className="text-xs leading-relaxed text-slate-500">
+            Чтобы выдать логин и пароль, сначала отзовите действующую ссылку.
+          </p>
+        )}
         {customPassword.trim() && (
           <p className="text-xs leading-relaxed text-slate-500">
             Нажмите «Сохранить и включить вход» внизу панели или установите пароль сейчас.
@@ -1394,8 +1488,9 @@ function EmployeeAccessSection({
           <Button
             size="sm"
             variant="secondary"
-            disabled={loading}
+            disabled={loading || linkEnabled}
             loading={setPassword.isPending}
+            title={linkEnabled ? 'Сначала отзовите ссылку доступа' : undefined}
             onClick={() =>
               confirmSessionReset() && setPassword.mutate(customPassword.trim() || undefined)
             }
@@ -1406,8 +1501,9 @@ function EmployeeAccessSection({
           <Button
             size="sm"
             variant="secondary"
-            disabled={loading}
+            disabled={loading || passwordEnabled}
             loading={setLink.isPending}
+            title={passwordEnabled ? 'Сначала отзовите вход по логину и паролю' : undefined}
             onClick={() => confirmSessionReset() && setLink.mutate()}
           >
             <Link2 className="size-4" />
@@ -1436,19 +1532,6 @@ function EmployeeAccessSection({
               }
             >
               Отозвать ссылку
-            </Button>
-          )}
-          {passwordEnabled && linkEnabled && (
-            <Button
-              size="sm"
-              variant="danger"
-              loading={revokeAll.isPending}
-              onClick={() =>
-                confirm('Отозвать все способы входа и завершить все сессии сотрудника?') &&
-                revokeAll.mutate()
-              }
-            >
-              Отозвать всё
             </Button>
           )}
         </div>

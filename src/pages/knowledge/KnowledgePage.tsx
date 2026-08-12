@@ -44,6 +44,7 @@ import { canManageContent } from '@/lib/permissions';
 const emptyDoc: RichTextContent = { type: 'doc', content: [{ type: 'paragraph' }] };
 const emptySections: ArticleSection[] = [];
 const emptyArticles: Article[] = [];
+const ROOT_SECTION_VALUE = '__root__';
 
 const articleTemplates = [
   {
@@ -71,6 +72,21 @@ function sectionChildren(sections: ArticleSection[], parentId: ID | null) {
   return sections
     .filter((section) => section.parentId === parentId)
     .sort((a, b) => a.order - b.order);
+}
+
+function sectionPlacementOptions(sections: ArticleSection[]) {
+  const options = [{ value: ROOT_SECTION_VALUE, label: 'В корне базы знаний' }];
+
+  const appendChildren = (parentId: ID | null, path: string[]) => {
+    for (const section of sectionChildren(sections, parentId)) {
+      const nextPath = [...path, section.name];
+      options.push({ value: section.id, label: nextPath.join(' / ') });
+      appendChildren(section.id, nextPath);
+    }
+  };
+
+  appendChildren(null, []);
+  return options;
 }
 
 function SectionBranch({
@@ -162,24 +178,28 @@ function SectionDialog({
   open,
   mode,
   parentId,
+  sections,
   section,
   onClose,
 }: {
   open: boolean;
   mode: 'create' | 'rename';
   parentId: ID | null;
+  sections: ArticleSection[];
   section?: ArticleSection;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<ArticleVisibility>('company');
+  const [selectedParentId, setSelectedParentId] = useState<ID | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setName(section?.name ?? '');
     setVisibility(section?.visibility ?? 'company');
-  }, [open, section]);
+    setSelectedParentId(parentId);
+  }, [open, parentId, section]);
 
   const createSection = useMutation({
     mutationFn: kbApi.createSection,
@@ -206,7 +226,8 @@ function SectionDialog({
   const submit = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    if (mode === 'create') createSection.mutate({ name: trimmed, parentId, visibility });
+    if (mode === 'create')
+      createSection.mutate({ name: trimmed, parentId: selectedParentId, visibility });
     else if (section) updateSection.mutate({ id: section.id, name: trimmed, visibility });
   };
 
@@ -232,6 +253,16 @@ function SectionDialog({
     >
       <div className="space-y-4">
         <Input label="Название" value={name} onChange={(event) => setName(event.target.value)} />
+        {mode === 'create' && (
+          <Select
+            label="Расположение"
+            value={selectedParentId ?? ROOT_SECTION_VALUE}
+            onValueChange={(value) =>
+              setSelectedParentId(value === ROOT_SECTION_VALUE ? null : value)
+            }
+            options={sectionPlacementOptions(sections)}
+          />
+        )}
         <Select
           label="Видимость"
           value={visibility}
@@ -1068,6 +1099,7 @@ export function KnowledgePage() {
           open={sectionDialog === 'create' || sectionDialog === 'rename'}
           mode={sectionDialog ?? 'create'}
           parentId={activeSectionId}
+          sections={sections}
           section={activeSection}
           onClose={() => setSectionDialog(null)}
         />

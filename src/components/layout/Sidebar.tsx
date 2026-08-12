@@ -38,7 +38,6 @@ type NavItemDefinition = {
 };
 
 const academyV2 = isAcademyV2Enabled();
-
 const navItems: NavItemDefinition[] = [
   { to: '/dashboard', label: 'Главная', icon: Home, end: true },
   { to: '/employees', label: 'Сотрудники', icon: Users },
@@ -56,7 +55,13 @@ const navItems: NavItemDefinition[] = [
 
 const integrationItems: NavItemDefinition[] = [
   { to: '/activity-control', label: 'Контроль активности', icon: Activity },
-  { to: '/duplicate-search', label: 'Автопоиск дубликатов', icon: ScanSearch },
+  {
+    to: '/duplicate-search',
+    label: 'Автопоиск дубликатов',
+    icon: ScanSearch,
+    disabled: true,
+    description: 'Находится в разработке',
+  },
   {
     to: '/distribution',
     label: 'Распределение',

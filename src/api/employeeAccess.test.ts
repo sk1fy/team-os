@@ -21,15 +21,13 @@ describe('mock employee access targets', () => {
       login: expect.stringMatching(/^tm\d{7}$/),
       password: 'AdminPassword123',
     });
+    await expect(orgApi.setUserLinkAccess('user-3')).rejects.toMatchObject({ status: 409 });
+    await expect(orgApi.revokeUserPasswordAccess('user-3')).resolves.toBeUndefined();
     await expect(orgApi.setUserLinkAccess('user-3')).resolves.toMatchObject({
       token: expect.any(String),
       createdAt: expect.any(String),
     });
-    await expect(orgApi.getUserAccess('user-3')).resolves.toMatchObject({
-      passwordEnabled: true,
-      linkEnabled: true,
-    });
-    await expect(orgApi.revokeUserPasswordAccess('user-3')).resolves.toBeUndefined();
+    await expect(orgApi.setUserPasswordAccess('user-3', {})).rejects.toMatchObject({ status: 409 });
     await expect(orgApi.getUserAccess('user-3')).resolves.toMatchObject({
       passwordEnabled: false,
       linkEnabled: true,
