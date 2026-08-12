@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { User } from '@/types';
-import { filterScheduleUsers } from './scheduleUsers';
+import { filterScheduleUsers, selectScheduleStaffUsers } from './scheduleUsers';
 
 const users: User[] = [
   {
@@ -47,27 +47,43 @@ const users: User[] = [
     positionIds: [],
     createdAt: '2026-07-16T00:00:00Z',
   },
+  {
+    id: 'fired-user',
+    email: 'fired@example.com',
+    firstName: 'Уволенный',
+    lastName: 'Сотрудник',
+    role: 'employee',
+    status: 'deactivated',
+    positionIds: [],
+    createdAt: '2026-07-16T00:00:00Z',
+  },
 ];
 
 describe('filterScheduleUsers', () => {
   it('показывает сотрудников без созданного шаблона графика', () => {
-    const result = filterScheduleUsers(users, {
-      search: '',
-      chip: 'all',
-      positionById: new Map(),
-      stateToday: () => undefined,
-    });
+    const result = filterScheduleUsers(
+      users.filter((user) => user.status !== 'deactivated'),
+      {
+        search: '',
+        chip: 'all',
+        positionById: new Map(),
+        stateToday: () => undefined,
+      },
+    );
 
     expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
   });
 
   it('скрывает владельца и сотрудников с выключенным флагом', () => {
-    const result = filterScheduleUsers(users, {
-      search: '',
-      chip: 'all',
-      positionById: new Map(),
-      stateToday: () => undefined,
-    });
+    const result = filterScheduleUsers(
+      users.filter((user) => user.status !== 'deactivated'),
+      {
+        search: '',
+        chip: 'all',
+        positionById: new Map(),
+        stateToday: () => undefined,
+      },
+    );
 
     expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
   });
@@ -79,7 +95,22 @@ describe('filterScheduleUsers', () => {
       stateToday: () => undefined,
     };
 
-    expect(filterScheduleUsers(users, { ...common, chip: 'working' })).toEqual([]);
-    expect(filterScheduleUsers(users, { ...common, chip: 'absent' })).toEqual([]);
+    const activeUsers = users.filter((user) => user.status !== 'deactivated');
+    expect(filterScheduleUsers(activeUsers, { ...common, chip: 'working' })).toEqual([]);
+    expect(filterScheduleUsers(activeUsers, { ...common, chip: 'absent' })).toEqual([]);
+  });
+});
+
+describe('selectScheduleStaffUsers', () => {
+  it('показывает обычному сотруднику всех активных коллег, даже если выбран фильтр уволенных', () => {
+    const result = selectScheduleStaffUsers(users, 'employee', 'fired');
+
+    expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
+  });
+
+  it('сохраняет фильтр активных и уволенных для руководителей', () => {
+    expect(selectScheduleStaffUsers(users, 'admin', 'fired').map((user) => user.id)).toEqual([
+      'fired-user',
+    ]);
   });
 });

@@ -1,4 +1,4 @@
-import type { ID, Position, User } from '@/types';
+import type { ID, Position, User, UserRole } from '@/types';
 import type { DayState } from '@/lib/schedule';
 import { fullName } from '@/lib/labels';
 
@@ -26,6 +26,20 @@ export function filterScheduleUsers(users: User[], filter: ScheduleUserFilter): 
     if (filter.chip === 'absent') return stateType === 'vacation' || stateType === 'sick';
     return true;
   });
+}
+
+/** Обычный сотрудник всегда видит общий график активных коллег без просмотра уволенных. */
+export function selectScheduleStaffUsers(
+  users: User[],
+  viewerRole: UserRole | undefined,
+  staff: 'active' | 'fired',
+): User[] {
+  const effectiveStaff = viewerRole === 'employee' ? 'active' : staff;
+  return users.filter(
+    (user) =>
+      isUserShownInSchedule(user) &&
+      (effectiveStaff === 'fired' ? user.status === 'deactivated' : user.status !== 'deactivated'),
+  );
 }
 
 /** Старые записи без флага видимы по умолчанию; владелец исключён всегда. */

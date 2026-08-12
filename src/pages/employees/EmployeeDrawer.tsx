@@ -374,6 +374,9 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   const roleMutation = useMutation({
     mutationFn: (role: 'employee' | 'admin') => {
       if (!user) throw new Error('Сотрудник не выбран');
+      if (currentUserQuery.data?.id === user.id) {
+        throw new Error('Администратор не может изменить собственную роль');
+      }
       return orgApi.updateUser({ id: user.id, role });
     },
     onSuccess: (updated) => {
@@ -697,6 +700,9 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
               {activeTab === 'status' && statusVisible && (
                 <EmployeeStatusSection
                   user={user}
+                  canChangeRole={Boolean(
+                    currentUserQuery.data && currentUserQuery.data.id !== user.id,
+                  )}
                   statusPending={statusMutation.isPending}
                   rolePending={roleMutation.isPending}
                   deletePending={deleteMutation.isPending}
@@ -1054,6 +1060,7 @@ function EmployeeSectionsSection({
 
 function EmployeeStatusSection({
   user,
+  canChangeRole,
   statusPending,
   rolePending,
   deletePending,
@@ -1062,6 +1069,7 @@ function EmployeeStatusSection({
   onDelete,
 }: {
   user: User;
+  canChangeRole: boolean;
   statusPending: boolean;
   rolePending: boolean;
   deletePending: boolean;
@@ -1094,13 +1102,18 @@ function EmployeeStatusSection({
                 className="mt-3 max-w-sm"
                 label="Уровень доступа"
                 value={user.role}
-                disabled={rolePending}
+                disabled={rolePending || !canChangeRole}
                 onValueChange={(value) => onRoleChange(value as 'employee' | 'admin')}
                 options={[
                   { value: 'employee', label: 'Сотрудник' },
                   { value: 'admin', label: 'Администратор' },
                 ]}
               />
+              {!canChangeRole && (
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                  Администратор не может изменить собственную роль.
+                </p>
+              )}
             </div>
           </div>
         </div>

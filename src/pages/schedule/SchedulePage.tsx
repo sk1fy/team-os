@@ -15,7 +15,6 @@ import {
   RotateCcw,
   Search,
   Send,
-  Share2,
 } from 'lucide-react';
 import { authApi, orgApi, scheduleApi } from '@/api';
 import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
@@ -42,7 +41,11 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
-import { filterScheduleUsers, isUserShownInSchedule } from './scheduleUsers';
+import {
+  filterScheduleUsers,
+  isUserShownInSchedule,
+  selectScheduleStaffUsers,
+} from './scheduleUsers';
 import { canManageContent } from '@/lib/permissions';
 
 /** Черновик правки одной ячейки (до публикации). */
@@ -525,7 +528,9 @@ export function SchedulePage() {
   });
 
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
-  const canEdit = canManageContent(currentUserQuery.data?.role);
+  const currentUserRole = currentUserQuery.data?.role;
+  const canEdit = canManageContent(currentUserRole);
+  const isEmployeeView = currentUserRole === 'employee';
   const positionById = useMemo(
     () => new Map((positionsQuery.data ?? []).map((position) => [position.id, position])),
     [positionsQuery.data],
@@ -586,13 +591,8 @@ export function SchedulePage() {
     (user) => isUserShownInSchedule(user) && user.status !== 'deactivated',
   ).length;
   const staffUsers = useMemo(
-    () =>
-      users.filter(
-        (user) =>
-          isUserShownInSchedule(user) &&
-          (staff === 'fired' ? user.status === 'deactivated' : user.status !== 'deactivated'),
-      ),
-    [staff, users],
+    () => selectScheduleStaffUsers(users, currentUserRole, staff),
+    [currentUserRole, staff, users],
   );
 
   const workingToday = staffUsers.filter((user) =>
@@ -874,52 +874,28 @@ export function SchedulePage() {
                 </div>
               )}
 
-              {canEdit &&
-                (mode === 'edit' && drafts.size > 0 ? (
-                  <>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setDrafts(new Map());
-                        toast.info('Правки отменены');
-                      }}
-                      className="border-warning-100 bg-warning-50 text-warning-700 hover:border-warning-500 hover:text-warning-700"
-                    >
-                      <RotateCcw className="size-4" />
-                      Сбросить правки
-                    </Button>
-                    <Button onClick={() => publish.mutate()} loading={publish.isPending}>
-                      <Send className="size-4" />
-                      Опубликовать
-                      <span className="rounded-full bg-white/25 px-1.5 font-mono text-xs">
-                        {drafts.size}
-                      </span>
-                    </Button>
-                  </>
-                ) : (
-                  <div className="flex">
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        toast.info(
-                          'Ссылка на график',
-                          'Демо-действие: окно публикации появится на следующем этапе.',
-                        )
-                      }
-                      className="rounded-r-none"
-                    >
-                      <Share2 className="size-4" />
-                      Поделиться
-                    </Button>
-                    <button
-                      type="button"
-                      className="flex size-8 cursor-pointer items-center justify-center rounded-r-md bg-primary-700 text-white transition-colors hover:bg-primary-800"
-                      aria-label="Быстрые сценарии публикации"
-                    >
-                      <ChevronDown className="size-4" />
-                    </button>
-                  </div>
-                ))}
+              {canEdit && mode === 'edit' && drafts.size > 0 && (
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setDrafts(new Map());
+                      toast.info('Правки отменены');
+                    }}
+                    className="border-warning-100 bg-warning-50 text-warning-700 hover:border-warning-500 hover:text-warning-700"
+                  >
+                    <RotateCcw className="size-4" />
+                    Сбросить правки
+                  </Button>
+                  <Button onClick={() => publish.mutate()} loading={publish.isPending}>
+                    <Send className="size-4" />
+                    Опубликовать
+                    <span className="rounded-full bg-white/25 px-1.5 font-mono text-xs">
+                      {drafts.size}
+                    </span>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -967,37 +943,39 @@ export function SchedulePage() {
                 </button>
               ))}
               <div className="flex-1" />
-              <div className="inline-flex gap-1 rounded-lg border border-slate-100 bg-surface-sunken p-1 shadow-sm">
-                {(
-                  [
-                    { value: 'active', label: 'Активные', count: activeCount },
-                    { value: 'fired', label: 'Уволенные', count: firedCount },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setStaff(option.value)}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors',
-                      staff === option.value
-                        ? 'bg-surface text-primary-700 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700',
-                    )}
-                  >
-                    {option.label}
-                    <span
+              {!isEmployeeView && (
+                <div className="inline-flex gap-1 rounded-lg border border-slate-100 bg-surface-sunken p-1 shadow-sm">
+                  {(
+                    [
+                      { value: 'active', label: 'Активные', count: activeCount },
+                      { value: 'fired', label: 'Уволенные', count: firedCount },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setStaff(option.value)}
                       className={cn(
-                        'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-mono text-[12px] font-bold',
+                        'flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors',
                         staff === option.value
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-slate-200 text-slate-500',
+                          ? 'bg-surface text-primary-700 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700',
                       )}
                     >
-                      {option.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                      {option.label}
+                      <span
+                        className={cn(
+                          'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-mono text-[12px] font-bold',
+                          staff === option.value
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-slate-200 text-slate-500',
+                        )}
+                      >
+                        {option.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <Button variant="secondary" size="sm" onClick={scrollToToday}>
                 Сегодня
               </Button>
