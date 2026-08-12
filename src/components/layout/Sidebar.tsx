@@ -55,6 +55,8 @@ const navItems: NavItemDefinition[] = [
 ];
 
 const integrationItems: NavItemDefinition[] = [
+  { to: '/activity-control', label: 'Контроль активности', icon: Activity },
+  { to: '/duplicate-search', label: 'Автопоиск дубликатов', icon: ScanSearch },
   {
     to: '/distribution',
     label: 'Распределение',
@@ -62,8 +64,6 @@ const integrationItems: NavItemDefinition[] = [
     disabled: true,
     description: 'Находится в разработке',
   },
-  { to: '/activity-control', label: 'Контроль активности', icon: Activity },
-  { to: '/duplicate-search', label: 'Автопоиск дубликатов', icon: ScanSearch },
 ];
 
 function NavItem({

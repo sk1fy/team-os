@@ -81,7 +81,7 @@ type ScheduleTab = (typeof scheduleTabs)[number]['value'];
 
 const employeeColumnWidth = 270;
 const dayColumnWidth = 44;
-const totalColumnWidth = 186;
+const totalColumnWidth = 216;
 
 /** Диагональная штриховка выходного дня (как в дизайн-системе «Ракурс»). */
 const offStripes =
@@ -582,6 +582,9 @@ export function SchedulePage() {
   const firedCount = users.filter(
     (user) => isUserShownInSchedule(user) && user.status === 'deactivated',
   ).length;
+  const activeCount = users.filter(
+    (user) => isUserShownInSchedule(user) && user.status !== 'deactivated',
+  ).length;
   const staffUsers = useMemo(
     () =>
       users.filter(
@@ -793,7 +796,7 @@ export function SchedulePage() {
 
         <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-card">
           <div className="grid items-center gap-2 px-2.5 py-2.5 lg:grid-cols-[1fr_auto_1fr]">
-            <div className="flex flex-wrap gap-1 rounded-md bg-surface-sunken p-1">
+            <div className="inline-flex w-fit flex-wrap justify-self-start gap-1 rounded-md bg-surface-sunken p-1">
               {scheduleTabs.map((tab) => (
                 <button
                   key={tab.value}
@@ -964,10 +967,10 @@ export function SchedulePage() {
                 </button>
               ))}
               <div className="flex-1" />
-              <div className="inline-flex gap-1 rounded-md bg-surface-sunken p-1">
+              <div className="inline-flex gap-1 rounded-lg border border-slate-100 bg-surface-sunken p-1 shadow-sm">
                 {(
                   [
-                    { value: 'active', label: 'Активные', count: users.length - firedCount },
+                    { value: 'active', label: 'Активные', count: activeCount },
                     { value: 'fired', label: 'Уволенные', count: firedCount },
                   ] as const
                 ).map((option) => (
@@ -975,14 +978,21 @@ export function SchedulePage() {
                     key={option.value}
                     onClick={() => setStaff(option.value)}
                     className={cn(
-                      'flex cursor-pointer items-center gap-1 rounded-[9px] px-2 py-1.5 text-[13px] font-semibold transition-colors',
+                      'flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-semibold transition-colors',
                       staff === option.value
-                        ? 'bg-surface text-ink shadow-sm'
+                        ? 'bg-surface text-primary-700 shadow-sm'
                         : 'text-slate-500 hover:text-slate-700',
                     )}
                   >
                     {option.label}
-                    <span className="font-mono text-[13px] font-bold text-slate-400">
+                    <span
+                      className={cn(
+                        'flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-mono text-[12px] font-bold',
+                        staff === option.value
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-slate-200 text-slate-500',
+                      )}
+                    >
                       {option.count}
                     </span>
                   </button>
@@ -1125,7 +1135,7 @@ export function SchedulePage() {
                         </th>
                       );
                     })}
-                    <th className="sticky top-0 right-0 z-40 w-[186px] min-w-[186px] max-w-[186px] border-b border-l border-slate-200 bg-surface px-4 py-2.5 text-right text-[13px] font-semibold text-slate-500">
+                    <th className="sticky top-0 right-0 z-40 w-[216px] min-w-[216px] max-w-[216px] border-b border-l border-slate-200 bg-surface px-4 py-2.5 text-center text-[13px] font-semibold text-slate-500">
                       Статистика месяца
                     </th>
                   </tr>
@@ -1212,7 +1222,7 @@ export function SchedulePage() {
                         </td>
                       );
                     })}
-                    <td className="sticky right-0 bottom-0 z-40 w-[186px] min-w-[186px] max-w-[186px] border-t border-l border-slate-700 bg-ink" />
+                    <td className="sticky right-0 bottom-0 z-40 w-[216px] min-w-[216px] max-w-[216px] border-t border-l border-slate-700 bg-ink" />
                   </tr>
                 </tfoot>
               </table>
@@ -1922,7 +1932,7 @@ function GroupRows({
           </span>
         </td>
         <td colSpan={days.length} className="border-b border-slate-100 bg-surface-muted" />
-        <td className="sticky right-0 z-10 w-[186px] min-w-[186px] max-w-[186px] border-b border-l border-slate-100 bg-surface-muted" />
+        <td className="sticky right-0 z-10 w-[216px] min-w-[216px] max-w-[216px] border-b border-l border-slate-100 bg-surface-muted" />
       </tr>
 
       {!collapsed &&
@@ -2099,7 +2109,7 @@ function GroupRows({
               {/* Правая закреплённая колонка: итоги */}
               <td
                 className={cn(
-                  'sticky right-0 z-10 w-[186px] min-w-[186px] max-w-[186px] border-b border-l border-slate-100 bg-surface px-4 text-right',
+                  'sticky right-0 z-10 w-[216px] min-w-[216px] max-w-[216px] border-b border-l border-slate-100 bg-surface px-3 text-right',
                   rowHeight,
                 )}
               >
