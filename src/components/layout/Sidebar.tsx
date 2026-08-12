@@ -59,8 +59,6 @@ const integrationItems: NavItemDefinition[] = [
     to: '/duplicate-search',
     label: 'Автопоиск дубликатов',
     icon: ScanSearch,
-    disabled: true,
-    description: 'Находится в разработке',
   },
   {
     to: '/distribution',
