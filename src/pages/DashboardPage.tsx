@@ -460,154 +460,162 @@ export function DashboardPage() {
     courseProgress.isPending;
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
-      <PageHeader
-        title={currentUser ? `Добрый день, ${currentUser.firstName}!` : 'Добрый день!'}
-        description="Операционная сводка: риски, задачи, команда и база знаний."
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => navigate('/tasks')}>
-              <KanbanSquare className="size-4" />
-              Задачи
-            </Button>
-            <Button onClick={() => navigate('/employees')}>
-              <UserPlus className="size-4" />
-              Сотрудники
-            </Button>
-          </>
-        }
-      />
+    <div className="relative mx-auto min-h-[calc(100vh-4rem)] max-w-7xl overflow-hidden p-6">
+      <div inert className="pointer-events-none select-none blur-[6px]" aria-hidden="true">
+        <PageHeader
+          title={currentUser ? `Добрый день, ${currentUser.firstName}!` : 'Добрый день!'}
+          description="Операционная сводка: риски, задачи, команда и база знаний."
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => navigate('/tasks')}>
+                <KanbanSquare className="size-4" />
+                Задачи
+              </Button>
+              <Button onClick={() => navigate('/employees')}>
+                <UserPlus className="size-4" />
+                Сотрудники
+              </Button>
+            </>
+          }
+        />
 
-      {hasError && (
+        {hasError && (
+          <div className="mt-6">
+            <ErrorState
+              title="Часть данных не загрузилась"
+              description="Мок-API иногда имитирует сетевые сбои. Остальная сводка остаётся доступной."
+              onRetry={() => {
+                users.refetch();
+                departments.refetch();
+                positions.refetch();
+                tasks.refetch();
+                articles.refetch();
+                courses.refetch();
+                courseProgress.refetch();
+                notifications.refetch();
+              }}
+            />
+          </div>
+        )}
+
         <div className="mt-6">
-          <ErrorState
-            title="Часть данных не загрузилась"
-            description="Мок-API иногда имитирует сетевые сбои. Остальная сводка остаётся доступной."
-            onRetry={() => {
-              users.refetch();
-              departments.refetch();
-              positions.refetch();
-              tasks.refetch();
-              articles.refetch();
-              courses.refetch();
-              courseProgress.refetch();
-              notifications.refetch();
-            }}
-          />
+          {isLoadingDashboard && <p className="mb-3 text-xs text-slate-400">Обновляем данные…</p>}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <AttentionCard
+              title="Просроченные задачи"
+              value={overdueTasks.length}
+              detail="Нужно вернуть в срок или пересогласовать дедлайн."
+              to="/tasks"
+              icon={ShieldAlert}
+              tone={overdueTasks.length > 0 ? 'danger' : 'primary'}
+              loading={tasks.isPending}
+              error={tasks.isError}
+            />
+            <AttentionCard
+              title="Без исполнителя"
+              value={tasksWithoutAssignee.length}
+              detail="Открытые задачи, которые не закреплены за человеком или должностью."
+              to="/tasks"
+              icon={AlertTriangle}
+              tone={tasksWithoutAssignee.length > 0 ? 'warning' : 'primary'}
+              loading={tasks.isPending}
+              error={tasks.isError}
+            />
+            <AttentionCard
+              title="Новые уведомления"
+              value={unreadNotifications}
+              detail="Комментарии, дедлайны и события, которые ждут реакции."
+              to="/notifications"
+              icon={BookOpenCheck}
+              tone={unreadNotifications > 0 ? 'warning' : 'primary'}
+              loading={notifications.isPending}
+              error={notifications.isError}
+            />
+          </div>
         </div>
-      )}
 
-      <div className="mt-6">
-        {isLoadingDashboard && <p className="mb-3 text-xs text-slate-400">Обновляем данные…</p>}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <AttentionCard
-            title="Просроченные задачи"
-            value={overdueTasks.length}
-            detail="Нужно вернуть в срок или пересогласовать дедлайн."
-            to="/tasks"
-            icon={ShieldAlert}
-            tone={overdueTasks.length > 0 ? 'danger' : 'primary'}
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Активные сотрудники"
+            value={activeUsers}
+            detail={`${invitedUsers} ${plural(invitedUsers, ['пользователь', 'пользователя', 'пользователей'])} ожидает активации`}
+            icon={Users}
+            tone="primary"
+            loading={users.isPending}
+          />
+          <MetricCard
+            title="Открытые задачи"
+            value={openTasks.length}
+            detail={`${dueSoonTasks.length} ${plural(dueSoonTasks.length, ['дедлайн', 'дедлайна', 'дедлайнов'])} на 7 дней`}
+            icon={KanbanSquare}
+            tone={overdueTasks.length > 0 ? 'danger' : 'neutral'}
             loading={tasks.isPending}
-            error={tasks.isError}
           />
-          <AttentionCard
-            title="Без исполнителя"
-            value={tasksWithoutAssignee.length}
-            detail="Открытые задачи, которые не закреплены за человеком или должностью."
-            to="/tasks"
-            icon={AlertTriangle}
-            tone={tasksWithoutAssignee.length > 0 ? 'warning' : 'primary'}
-            loading={tasks.isPending}
-            error={tasks.isError}
-          />
-          <AttentionCard
-            title="Новые уведомления"
-            value={unreadNotifications}
-            detail="Комментарии, дедлайны и события, которые ждут реакции."
-            to="/notifications"
-            icon={BookOpenCheck}
-            tone={unreadNotifications > 0 ? 'warning' : 'primary'}
-            loading={notifications.isPending}
-            error={notifications.isError}
-          />
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          title="Активные сотрудники"
-          value={activeUsers}
-          detail={`${invitedUsers} ${plural(invitedUsers, ['пользователь', 'пользователя', 'пользователей'])} ожидает активации`}
-          icon={Users}
-          tone="primary"
-          loading={users.isPending}
-        />
-        <MetricCard
-          title="Открытые задачи"
-          value={openTasks.length}
-          detail={`${dueSoonTasks.length} ${plural(dueSoonTasks.length, ['дедлайн', 'дедлайна', 'дедлайнов'])} на 7 дней`}
-          icon={KanbanSquare}
-          tone={overdueTasks.length > 0 ? 'danger' : 'neutral'}
-          loading={tasks.isPending}
-        />
-        <MetricCard
-          title="Знания"
-          value={publishedArticles}
-          detail={`${articlesRequiringAck} ${plural(articlesRequiringAck, ['статья требует', 'статьи требуют', 'статей требуют'])} ознакомления`}
-          icon={Library}
-          tone="neutral"
-          loading={articles.isPending}
-        />
-        <MetricCard
-          title="Обучение"
-          value={publishedCourses}
-          detail={`${inProgressCourses} ${plural(inProgressCourses, ['сотрудник учится', 'сотрудника учатся', 'сотрудников учатся'])}`}
-          icon={GraduationCap}
-          tone="neutral"
-          loading={courses.isPending || courseProgress.isPending}
-        />
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <TaskFocusList tasks={focusTasks} now={now} />
-        <TeamHealth
-          activeUsers={activeUsers}
-          invitedUsers={invitedUsers}
-          usersWithoutPosition={usersWithoutPosition}
-          vacantPositions={vacantPositions}
-          departmentsCount={departments.data?.length ?? 0}
-        />
-      </div>
-
-      <section className="mt-4">
-        <h2 className="mb-3 text-base font-semibold text-slate-950">Быстрые действия</h2>
-        <div className="grid gap-3 md:grid-cols-3">
-          <QuickAction
-            label="Проверить график"
-            description="Смены и отсутствия"
-            to="/schedule"
-            icon={Clock3}
-          />
-          <QuickAction
-            label="Создать задачу"
-            description="Канбан и дедлайны"
-            to="/tasks"
-            icon={Plus}
-          />
-          <QuickAction
-            label="Открыть БЗ"
-            description="Регламенты и статьи"
-            to="/knowledge"
+          <MetricCard
+            title="Знания"
+            value={publishedArticles}
+            detail={`${articlesRequiringAck} ${plural(articlesRequiringAck, ['статья требует', 'статьи требуют', 'статей требуют'])} ознакомления`}
             icon={Library}
+            tone="neutral"
+            loading={articles.isPending}
+          />
+          <MetricCard
+            title="Обучение"
+            value={publishedCourses}
+            detail={`${inProgressCourses} ${plural(inProgressCourses, ['сотрудник учится', 'сотрудника учатся', 'сотрудников учатся'])}`}
+            icon={GraduationCap}
+            tone="neutral"
+            loading={courses.isPending || courseProgress.isPending}
           />
         </div>
-      </section>
 
-      {onboardingProgress < 100 && (
-        <div className="mt-6">
-          <OnboardingChecklist steps={onboardingSteps} progress={onboardingProgress} />
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <TaskFocusList tasks={focusTasks} now={now} />
+          <TeamHealth
+            activeUsers={activeUsers}
+            invitedUsers={invitedUsers}
+            usersWithoutPosition={usersWithoutPosition}
+            vacantPositions={vacantPositions}
+            departmentsCount={departments.data?.length ?? 0}
+          />
         </div>
-      )}
+
+        <section className="mt-4">
+          <h2 className="mb-3 text-base font-semibold text-slate-950">Быстрые действия</h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            <QuickAction
+              label="Проверить график"
+              description="Смены и отсутствия"
+              to="/schedule"
+              icon={Clock3}
+            />
+            <QuickAction
+              label="Создать задачу"
+              description="Канбан и дедлайны"
+              to="/tasks"
+              icon={Plus}
+            />
+            <QuickAction
+              label="Открыть БЗ"
+              description="Регламенты и статьи"
+              to="/knowledge"
+              icon={Library}
+            />
+          </div>
+        </section>
+
+        {onboardingProgress < 100 && (
+          <div className="mt-6">
+            <OnboardingChecklist steps={onboardingSteps} progress={onboardingProgress} />
+          </div>
+        )}
+      </div>
+
+      <div className="absolute inset-x-0 top-0 z-10 flex h-[calc(100vh-4rem)] items-center justify-center bg-surface/20 px-6">
+        <div className="rounded-xl border border-slate-200 bg-surface/95 px-7 py-5 text-center shadow-popover backdrop-blur-sm">
+          <p className="text-base font-semibold text-ink">Этот раздел находится в разработке</p>
+        </div>
+      </div>
     </div>
   );
 }

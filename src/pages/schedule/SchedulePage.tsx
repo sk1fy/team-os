@@ -73,8 +73,8 @@ const blockBadges: Partial<Record<ShiftType, { label: string; className: string 
 };
 
 const scheduleTabs = [
-  { value: 'schedule', label: 'График' },
-  { value: 'stats', label: 'Статистика' },
+  { value: 'schedule', label: 'График', disabled: false },
+  { value: 'stats', label: 'Статистика', disabled: true },
 ] as const;
 
 type ScheduleTab = (typeof scheduleTabs)[number]['value'];
@@ -273,6 +273,7 @@ function ShiftDrawer({
   user,
   schedule,
   state,
+  saving,
   onSave,
   onClose,
 }: {
@@ -280,6 +281,7 @@ function ShiftDrawer({
   user?: User;
   schedule?: UserSchedule;
   state?: DayState;
+  saving?: boolean;
   onSave: (draft: Draft) => void;
   onClose: () => void;
 }) {
@@ -324,11 +326,8 @@ function ShiftDrawer({
       }
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
-            Отмена
-          </Button>
           <Button
-            className="flex-1"
+            loading={saving}
             onClick={() =>
               onSave(
                 type === 'work'
@@ -337,7 +336,10 @@ function ShiftDrawer({
               )
             }
           >
-            Сохранить в черновик
+            Сохранить
+          </Button>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Отмена
           </Button>
         </>
       }
@@ -501,6 +503,27 @@ export function SchedulePage() {
       toast.error('Не удалось опубликовать', 'Мок-API имитирует сбой — попробуйте ещё раз.'),
   });
 
+  const savePlanChange = useMutation({
+    mutationFn: ({ userId, date, draft }: { userId: ID; date: string; draft: Draft }) =>
+      scheduleApi.saveExceptions([
+        {
+          userId,
+          date,
+          type: draft.type,
+          start: draft.start,
+          end: draft.end,
+          note: draft.note,
+        },
+      ]),
+    onSuccess: () => {
+      setPanelCell(null);
+      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.exceptionsForMonth(key) });
+      toast.success('Смена сохранена', 'Изменение сразу опубликовано в графике.');
+    },
+    onError: () =>
+      toast.error('Не удалось сохранить смену', 'Попробуйте сохранить изменение ещё раз.'),
+  });
+
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
   const canEdit = canManageContent(currentUserQuery.data?.role);
   const positionById = useMemo(
@@ -532,18 +555,18 @@ export function SchedulePage() {
       if (!schedule) return undefined;
       const date = isoDate(year, month, day);
       const cellId = draftKey(userId, date);
-      const draft = drafts.get(cellId);
+      const draft = mode === 'edit' ? drafts.get(cellId) : undefined;
       if (draft) return draft;
       return dayState(schedule.template, exceptionByCell.get(cellId), year, month, day);
     },
-    [drafts, exceptionByCell, month, scheduleByUser, year],
+    [drafts, exceptionByCell, mode, month, scheduleByUser, year],
   );
 
   /** Состояние сотрудника на реальное «сегодня» — для чипов-фильтров. */
   const stateToday = (userId: ID): DayState | undefined => {
     const schedule = scheduleByUser.get(userId);
     if (!schedule) return undefined;
-    const draft = drafts.get(draftKey(userId, todayIso));
+    const draft = mode === 'edit' ? drafts.get(draftKey(userId, todayIso)) : undefined;
     if (draft) return draft;
     const exception = exceptionByCell.get(draftKey(userId, todayIso));
     return dayState(
@@ -765,22 +788,25 @@ export function SchedulePage() {
       <div className="border-b border-slate-200 bg-surface px-6 pt-5 pb-4">
         <PageHeader
           title="График работы"
-          description="Смены, отпуска и покрытие по дням. Правки публикуются одним действием."
+          description="В режиме «План» изменения сохраняются сразу, в «Правке» — публикуются одним действием."
         />
 
         <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-card">
-          <div className="flex flex-wrap items-center justify-between gap-1.5 px-2.5 py-2.5">
+          <div className="grid items-center gap-2 px-2.5 py-2.5 lg:grid-cols-[1fr_auto_1fr]">
             <div className="flex flex-wrap gap-1 rounded-md bg-surface-sunken p-1">
               {scheduleTabs.map((tab) => (
                 <button
                   key={tab.value}
                   type="button"
-                  onClick={() => setActiveTab(tab.value)}
+                  disabled={tab.disabled}
+                  title={tab.disabled ? 'Раздел находится в разработке' : undefined}
+                  onClick={() => !tab.disabled && setActiveTab(tab.value)}
                   className={cn(
-                    'cursor-pointer rounded-[9px] px-2.5 py-1.5 text-[14px] font-semibold transition-colors',
+                    'rounded-[9px] px-2.5 py-1.5 text-[14px] font-semibold transition-colors',
+                    tab.disabled && 'cursor-not-allowed text-slate-300',
                     activeTab === tab.value
                       ? 'bg-surface text-primary-600 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700',
+                      : !tab.disabled && 'cursor-pointer text-slate-500 hover:text-slate-700',
                   )}
                 >
                   {tab.label}
@@ -790,7 +816,7 @@ export function SchedulePage() {
 
             <div
               className={cn(
-                'flex flex-wrap items-center gap-1',
+                'flex flex-wrap items-center justify-self-center gap-1',
                 activeTab !== 'schedule' && 'hidden',
               )}
             >
@@ -812,7 +838,14 @@ export function SchedulePage() {
               >
                 <ChevronRight className="size-4" />
               </button>
+            </div>
 
+            <div
+              className={cn(
+                'flex flex-wrap items-center justify-self-end gap-1',
+                activeTab !== 'schedule' && 'hidden',
+              )}
+            >
               {canEdit && (
                 <div className="inline-flex gap-1 rounded-md bg-surface-sunken p-1">
                   {(
@@ -839,7 +872,7 @@ export function SchedulePage() {
               )}
 
               {canEdit &&
-                (drafts.size > 0 ? (
+                (mode === 'edit' && drafts.size > 0 ? (
                   <>
                     <Button
                       variant="secondary"
@@ -1154,9 +1187,9 @@ export function SchedulePage() {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td className="sticky bottom-0 left-0 z-40 w-[270px] min-w-[270px] max-w-[270px] border-t border-slate-700 bg-ink px-5 py-2.5 text-[13px] font-semibold text-white">
+                    <td className="sticky bottom-0 left-0 z-40 w-[270px] min-w-[270px] max-w-[270px] border-t border-slate-700 bg-ink px-5 py-1.5 text-xs font-semibold text-white">
                       Покрытие по дням
-                      <span className="block text-[11px] font-normal text-slate-400">
+                      <span className="block text-[10px] leading-3.5 font-normal text-slate-400">
                         сколько человек работает
                       </span>
                     </td>
@@ -1167,7 +1200,7 @@ export function SchedulePage() {
                         <td
                           key={day}
                           className={cn(
-                            'sticky bottom-0 z-20 w-11 min-w-11 max-w-11 overflow-hidden border-t border-slate-700 bg-ink text-center font-mono text-sm font-bold',
+                            'sticky bottom-0 z-20 w-11 min-w-11 max-w-11 overflow-hidden border-t border-slate-700 bg-ink text-center font-mono text-xs font-bold',
                             !weekend &&
                               count < coverageNorm &&
                               'bg-warning-500/25 text-warning-500',
@@ -1227,9 +1260,18 @@ export function SchedulePage() {
           user={panelUser}
           schedule={panelCell ? scheduleByUser.get(panelCell.userId) : undefined}
           state={panelCell ? resolve(panelCell.userId, panelCell.day) : undefined}
+          saving={mode === 'plan' && savePlanChange.isPending}
           onClose={() => setPanelCell(null)}
           onSave={(draft) => {
             if (!panelCell) return;
+            if (mode === 'plan') {
+              savePlanChange.mutate({
+                userId: panelCell.userId,
+                date: panelCell.date,
+                draft,
+              });
+              return;
+            }
             setDrafts((prev) =>
               new Map(prev).set(draftKey(panelCell.userId, panelCell.date), draft),
             );

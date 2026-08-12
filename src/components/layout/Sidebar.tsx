@@ -33,10 +33,11 @@ type NavItemDefinition = {
   label: string;
   icon: typeof Home;
   end?: boolean;
+  disabled?: boolean;
+  description?: string;
 };
 
 const academyV2 = isAcademyV2Enabled();
-const distributionEnabled = false;
 
 const navItems: NavItemDefinition[] = [
   { to: '/dashboard', label: 'Главная', icon: Home, end: true },
@@ -54,10 +55,13 @@ const navItems: NavItemDefinition[] = [
 ];
 
 const integrationItems: NavItemDefinition[] = [
-  // Раздел ещё в разработке. Он относится к интеграциям и появится здесь после запуска.
-  ...(distributionEnabled
-    ? [{ to: '/distribution', label: 'Распределение', icon: Shuffle }]
-    : []),
+  {
+    to: '/distribution',
+    label: 'Распределение',
+    icon: Shuffle,
+    disabled: true,
+    description: 'Находится в разработке',
+  },
   { to: '/activity-control', label: 'Контроль активности', icon: Activity },
   { to: '/duplicate-search', label: 'Автопоиск дубликатов', icon: ScanSearch },
 ];
@@ -67,6 +71,8 @@ function NavItem({
   label,
   icon: Icon,
   end,
+  disabled,
+  description,
   collapsed,
 }: NavItemDefinition & { collapsed: boolean }) {
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
@@ -75,7 +81,23 @@ function NavItem({
   const { pathname } = useLocation();
   const isActive = end ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
 
-  const link = (
+  const link = disabled ? (
+    <div
+      className={cn(
+        'flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-slate-400',
+        collapsed && 'justify-center px-2',
+      )}
+      aria-disabled="true"
+    >
+      <Icon className="size-5 shrink-0" />
+      {!collapsed && (
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">{label}</span>
+          {description && <span className="block text-[10px] leading-4">{description}</span>}
+        </span>
+      )}
+    </div>
+  ) : (
     <NavLink
       to={to}
       end={end}
@@ -96,7 +118,7 @@ function NavItem({
   );
 
   return collapsed ? (
-    <Tooltip content={label} side="right">
+    <Tooltip content={disabled && description ? `${label} — ${description}` : label} side="right">
       {link}
     </Tooltip>
   ) : (

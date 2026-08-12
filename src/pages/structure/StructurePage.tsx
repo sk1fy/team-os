@@ -200,8 +200,7 @@ export function StructurePage({ embedded = false }: { embedded?: boolean }) {
       {embedded ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-2xl text-sm text-slate-500">
-            Отделы, должности и сотрудники компании. Уровни задаются у должностей: 5 — руководитель
-            компании, 1 — специалист.
+            Структура отделов и должностей компании.
           </p>
           <Button
             onClick={() =>

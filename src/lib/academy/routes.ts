@@ -60,8 +60,6 @@ export function academyNavForRole(role: UserRole | undefined): AcademyNavItem[] 
       ...learner,
       { id: 'courses', to: academyRoutes.courses, label: 'Мои курсы' },
       { id: 'templates', to: academyRoutes.templates, label: 'Шаблоны' },
-      { id: 'reports', to: academyRoutes.reports, label: 'Отчёты' },
-      { id: 'learners', to: academyRoutes.learners, label: 'Внешние ученики' },
     ];
   }
 
@@ -69,10 +67,7 @@ export function academyNavForRole(role: UserRole | undefined): AcademyNavItem[] 
   return [
     ...learner,
     { id: 'courses', to: academyRoutes.courses, label: 'Курсы компании' },
-    { id: 'partners', to: academyRoutes.partners, label: 'Курсы партнёров' },
     { id: 'templates', to: academyRoutes.templates, label: 'Шаблоны' },
-    { id: 'reports', to: academyRoutes.reports, label: 'Отчёты' },
-    { id: 'learners', to: academyRoutes.learners, label: 'Внешние ученики' },
   ];
 }
 
