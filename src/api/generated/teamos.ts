@@ -3464,19 +3464,15 @@ export interface components {
             user: components["schemas"]["User"];
             onboarding: components["schemas"]["OnboardingState"];
         };
-        LoginInput: components["schemas"]["LoginByIdentifierInput"] | components["schemas"]["LoginByEmailInput"];
-        LoginByIdentifierInput: {
+        /** @description Данные для входа. Передайте `login` либо устаревшее поле `email` вместе с `password`. */
+        LoginInput: {
             /** @description Логин TeamOS или email владельца/администратора. */
-            login: string;
-            /** Format: password */
-            password: string;
-        };
-        LoginByEmailInput: {
+            login?: string;
             /**
              * @deprecated
              * @description Устаревшее поле для совместимости; используйте `login`.
              */
-            email: components["schemas"]["Email"];
+            email?: components["schemas"]["Email"];
             /** Format: password */
             password: string;
         };
