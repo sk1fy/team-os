@@ -1,6 +1,6 @@
 import { queryKeys } from '@/api/queryKeys';
 import { useRef, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Button, Input } from '@/components/ui';
@@ -69,7 +69,7 @@ export function LoginPage() {
           ref={loginRef}
           name="login"
           type="text"
-          placeholder="tm8901912 или you@company.ru"
+          placeholder="Введите логин или you@company.com"
           autoComplete="username"
           required
           error={loginError}
@@ -84,21 +84,10 @@ export function LoginPage() {
           required
         />
         {error && <p className="text-sm text-danger-600">{error}</p>}
-        <div className="text-right">
-          <a href="#" className="text-xs text-primary-600 hover:underline">
-            Забыли пароль?
-          </a>
-        </div>
         <Button type="submit" className="w-full" loading={submitting}>
           Войти
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-slate-500">
-        Нет аккаунта?{' '}
-        <Link to="/auth/register" className="font-medium text-primary-600 hover:underline">
-          Зарегистрироваться
-        </Link>
-      </p>
     </div>
   );
 }

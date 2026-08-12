@@ -568,7 +568,7 @@ export function App() {
               </RedirectAuthenticated>
             }
           />
-          <Route path="register" element={<RegisterPage />} />
+          <Route path="register" element={<Navigate to="/auth/login" replace />} />
           <Route path="amocrm" element={<AmoWidgetAuthPage />} />
           <Route path="create-company" element={<Navigate to="/auth/register" replace />} />
           <Route path="invite/:token" element={<InvitePage />} />
