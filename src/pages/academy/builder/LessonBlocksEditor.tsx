@@ -176,7 +176,7 @@ export function LessonBlocksEditor({
               key={block.id}
               className="overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-card"
             >
-              <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/70 px-3 py-2.5">
+              <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/70 px-3 py-2.5 dark:bg-slate-800/70">
                 <span
                   className={cn(
                     'flex size-8 shrink-0 items-center justify-center rounded-lg',

@@ -550,7 +550,7 @@ function AppearanceSection() {
               className={cn(
                 'flex cursor-pointer items-start gap-3 rounded-lg border p-4 text-left transition-colors',
                 selected
-                  ? 'border-primary-500 bg-primary-50 text-primary-800'
+                  ? 'border-primary-500 bg-primary-50 text-primary-800 dark:border-primary-400 dark:bg-primary-950 dark:text-primary-100'
                   : 'border-slate-200 bg-surface text-slate-700 hover:border-primary-200',
               )}
             >

@@ -142,7 +142,7 @@ function SectionBranch({
           className={cn(
             'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
             activeSectionId === section.id && !activeArticleId
-              ? 'bg-primary-50 text-primary-800'
+              ? 'bg-primary-50 text-primary-800 dark:bg-primary-950 dark:text-primary-100'
               : 'text-slate-700 hover:bg-slate-100',
           )}
         >
@@ -161,7 +161,7 @@ function SectionBranch({
               className={cn(
                 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                 activeArticleId === article.id
-                  ? 'bg-primary-50 text-primary-800'
+                  ? 'bg-primary-50 text-primary-800 dark:bg-primary-950 dark:text-primary-100'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
               )}
             >
@@ -811,7 +811,7 @@ export function KnowledgePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-slate-200 bg-surface px-6 py-5">
+      <div className="border-b border-slate-200 bg-surface px-4 py-5 sm:px-6">
         <PageHeader
           title="База знаний"
           description="Разделы, регламенты, версии и подтверждение ознакомления."
@@ -855,8 +855,8 @@ export function KnowledgePage() {
           </div>
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="flex min-h-0 flex-col border-r border-slate-200 bg-surface">
+        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="flex min-h-0 min-w-0 flex-col border-r border-slate-200 bg-surface">
             <div className="border-b border-slate-200 p-4">
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
@@ -924,9 +924,9 @@ export function KnowledgePage() {
             </div>
           </aside>
 
-          <main className="min-h-0 overflow-y-auto">
+          <main className="min-h-0 min-w-0 overflow-y-auto">
             {activeArticle ? (
-              <article className="mx-auto grid max-w-6xl gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+              <article className="mx-auto grid min-w-0 max-w-6xl grid-cols-[minmax(0,1fr)] gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
                   <div className="mb-5">
                     <div>
@@ -1061,7 +1061,7 @@ export function KnowledgePage() {
                 </aside>
               </article>
             ) : activeSection ? (
-              <div className="mx-auto max-w-3xl p-6">
+              <div className="mx-auto min-w-0 max-w-3xl p-4 sm:p-6">
                 <div className="rounded-lg border border-slate-200 bg-surface p-6 shadow-card">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>

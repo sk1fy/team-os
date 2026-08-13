@@ -1845,7 +1845,9 @@ function ScheduleModeCard({
       onClick={onClick}
       className={cn(
         'flex cursor-pointer gap-3 rounded-md border p-3 text-left transition-colors',
-        active ? 'border-primary-600 bg-primary-50' : 'border-slate-200 bg-surface',
+        active
+          ? 'border-primary-600 bg-primary-50 dark:border-primary-400 dark:bg-primary-950'
+          : 'border-slate-200 bg-surface',
       )}
     >
       <span

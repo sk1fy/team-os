@@ -1394,7 +1394,7 @@ function SectionTitleInput({
 
   return (
     <Input
-      className="flex-1 bg-white"
+      className="flex-1 bg-surface"
       aria-label="Название раздела"
       value={value}
       disabled={saving}
@@ -1527,7 +1527,7 @@ function SortableLessonRow({
           'min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
           selected
             ? 'bg-primary-600 font-medium text-white shadow-sm'
-            : 'bg-white text-slate-700 hover:bg-primary-50',
+            : 'bg-surface text-slate-700 hover:bg-primary-50',
         )}
       >
         <span className="line-clamp-2">{lesson.title}</span>

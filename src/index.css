@@ -123,6 +123,7 @@
     border-color: #334155;
   }
 
+  html.dark .text-slate-950,
   html.dark .text-slate-900 {
     color: #f8fafc;
   }
@@ -396,5 +397,34 @@
   .rich-text-editor .is-editor-empty:first-child::before {
     @apply pointer-events-none float-left h-0 text-slate-400;
     content: attr(data-placeholder);
+  }
+
+  html.dark .rich-text {
+    color: #cbd5e1;
+  }
+
+  html.dark .rich-text :where(h1, h2, h3) {
+    color: #f8fafc;
+  }
+
+  html.dark .rich-text a {
+    color: #92d3cf;
+  }
+
+  html.dark .rich-text code {
+    background-color: #1e293b;
+    color: #e2e8f0;
+  }
+
+  html.dark .rich-text pre,
+  html.dark .rich-text pre code {
+    background-color: #020617;
+    color: #f8fafc;
+  }
+
+  html.dark .rich-text th,
+  html.dark .lesson-rich-text blockquote {
+    background-color: #1e293b;
+    color: #e2e8f0;
   }
 }

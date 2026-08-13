@@ -1209,7 +1209,7 @@ export function SchedulePage() {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td className="sticky bottom-0 left-0 z-40 w-[270px] min-w-[270px] max-w-[270px] border-t border-slate-700 bg-ink px-5 py-1.5 text-xs font-semibold text-white">
+                    <td className="sticky bottom-0 left-0 z-40 w-[270px] min-w-[270px] max-w-[270px] border-t border-slate-700 bg-slate-900 px-5 py-1.5 text-xs font-semibold text-white dark:bg-slate-950">
                       Покрытие по дням
                       <span className="block text-[10px] leading-3.5 font-normal text-slate-400">
                         сколько человек работает
@@ -1222,7 +1222,7 @@ export function SchedulePage() {
                         <td
                           key={day}
                           className={cn(
-                            'sticky bottom-0 z-20 w-11 min-w-11 max-w-11 overflow-hidden border-t border-slate-700 bg-ink text-center font-mono text-xs font-bold',
+                            'sticky bottom-0 z-20 w-11 min-w-11 max-w-11 overflow-hidden border-t border-slate-700 bg-slate-900 text-center font-mono text-xs font-bold dark:bg-slate-950',
                             !weekend &&
                               count < coverageNorm &&
                               'bg-warning-500/25 text-warning-500',
@@ -1234,7 +1234,7 @@ export function SchedulePage() {
                         </td>
                       );
                     })}
-                    <td className="sticky right-0 bottom-0 z-40 w-[216px] min-w-[216px] max-w-[216px] border-t border-l border-slate-700 bg-ink" />
+                    <td className="sticky right-0 bottom-0 z-40 w-[216px] min-w-[216px] max-w-[216px] border-t border-l border-slate-700 bg-slate-900 dark:bg-slate-950" />
                   </tr>
                 </tfoot>
               </table>
