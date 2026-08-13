@@ -46,8 +46,15 @@ export interface CompanyRegistrationTokenValidation {
 
 export interface AmoWidgetContinuation {
   email: string;
+  login: string;
   companyName: string;
   requiresPasswordSetup: boolean;
+  expiresAt: ISODate;
+}
+
+export interface RegistrationLoginReservation {
+  login: string;
+  reservationToken: string;
   expiresAt: ISODate;
 }
 

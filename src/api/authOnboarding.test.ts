@@ -11,6 +11,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 const wireUser = {
   id: 'user-1',
+  login: 'tm8901912',
   email: 'owner@example.com',
   firstName: 'Иван',
   lastName: 'Петров',
@@ -127,6 +128,7 @@ describe('onboarding auth API', () => {
       firstName: 'Иван',
       lastName: 'Петров',
       registrationToken: 'one-time-registration-token',
+      loginReservationToken: 'login-reservation-token-abcdefghijklmnopqrstuvwxyz',
     });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -134,16 +136,58 @@ describe('onboarding auth API', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({
       companyName: 'ООО Ромашка',
       registrationToken: 'one-time-registration-token',
+      loginReservationToken: 'login-reservation-token-abcdefghijklmnopqrstuvwxyz',
     });
     expect(new Headers(init.headers).has('Authorization')).toBe(false);
     expect(init.credentials).toBe('include');
     expect(useAuthStore.getState().accessToken).toBe('registered-access');
   });
 
+  it('резервирует логин до ввода пароля', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          login: 'tm1234567',
+          reservationToken: 'login-reservation-token-abcdefghijklmnopqrstuvwxyz',
+          expiresAt: '2026-08-10T12:30:00Z',
+        },
+        201,
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(httpAuthApi.reserveRegistrationLogin()).resolves.toMatchObject({
+      login: 'tm1234567',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:8080/api/v1/auth/registration-logins');
+    expect(init.method).toBe('POST');
+    expect(new Headers(init.headers).has('Authorization')).toBe(false);
+  });
+
+  it('входит только по логину через v2 API', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ accessToken: 'login-access', user: wireUser }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await httpAuthApi.login({ login: 'tm8901912', password: 'reliable-password' });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:8080/api/v2/auth/login');
+    expect(JSON.parse(String(init.body))).toEqual({
+      login: 'tm8901912',
+      password: 'reliable-password',
+    });
+    expect(new Headers(init.headers).has('Authorization')).toBe(false);
+  });
+
   it('проверяет одноразовый переход из amoCRM без внутренней авторизации', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         email: 'owner@example.com',
+        login: 'tm8901912',
         companyName: 'Ракурс',
         requiresPasswordSetup: true,
         expiresAt: '2026-08-10T12:10:00Z',
@@ -153,7 +197,11 @@ describe('onboarding auth API', () => {
 
     await expect(
       httpAuthApi.validateAmoWidgetContinuation('amo-widget-session-token'),
-    ).resolves.toMatchObject({ email: 'owner@example.com', requiresPasswordSetup: true });
+    ).resolves.toMatchObject({
+      email: 'owner@example.com',
+      login: 'tm8901912',
+      requiresPasswordSetup: true,
+    });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('http://localhost:8080/api/v1/public/amocrm/widget-sessions/validate');

@@ -118,7 +118,10 @@ async function responseError(response: Response): Promise<ApiError> {
     // Ответ прокси или сети может быть не в JSON-формате.
   }
   const requestId =
-    payload?.requestId ?? response.headers.get('x-request-id') ?? response.headers.get('X-Request-Id') ?? undefined;
+    payload?.requestId ??
+    response.headers.get('x-request-id') ??
+    response.headers.get('X-Request-Id') ??
+    undefined;
   return new ApiError(
     payload?.error?.message ?? 'Что-то пошло не так. Попробуйте ещё раз.',
     payload?.error?.status ?? response.status,
@@ -172,8 +175,14 @@ export async function httpRequest<T>(
   const retryInternalRefresh =
     options.retryInternalRefresh ?? (authMode === 'internal' && !options.skipAuthRefresh);
 
+  const requestUrl = path.startsWith('/api/')
+    ? /^https?:\/\//i.test(API_URL)
+      ? new URL(path, API_URL).toString()
+      : path
+    : `${API_URL}${path}`;
+
   const execute = () =>
-    fetch(`${API_URL}${path}`, {
+    fetch(requestUrl, {
       ...init,
       // external/none rely on HttpOnly cookies when the browser has them;
       // never attach internal Authorization for those modes.

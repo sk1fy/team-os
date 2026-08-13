@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Copy } from 'lucide-react';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Input } from '@/components/ui';
+import { copyText } from '@/lib/clipboard';
 import type { AmoWidgetContinuation } from '@/types';
 import { PublicAuthError } from './PublicAuthError';
 import { amoWidgetContinuationErrorView, type PublicAuthErrorView } from './publicAuthFlow';
@@ -24,6 +25,7 @@ export function AmoWidgetAuthPage() {
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const [loginCopyStatus, setLoginCopyStatus] = useState<string>();
 
   useEffect(() => {
     if (!claimOneTimeRequest(validationStartedRef)) return;
@@ -125,9 +127,39 @@ export function AmoWidgetAuthPage() {
           : 'После проверки пароля откроется ваша компания TeamOS.'}
       </p>
 
-      <div className="mt-5 rounded-lg bg-slate-50 p-4">
-        <p className="text-xs text-slate-500">Аккаунт администратора</p>
-        <p className="mt-1 truncate text-sm font-medium text-slate-900">{continuation.email}</p>
+      <div className="mt-5 rounded-lg border-2 border-primary-200 bg-primary-50 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium tracking-wide text-primary-700 uppercase">
+              Ваш логин для входа
+            </p>
+            <p className="mt-1 font-mono text-2xl font-bold tracking-wider text-primary-950">
+              {continuation.login}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="shrink-0 px-2"
+            aria-label="Скопировать логин"
+            onClick={() => {
+              void copyText(continuation.login).then((copied) =>
+                setLoginCopyStatus(copied ? 'Логин скопирован' : 'Не удалось скопировать'),
+              );
+            }}
+          >
+            <Copy className="size-4" />
+          </Button>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-primary-800">
+          Сохраните его: для следующих входов используйте этот логин и пароль.
+        </p>
+        {loginCopyStatus ? (
+          <p className="mt-1 text-xs font-medium text-primary-800">{loginCopyStatus}</p>
+        ) : null}
+        <p className="mt-3 truncate border-t border-primary-200 pt-3 text-xs text-primary-800">
+          Контактный email: {continuation.email}
+        </p>
       </div>
 
       <form className="mt-6 space-y-4" onSubmit={handleSubmit}>

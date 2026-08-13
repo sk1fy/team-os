@@ -34,6 +34,7 @@ import type {
   User,
   UserSchedule,
   OnboardingState,
+  RegistrationLoginReservation,
 } from '@/types';
 
 const id = (value: string) => encodeURIComponent(value);
@@ -99,6 +100,8 @@ export const httpAuthApi = {
     publicRequest('/public/company-registration-tokens/validate', 'POST', { registrationToken }),
   validateAmoWidgetContinuation: (sessionToken: string): Promise<AmoWidgetContinuation> =>
     publicRequest('/public/amocrm/widget-sessions/validate', 'POST', { sessionToken }),
+  reserveRegistrationLogin: (): Promise<RegistrationLoginReservation> =>
+    publicRequest('/auth/registration-logins', 'POST'),
   updateCompany: (input: {
     name?: string;
     logoUrl?: string;
@@ -110,7 +113,7 @@ export const httpAuthApi = {
     phone?: string;
   }): Promise<User> => request('/auth/me', 'PATCH', input),
   login: async (input: { login: string; password: string }): Promise<AuthSession<User>> =>
-    rememberSession(await publicRequest('/auth/login', 'POST', input)),
+    rememberSession(await publicRequest('/api/v2/auth/login', 'POST', input)),
   loginWithAccessLink: async (token: string): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest(`/auth/access-link/${id(token)}`, 'POST')),
   impersonateUser: async (userId: ID): Promise<AuthSession<User>> =>
@@ -130,6 +133,7 @@ export const httpAuthApi = {
     firstName: string;
     lastName: string;
     registrationToken?: string;
+    loginReservationToken?: string;
   }): Promise<AuthSession<User>> =>
     rememberSession(await publicRequest('/auth/register', 'POST', input)),
   completeAmoWidgetContinuation: async (input: {

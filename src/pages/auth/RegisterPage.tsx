@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
+import { Copy, RefreshCw } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
-import type { CompanyRegistrationTokenValidation } from '@/types';
+import type { CompanyRegistrationTokenValidation, RegistrationLoginReservation } from '@/types';
 import { EMAIL_ERROR, isValidEmail } from '@/lib/formValidation';
+import { copyText } from '@/lib/clipboard';
 import { safeHomePath } from '@/lib/permissions';
 import { PublicAuthError } from './PublicAuthError';
 import { registrationTokenErrorView, type PublicAuthErrorView } from './publicAuthFlow';
@@ -38,7 +40,34 @@ export function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
   const [emailError, setEmailError] = useState<string>();
+  const [loginReservation, setLoginReservation] = useState<RegistrationLoginReservation>();
+  const [loginReservationError, setLoginReservationError] = useState<string>();
+  const [reservingLogin, setReservingLogin] = useState(false);
+  const [loginCopyStatus, setLoginCopyStatus] = useState<string>();
   const emailRef = useRef<HTMLInputElement>(null);
+
+  const reserveLogin = useCallback(async () => {
+    setReservingLogin(true);
+    setLoginReservationError(undefined);
+    setLoginCopyStatus(undefined);
+    try {
+      setLoginReservation(await authApi.reserveRegistrationLogin());
+    } catch (caught) {
+      setLoginReservation(undefined);
+      setLoginReservationError(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Не удалось подготовить логин. Попробуйте ещё раз.',
+      );
+    } finally {
+      setReservingLogin(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (queryToken.present && !tokenValidation) return;
+    void reserveLogin();
+  }, [queryToken.present, reserveLogin, tokenValidation]);
 
   useEffect(() => {
     if (!queryToken.present || !claimOneTimeRequest(validationStartedRef)) return;
@@ -98,6 +127,10 @@ export function RegisterPage() {
       return;
     }
     setEmailError(undefined);
+    if (!loginReservation) {
+      setLoginReservationError('Сначала получите логин для входа');
+      return;
+    }
     setSubmitting(true);
     const token = registrationToken.trim();
     try {
@@ -110,6 +143,7 @@ export function RegisterPage() {
         email,
         password: String(form.get('password') ?? ''),
         ...(token ? { registrationToken: token } : {}),
+        loginReservationToken: loginReservation.reservationToken,
       });
       setRegistrationToken('');
       setValidatedToken('');
@@ -117,6 +151,10 @@ export function RegisterPage() {
       navigate(safeHomePath(session.user.role, session.user.sectionAccess), { replace: true });
     } catch (caught) {
       const registrationError = registrationTokenErrorView(caught);
+      if (caught instanceof ApiError && caught.code?.startsWith('LOGIN_RESERVATION_')) {
+        setLoginReservation(undefined);
+        setLoginReservationError(caught.message);
+      }
       setError(
         caught instanceof ApiError &&
           (caught.code?.startsWith('REGISTRATION_TOKEN_') ||
@@ -198,6 +236,60 @@ export function RegisterPage() {
           error={emailError}
           onChange={() => emailError && setEmailError(undefined)}
         />
+        <div className="rounded-lg border-2 border-primary-200 bg-primary-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium tracking-wide text-primary-700 uppercase">
+                Ваш логин для входа
+              </p>
+              {loginReservation ? (
+                <p className="mt-1 font-mono text-2xl font-bold tracking-wider text-primary-950">
+                  {loginReservation.login}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-primary-800">
+                  {reservingLogin ? 'Генерируем логин…' : 'Логин пока не получен'}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                className="px-2"
+                disabled={!loginReservation}
+                aria-label="Скопировать логин"
+                onClick={() => {
+                  if (!loginReservation) return;
+                  void copyText(loginReservation.login).then((copied) =>
+                    setLoginCopyStatus(copied ? 'Логин скопирован' : 'Не удалось скопировать'),
+                  );
+                }}
+              >
+                <Copy className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="px-2"
+                loading={reservingLogin}
+                aria-label="Получить новый логин"
+                onClick={() => void reserveLogin()}
+              >
+                <RefreshCw className="size-4" />
+              </Button>
+            </div>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-primary-800">
+            Сохраните этот логин: после регистрации он понадобится вместе с паролем.
+          </p>
+          {loginCopyStatus ? (
+            <p className="mt-1 text-xs font-medium text-primary-800">{loginCopyStatus}</p>
+          ) : null}
+          {loginReservationError ? (
+            <p className="mt-2 text-sm text-danger-600">{loginReservationError}</p>
+          ) : null}
+        </div>
         <Input
           label="Пароль"
           name="password"
@@ -228,7 +320,12 @@ export function RegisterPage() {
           }}
         />
         {error && <p className="text-sm text-danger-600">{error}</p>}
-        <Button type="submit" className="w-full" loading={submitting}>
+        <Button
+          type="submit"
+          className="w-full"
+          loading={submitting}
+          disabled={!loginReservation || reservingLogin}
+        >
           Создать компанию
         </Button>
       </form>

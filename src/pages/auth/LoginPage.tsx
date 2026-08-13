@@ -22,9 +22,11 @@ export function LoginPage() {
     event.preventDefault();
     setError(undefined);
     const form = new FormData(event.currentTarget);
-    const login = String(form.get('login') ?? '').trim();
-    if (!login) {
-      setLoginError('Укажите логин');
+    const login = String(form.get('login') ?? '')
+      .trim()
+      .toLowerCase();
+    if (!/^tm\d{7}$/.test(login)) {
+      setLoginError('Введите логин в формате tm1234567');
       loginRef.current?.focus();
       return;
     }
@@ -69,7 +71,7 @@ export function LoginPage() {
           ref={loginRef}
           name="login"
           type="text"
-          placeholder="Введите логин или you@company.com"
+          placeholder="tm1234567"
           autoComplete="username"
           required
           error={loginError}

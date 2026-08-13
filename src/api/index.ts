@@ -50,6 +50,7 @@ import type {
   Quiz,
   Position,
   OnboardingState,
+  RegistrationLoginReservation,
   ShiftException,
   Task,
   TaskColumn,
@@ -110,11 +111,22 @@ const mockAuthApi = {
           db.users.find((item) => item.id === db.CURRENT_USER_ID) ?? notFound('Пользователь');
         return {
           email: user.email,
+          login: user.login ?? 'tm8901912',
           companyName: db.company.name,
           requiresPasswordSetup: false,
           expiresAt: new Date(Date.now() + 600_000).toISOString(),
         };
       },
+      { noFail: true },
+    ),
+
+  reserveRegistrationLogin: (): Promise<RegistrationLoginReservation> =>
+    mockRequest(
+      () => ({
+        login: `tm${String(Math.floor(Math.random() * 10_000_000)).padStart(7, '0')}`,
+        reservationToken: `mock-login-reservation-${createId()}-abcdefghijklmnopqrstuvwxyz`,
+        expiresAt: new Date(Date.now() + 1_800_000).toISOString(),
+      }),
       { noFail: true },
     ),
 
@@ -148,12 +160,7 @@ const mockAuthApi = {
   login: (input: { login: string; password: string }): Promise<AuthSession<User>> =>
     mockRequest(() => {
       const identifier = input.login.trim().toLowerCase();
-      const user = db.users.find(
-        (item) =>
-          item.login?.toLowerCase() === identifier ||
-          ((item.role === 'owner' || item.role === 'admin') &&
-            item.email.toLowerCase() === identifier),
-      );
+      const user = db.users.find((item) => item.login?.toLowerCase() === identifier);
       const isOwner = user?.role === 'owner';
       if (
         !user ||
@@ -206,6 +213,7 @@ const mockAuthApi = {
     firstName: string;
     lastName: string;
     registrationToken?: string;
+    loginReservationToken?: string;
   }): Promise<AuthSession<User>> => {
     void input;
     return mockRequest(() => ({

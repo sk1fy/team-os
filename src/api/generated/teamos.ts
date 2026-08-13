@@ -31,8 +31,28 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Войти по логину или email и паролю */
+        /**
+         * Устаревший вход по логину и паролю
+         * @deprecated
+         */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Войти по логину и паролю */
+        post: operations["loginByLogin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -120,6 +140,26 @@ export interface paths {
         put?: never;
         /** Создать компанию и учётную запись владельца */
         post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/registration-logins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Зарезервировать логин для создаваемого владельца компании
+         * @description Выдаёт краткоживущую резервацию глобально уникального логина. Токен передаётся в `RegisterInput.loginReservationToken` при завершении регистрации.
+         */
+        post: operations["reserveRegistrationLogin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3464,15 +3504,20 @@ export interface components {
             user: components["schemas"]["User"];
             onboarding: components["schemas"]["OnboardingState"];
         };
-        /** @description Данные для входа. Передайте `login` либо устаревшее поле `email` вместе с `password`. */
+        /** @description Устаревшая форма запроса. Передавайте `login` вместе с `password`; поле `email` сохранено только для декодирования старых клиентов и не используется для входа. */
         LoginInput: {
-            /** @description Логин TeamOS или email владельца/администратора. */
+            /** @description Логин TeamOS. */
             login?: string;
             /**
              * @deprecated
-             * @description Устаревшее поле для совместимости; используйте `login`.
+             * @description Устаревшее неиспользуемое поле; вход по email отключён.
              */
             email?: components["schemas"]["Email"];
+            /** Format: password */
+            password: string;
+        };
+        LoginByLoginInput: {
+            login: components["schemas"]["UserLogin"];
             /** Format: password */
             password: string;
         };
@@ -3488,6 +3533,12 @@ export interface components {
             firstName: string;
             lastName: string;
             registrationToken?: string;
+            loginReservationToken?: string;
+        };
+        RegistrationLoginReservationResponse: {
+            login: components["schemas"]["UserLogin"];
+            reservationToken: string;
+            expiresAt: components["schemas"]["ISODateTime"];
         };
         AmoAccountAvailabilityResponse: {
             exists: boolean;
@@ -3525,6 +3576,7 @@ export interface components {
         };
         AmoWidgetContinuationResponse: {
             email: components["schemas"]["Email"];
+            login: components["schemas"]["UserLogin"];
             companyName: string;
             requiresPasswordSetup: boolean;
             expiresAt: components["schemas"]["ISODateTime"];
@@ -5283,6 +5335,15 @@ export interface components {
                 "application/json": components["schemas"]["AuthResponse"];
             };
         };
+        /** @description Логин временно зарезервирован для регистрации компании */
+        RegistrationLoginReservation: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RegistrationLoginReservationResponse"];
+            };
+        };
         /** @description Признак наличия или активной резервации amoCRM Account ID */
         AmoAccountAvailability: {
             headers: {
@@ -6433,6 +6494,25 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    loginByLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginByLoginInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AuthSession"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
     loginWithAccessLink: {
         parameters: {
             query?: never;
@@ -6521,6 +6601,20 @@ export interface operations {
             201: components["responses"]["AuthSession"];
             400: components["responses"]["BadRequest"];
             409: components["responses"]["Conflict"];
+            default: components["responses"]["Error"];
+        };
+    };
+    reserveRegistrationLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: components["responses"]["RegistrationLoginReservation"];
+            429: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
