@@ -25,6 +25,7 @@ import {
 import { toast } from '@/stores/toast';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { createId } from '@/lib/id';
+import { waitForInstantiatedDraft } from './templates/templateInstantiation';
 
 export { AcademyPartnerCoursesPage } from './partners/AcademyPartnerCoursesPage';
 export { AcademyTemplatesPage } from './templates/AcademyTemplatesPage';
@@ -108,15 +109,37 @@ export function AcademyTemplatePage() {
     enabled: Boolean(templateId && templateQuery.data?.capabilities.canPreview),
   });
   const instantiate = useMutation({
-    mutationFn: (versionId: string) =>
-      academyTemplatesApi.instantiate(versionId, {}, { idempotencyKey: createId() }),
-    onSuccess: (course) => {
+    mutationFn: async (versionId: string) => {
+      const result = await academyTemplatesApi.instantiateDetailed(
+        versionId,
+        {},
+        { idempotencyKey: createId() },
+      );
+      const expectedLessonCount = previewQuery.data?.sections.reduce(
+        (total, section) => total + section.lessons.length,
+        0,
+      );
+      return {
+        ...result,
+        draft: await waitForInstantiatedDraft({
+          initialDraft: result.draft,
+          expectedLessonCount,
+          loadDraft: () => academyCoursesApi.getDraft(result.course.id),
+        }),
+      };
+    },
+    onSuccess: ({ course, draft }) => {
+      // The instantiate response already contains the fully materialized draft.
+      // Seed both queries before navigation so the builder never renders a
+      // misleading editable "0 sections / 0 lessons" intermediate state.
+      queryClient.setQueryData(queryKeys.academyV2.course(course.id), course);
+      queryClient.setQueryData(queryKeys.academyV2.draft(course.id), draft);
       void queryClient.invalidateQueries({ queryKey: queryKeys.academyV2.coursesRoot });
       toast.success('Курс создан из шаблона');
       navigate(academyRoutes.builder(course.id));
     },
     onError: (error) =>
-      toast.error(error instanceof ApiError ? error.message : 'Не удалось создать курс'),
+      toast.error(error instanceof Error ? error.message : 'Не удалось создать курс'),
   });
   const archive = useMutation({
     mutationFn: () => academyTemplatesApi.archive(templateId),

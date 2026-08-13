@@ -28,6 +28,18 @@ export function filterScheduleUsers(users: User[], filter: ScheduleUserFilter): 
   });
 }
 
+export function scheduleEmptyStatePresentation(hasActiveFilters: boolean) {
+  return hasActiveFilters
+    ? {
+        title: 'Сотрудники не найдены',
+        description: 'Измените поисковый запрос или сбросьте фильтры.',
+      }
+    : {
+        title: 'В графике пока нет сотрудников',
+        description: 'Добавьте сотрудника и включите для него отображение в графике.',
+      };
+}
+
 /** Обычный сотрудник всегда видит общий график активных коллег без просмотра уволенных. */
 export function selectScheduleStaffUsers(
   users: User[],

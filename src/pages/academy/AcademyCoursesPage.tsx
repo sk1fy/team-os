@@ -216,9 +216,9 @@ export function AcademyCoursesPage() {
             <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-2.5 font-semibold">Курс</th>
-                <th className="px-4 py-2.5 font-semibold">Статус</th>
+                <th className="px-4 py-2.5 font-semibold">Состояние курса</th>
                 <th className="px-4 py-2.5 font-semibold">Распространение</th>
-                <th className="px-4 py-2.5 font-semibold">Версия</th>
+                <th className="px-4 py-2.5 font-semibold">Версии</th>
                 <th className="px-4 py-2.5 text-right font-semibold">Действия</th>
               </tr>
             </thead>
@@ -252,11 +252,6 @@ export function AcademyCoursesPage() {
                         <Badge className="rounded-full px-2.5 font-medium">
                           {course.ownerType === 'partner' ? 'Партнёр' : 'Компания'}
                         </Badge>
-                        {course.draftVersion ? (
-                          <Badge variant="warning" className="rounded-full px-2.5 font-medium">
-                            Есть черновик
-                          </Badge>
-                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-3 align-middle">
@@ -270,15 +265,20 @@ export function AcademyCoursesPage() {
                       />
                     </td>
                     <td className="px-4 py-3 align-middle whitespace-nowrap">
-                      {course.latestPublishedVersion ? (
-                        <span className="font-medium tabular-nums text-slate-700">
-                          v{course.latestPublishedVersion.versionNumber}
-                        </span>
-                      ) : course.draftVersion ? (
-                        <span className="text-slate-500">Черновик</span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
+                      <span className="flex flex-col gap-0.5 text-xs">
+                        {course.latestPublishedVersion ? (
+                          <span className="font-medium tabular-nums text-slate-700">
+                            Опубликована: v{course.latestPublishedVersion.versionNumber}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Опубликованной версии нет</span>
+                        )}
+                        {course.draftVersion ? (
+                          <span className="tabular-nums text-warning-700">
+                            В работе: черновик v{course.draftVersion.versionNumber}
+                          </span>
+                        ) : null}
+                      </span>
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <div className="flex justify-end gap-1 whitespace-nowrap">

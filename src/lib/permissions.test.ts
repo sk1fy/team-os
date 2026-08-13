@@ -60,6 +60,8 @@ describe('permissions', () => {
 
   it('возвращает доступный home для каждой роли', () => {
     expect(safeHomePath('employee')).toBe('/schedule');
+    expect(safeHomePath('employee', ['academy', 'knowledge', 'schedule'])).toBe('/schedule');
+    expect(safeHomePath('employee', ['academy', 'knowledge'])).toBe('/knowledge');
     expect(safeHomePath('partner')).toBe('/academy');
     expect(safeHomePath('owner')).toBe('/dashboard');
     expect(safeHomePath(undefined)).toBe('/auth/login');
@@ -95,6 +97,7 @@ describe('permissions', () => {
 
   it('не применяет индивидуальный набор к владельцу, администратору и партнёру', () => {
     expect(canAccessRoute('owner', '/activity-control', [])).toBe(true);
+    expect(canAccessRoute('owner', '/duplicate-search', [])).toBe(true);
     expect(canAccessRoute('admin', '/duplicate-search', [])).toBe(true);
     expect(canAccessRoute('partner', '/academy', [])).toBe(true);
     expect(canAccessRoute('partner', '/distribution', ['distribution'])).toBe(false);

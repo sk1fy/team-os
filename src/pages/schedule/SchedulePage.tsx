@@ -14,6 +14,7 @@ import {
   Phone,
   RotateCcw,
   Search,
+  SearchX,
   Send,
 } from 'lucide-react';
 import { authApi, orgApi, scheduleApi } from '@/api';
@@ -39,11 +40,13 @@ import { toast } from '@/stores/toast';
 import { Avatar, Button, Drawer, Textarea } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { EmptyState } from '@/components/layout/EmptyState';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
 import {
   filterScheduleUsers,
   isUserShownInSchedule,
+  scheduleEmptyStatePresentation,
   selectScheduleStaffUsers,
 } from './scheduleUsers';
 import { canManageContent } from '@/lib/permissions';
@@ -782,6 +785,15 @@ export function SchedulePage() {
 
   const panelUser = panelCell ? users.find((user) => user.id === panelCell.userId) : undefined;
   const hasError = usersQuery.isError || schedulesQuery.isError || exceptionsQuery.isError;
+  const isGridPending =
+    usersQuery.isPending ||
+    currentUserQuery.isPending ||
+    departmentsQuery.isPending ||
+    positionsQuery.isPending ||
+    schedulesQuery.isPending ||
+    exceptionsQuery.isPending;
+  const hasActiveFilters = Boolean(search.trim()) || chip !== 'all' || staff !== 'active';
+  const emptyState = scheduleEmptyStatePresentation(hasActiveFilters);
   const rowHeight = compact ? 'h-11' : 'h-16';
   const tableWidth = employeeColumnWidth + days.length * dayColumnWidth + totalColumnWidth;
 
@@ -1058,6 +1070,28 @@ export function SchedulePage() {
               exceptionsQuery.refetch();
             }}
           />
+        ) : isGridPending ? (
+          <ScheduleGridSkeleton />
+        ) : visibleUsers.length === 0 ? (
+          <EmptyState
+            icon={SearchX}
+            title={emptyState.title}
+            description={emptyState.description}
+            action={
+              hasActiveFilters ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setSearch('');
+                    setChip('all');
+                    setStaff('active');
+                  }}
+                >
+                  Сбросить фильтры
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           <div className="flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-card">
             <div ref={gridRef} className="min-h-0 flex-1 overflow-auto overscroll-contain">
@@ -1274,6 +1308,30 @@ export function SchedulePage() {
       {canEdit && (
         <EmployeeDrawer userId={employeePanelId} onClose={() => setEmployeePanelId(null)} />
       )}
+    </div>
+  );
+}
+
+function ScheduleGridSkeleton() {
+  return (
+    <div
+      aria-busy="true"
+      aria-label="Загрузка графика"
+      className="flex h-full min-h-64 flex-col overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-card"
+    >
+      <div className="grid grid-cols-[270px_repeat(8,44px)_1fr] gap-px border-b border-slate-200 bg-slate-100">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <div key={index} className="h-14 animate-pulse bg-surface" />
+        ))}
+      </div>
+      <div className="space-y-px bg-slate-100">
+        {Array.from({ length: 5 }).map((_, row) => (
+          <div key={row} className="h-16 animate-pulse bg-surface">
+            <div className="m-4 h-8 w-52 rounded bg-slate-200/60" />
+          </div>
+        ))}
+      </div>
+      <span className="sr-only">Загружаем сотрудников и смены…</span>
     </div>
   );
 }

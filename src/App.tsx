@@ -3,7 +3,11 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { RedirectAuthenticated, RequireAuth } from '@/components/auth/AuthBootstrap';
+import {
+  AuthCheckingScreen,
+  RedirectAuthenticated,
+  RequireAuth,
+} from '@/components/auth/AuthBootstrap';
 import { AuthLayout, PublicAuthLayout } from '@/components/layout/AuthLayout';
 import { authApi } from '@/api';
 import { canManageIntegrations, protectedRouteState, safeHomePath } from '@/lib/permissions';
@@ -347,14 +351,7 @@ function RequireModule({ children }: { children: ReactNode }) {
   );
 
   if (accessState === 'checking') {
-    return (
-      <main
-        className="flex min-h-dvh items-center justify-center bg-page text-sm text-slate-500"
-        aria-busy="true"
-      >
-        Проверяем доступ…
-      </main>
-    );
+    return <AuthCheckingScreen />;
   }
   if (accessState === 'denied') {
     return <AccessDenied homePath={safeHomePath(currentUser?.role, currentUser?.sectionAccess)} />;

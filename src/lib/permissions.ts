@@ -6,6 +6,12 @@ export const employeeHomePath = '/schedule';
 
 /** A destination that is guaranteed to be available to the role. */
 export const defaultEmployeeSections: EmployeeSection[] = ['schedule', 'knowledge', 'academy'];
+const employeeHomePriority: EmployeeSection[] = [
+  'schedule',
+  'knowledge',
+  'academy',
+  'distribution',
+];
 
 export function safeHomePath(
   role: UserRole | undefined,
@@ -13,7 +19,7 @@ export function safeHomePath(
 ): string {
   if (role === 'employee') {
     const sections = sectionAccess ?? defaultEmployeeSections;
-    const firstAvailable = sections[0];
+    const firstAvailable = employeeHomePriority.find((section) => sections.includes(section));
     if (firstAvailable === 'knowledge') return '/knowledge';
     if (firstAvailable === 'academy') return '/academy';
     if (firstAvailable === 'distribution') return '/distribution';

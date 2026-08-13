@@ -40,11 +40,24 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { cn } from '@/lib/cn';
 import { canManageContent } from '@/lib/permissions';
+import { createKnowledgeSearchSnippet, splitKnowledgeSearchHighlight } from './knowledgeSearch';
 
 const emptyDoc: RichTextContent = { type: 'doc', content: [{ type: 'paragraph' }] };
 const emptySections: ArticleSection[] = [];
 const emptyArticles: Article[] = [];
 const ROOT_SECTION_VALUE = '__root__';
+
+function SearchHighlight({ value, query }: { value: string; query: string }) {
+  return splitKnowledgeSearchHighlight(value, query).map((part, index) =>
+    part.highlighted ? (
+      <mark key={`${index}-${part.text}`} className="rounded-sm bg-warning-100 text-inherit">
+        {part.text}
+      </mark>
+    ) : (
+      <span key={`${index}-${part.text}`}>{part.text}</span>
+    ),
+  );
+}
 
 const articleTemplates = [
   {
@@ -871,9 +884,17 @@ export function KnowledgePage() {
                     >
                       <Search className="mt-0.5 size-4 shrink-0 text-slate-400" />
                       <span>
-                        <span className="block font-medium text-slate-800">{article.title}</span>
+                        <span className="block font-medium text-slate-800">
+                          <SearchHighlight value={article.title} query={search} />
+                        </span>
                         <span className="line-clamp-2 text-xs text-slate-500">
-                          {richTextToPlainText(article.content)}
+                          <SearchHighlight
+                            value={createKnowledgeSearchSnippet(
+                              richTextToPlainText(article.content),
+                              search,
+                            )}
+                            query={search}
+                          />
                         </span>
                       </span>
                     </button>

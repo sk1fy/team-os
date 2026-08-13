@@ -22,6 +22,7 @@ import { cn } from '@/lib/cn';
 import type { CourseVersionLearnerDetail, LessonLearner } from '@/types/academy';
 import { AcademyStatusCallout } from '../components/AcademyStatusCallout';
 import { coursePreviewDocumentTitle } from './coursePreviewDocumentTitle';
+import { coursePreviewPresentation } from './coursePreviewPresentation';
 import { LessonArticle } from './LessonArticle';
 import { QuizRunner } from './QuizRunner';
 export type CoursePlayerMode = 'internal' | 'external' | 'preview';
@@ -477,6 +478,7 @@ export function CoursePreviewPage() {
         completed: false,
       }
     : undefined;
+  const previewPresentation = coursePreviewPresentation(Boolean(draftVersionId));
 
   return (
     <CoursePlayerShell
@@ -490,10 +492,12 @@ export function CoursePreviewPage() {
         </Button>
       }
       headerMeta={
-        <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20">
-          {draftVersionId
-            ? 'Черновик · без сохранения прогресса'
-            : 'Версия · без сохранения прогресса'}
+        <span
+          className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20"
+          aria-label={previewPresentation.accessibleHeaderLabel}
+          title={previewPresentation.accessibleHeaderLabel}
+        >
+          {previewPresentation.headerLabel}
         </span>
       }
       outline={{
@@ -513,8 +517,8 @@ export function CoursePreviewPage() {
       callout={
         <AcademyStatusCallout
           tone="info"
-          title="Режим предпросмотра"
-          description="Завершение уроков, попытки тестов и прогресс в этом режиме не записываются."
+          title={previewPresentation.statusText}
+          className="flex-row items-start gap-2 rounded-lg px-3 py-2 sm:gap-3 sm:rounded-xl sm:px-4 sm:py-3 [&>svg]:size-4 sm:[&>svg]:size-5"
         />
       }
       content={

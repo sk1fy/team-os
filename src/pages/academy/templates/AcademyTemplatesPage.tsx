@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
 import { FileStack, Plus } from 'lucide-react';
-import { academyTemplatesApi } from '@/api/academy';
+import { academyCoursesApi, academyTemplatesApi } from '@/api/academy';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -14,6 +14,7 @@ import { academyRoutes } from '@/lib/academy';
 import { createId } from '@/lib/id';
 import { toast } from '@/stores/toast';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { waitForInstantiatedDraft } from './templateInstantiation';
 
 export function AcademyTemplatesPage() {
   useTitle('Шаблоны — Академия — TeamOS');
@@ -38,12 +39,21 @@ export function AcademyTemplatesPage() {
   });
 
   const instantiate = useMutation({
-    mutationFn: (input: { templateVersionId: string }) =>
-      academyTemplatesApi.instantiateDetailed(
+    mutationFn: async (input: { templateVersionId: string; expectedLessonCount?: number }) => {
+      const result = await academyTemplatesApi.instantiateDetailed(
         input.templateVersionId,
         {},
         { idempotencyKey: createId() },
-      ),
+      );
+      return {
+        ...result,
+        draft: await waitForInstantiatedDraft({
+          initialDraft: result.draft,
+          expectedLessonCount: input.expectedLessonCount,
+          loadDraft: () => academyCoursesApi.getDraft(result.course.id),
+        }),
+      };
+    },
     onSuccess: ({ course, draft }) => {
       queryClient.setQueryData(queryKeys.academyV2.course(course.id), course);
       queryClient.setQueryData(queryKeys.academyV2.draft(course.id), draft);
@@ -52,7 +62,7 @@ export function AcademyTemplatesPage() {
       navigate(academyRoutes.builder(course.id));
     },
     onError: (e) =>
-      toast.error(e instanceof ApiError ? e.message : 'Не удалось создать курс из шаблона'),
+      toast.error(e instanceof Error ? e.message : 'Не удалось создать курс из шаблона'),
   });
   const createTemplate = useMutation({
     mutationFn: () =>
@@ -235,7 +245,10 @@ export function AcademyTemplatesPage() {
                           loading={instantiate.isPending}
                           disabled={instantiate.isPending}
                           onClick={() =>
-                            instantiate.mutate({ templateVersionId: tpl.latestVersionId! })
+                            instantiate.mutate({
+                              templateVersionId: tpl.latestVersionId!,
+                              expectedLessonCount: tpl.lessonCount,
+                            })
                           }
                         >
                           Создать курс

@@ -67,6 +67,7 @@ import { PublishDialog, type PublishValidationIssue } from './PublishDialog';
 import { LessonBlocksEditor } from './LessonBlocksEditor';
 import { validateQuiz } from './QuizEditor';
 import { useUnsavedChanges } from './useUnsavedChanges';
+import { normalizeNewLessonTitle } from './newLessonDraft';
 
 function countLessons(draft: CourseVersionAuthorDetail | undefined): number {
   return draft?.sections.reduce((sum, s) => sum + s.lessons.length, 0) ?? 0;
@@ -263,6 +264,7 @@ export function CourseBuilderPage() {
     currentTitle: string;
     title: string;
   } | null>(null);
+  const [newLesson, setNewLesson] = useState<{ sectionId: string; title: string } | null>(null);
   const [serverPublishIssues, setServerPublishIssues] = useState<PublishValidationIssue[]>([]);
   const publishIdempotencyKey = useRef<string | null>(null);
   const [confirm, setConfirm] = useState<{ title: string; text: string; run: () => void } | null>(
@@ -441,14 +443,15 @@ export function CourseBuilderPage() {
   });
 
   const createLesson = useMutation({
-    mutationFn: (sectionId: string) => {
+    mutationFn: (input: { sectionId: string; title: string }) => {
       if (!draftVersionId) throw new Error('no draft');
       return academyVersionsApi.createLesson(draftVersionId, {
-        sectionId,
-        title: 'Новый урок',
+        sectionId: input.sectionId,
+        title: input.title,
       });
     },
     onSuccess: (lesson) => {
+      setNewLesson(null);
       selectLesson(lesson.id);
       invalidateDraft();
     },
@@ -764,17 +767,18 @@ export function CourseBuilderPage() {
           </Link>
           <h1 className="truncate text-base font-semibold text-slate-950 sm:text-lg">
             {course.title}
-            <span className="ml-2 text-sm font-normal text-slate-500">
-              · черновик
-              {draft.versionNumber ? ` v${draft.versionNumber}` : ''}
-            </span>
+          </h1>
+          <div className="mt-1 flex flex-wrap gap-1.5" aria-label="Состояния курса и версии">
             <Badge
               variant={lifecyclePresentation.variant}
-              className="ml-2 rounded-full px-2.5 align-middle font-medium"
+              className="rounded-full px-2.5 font-medium"
             >
-              {lifecyclePresentation.label}
+              Курс: {lifecyclePresentation.label.toLocaleLowerCase('ru')}
             </Badge>
-          </h1>
+            <Badge variant="warning" className="rounded-full px-2.5 font-medium">
+              Версия: черновик{draft.versionNumber ? ` v${draft.versionNumber}` : ''}
+            </Badge>
+          </div>
           <p className="text-xs text-slate-500">
             {sections.length} {plural(sections.length, ['раздел', 'раздела', 'разделов'])} ·{' '}
             {lessonCount} {plural(lessonCount, ['урок', 'урока', 'уроков'])}
@@ -811,7 +815,7 @@ export function CourseBuilderPage() {
             Предпросмотр
           </Button>
           <Button size="sm" disabled={!caps?.canPublish} onClick={openPublishDialog}>
-            Опубликовать
+            Опубликовать черновик
           </Button>
         </div>
       </header>
@@ -827,7 +831,7 @@ export function CourseBuilderPage() {
             creatingSection={createSection.isPending}
             onSelectLesson={requestSelectLesson}
             onCreateSection={() => createSection.mutate()}
-            onCreateLesson={(sectionId) => createLesson.mutate(sectionId)}
+            onCreateLesson={(sectionId) => setNewLesson({ sectionId, title: '' })}
             onRenameSection={async (id, nextTitle) => {
               await renameSection.mutateAsync({ id, title: nextTitle });
             }}
@@ -925,7 +929,7 @@ export function CourseBuilderPage() {
           creatingSection={createSection.isPending}
           onSelectLesson={requestSelectLesson}
           onCreateSection={() => createSection.mutate()}
-          onCreateLesson={(sectionId) => createLesson.mutate(sectionId)}
+          onCreateLesson={(sectionId) => setNewLesson({ sectionId, title: '' })}
           onRenameSection={async (id, nextTitle) => {
             await renameSection.mutateAsync({ id, title: nextTitle });
           }}
@@ -956,6 +960,55 @@ export function CourseBuilderPage() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+      <Modal
+        open={newLesson !== null}
+        onOpenChange={(open) => {
+          if (!open && !createLesson.isPending) setNewLesson(null);
+        }}
+        title="Новый урок"
+        description="Урок появится в структуре только после подтверждения названия."
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={createLesson.isPending}
+              onClick={() => setNewLesson(null)}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              form="create-course-lesson-form"
+              loading={createLesson.isPending}
+              disabled={!normalizeNewLessonTitle(newLesson?.title ?? '')}
+            >
+              Создать урок
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="create-course-lesson-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!newLesson || createLesson.isPending) return;
+            const nextTitle = normalizeNewLessonTitle(newLesson.title);
+            if (!nextTitle) return;
+            createLesson.mutate({ sectionId: newLesson.sectionId, title: nextTitle });
+          }}
+        >
+          <Input
+            label="Название урока"
+            value={newLesson?.title ?? ''}
+            onChange={(event) =>
+              setNewLesson((current) =>
+                current ? { ...current, title: event.target.value } : current,
+              )
+            }
+            autoFocus
+          />
+        </form>
+      </Modal>
       <PublishDialog
         open={publishOpen}
         onClose={closePublishDialog}

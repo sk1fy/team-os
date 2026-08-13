@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { User } from '@/types';
-import { filterScheduleUsers, selectScheduleStaffUsers } from './scheduleUsers';
+import {
+  filterScheduleUsers,
+  scheduleEmptyStatePresentation,
+  selectScheduleStaffUsers,
+} from './scheduleUsers';
 
 const users: User[] = [
   {
@@ -112,5 +116,18 @@ describe('selectScheduleStaffUsers', () => {
     expect(selectScheduleStaffUsers(users, 'admin', 'fired').map((user) => user.id)).toEqual([
       'fired-user',
     ]);
+  });
+});
+
+describe('scheduleEmptyStatePresentation', () => {
+  it('явно объясняет пустой результат поиска', () => {
+    expect(scheduleEmptyStatePresentation(true)).toEqual({
+      title: 'Сотрудники не найдены',
+      description: 'Измените поисковый запрос или сбросьте фильтры.',
+    });
+  });
+
+  it('отличает пустой график от отфильтрованного результата', () => {
+    expect(scheduleEmptyStatePresentation(false).title).toBe('В графике пока нет сотрудников');
   });
 });

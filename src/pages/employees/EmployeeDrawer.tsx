@@ -1,9 +1,11 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
+  type Ref,
   type SetStateAction,
 } from 'react';
 import {
@@ -50,9 +52,10 @@ import { toast } from '@/stores/toast';
 import { Avatar, Badge, Button, Checkbox, Drawer, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
-import { PHONE_ERROR, formatPhoneInput, isValidPhone } from '@/lib/formValidation';
+import { formatPhoneInput } from '@/lib/formValidation';
 import { canManageAccess, defaultEmployeeSections, safeHomePath } from '@/lib/permissions';
 import { copyText } from '@/lib/clipboard';
+import { validateEmployeePhone } from './employeePhoneValidation';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const monthShortNames = [
@@ -139,6 +142,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
   const [vacationNorm, setVacationNorm] = useState(28);
   const [vacationDraft, setVacationDraft] = useState({ from: '', to: '' });
   const [phoneError, setPhoneError] = useState<string>();
+  const phoneInputRef = useRef<HTMLInputElement>(null);
   const now = useMemo(() => new Date(), []);
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
@@ -502,8 +506,12 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
               </span>
               <Button
                 onClick={() => {
-                  if (!isValidPhone(profileDraft.phone)) {
-                    setPhoneError(PHONE_ERROR);
+                  const nextPhoneError = validateEmployeePhone(
+                    profileDraft.phone,
+                    phoneInputRef.current,
+                  );
+                  if (nextPhoneError) {
+                    setPhoneError(nextPhoneError);
                     return;
                   }
                   if (
@@ -618,6 +626,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                   <PanelInput
                     label="Телефон"
                     type="tel"
+                    inputRef={phoneInputRef}
                     value={profileDraft.phone}
                     placeholder="+7 (999) 000-00-00"
                     error={phoneError}
@@ -1692,6 +1701,7 @@ function PanelInput({
   icon,
   type = 'text',
   error,
+  inputRef,
   onChange,
 }: {
   label?: string;
@@ -1700,6 +1710,7 @@ function PanelInput({
   icon?: ReactNode;
   type?: 'text' | 'tel' | 'date' | 'time' | 'number';
   error?: string;
+  inputRef?: Ref<HTMLInputElement>;
   onChange?: (value: string) => void;
 }) {
   const showIcon = Boolean(icon && type !== 'date');
@@ -1709,6 +1720,7 @@ function PanelInput({
       {label && <span className="text-sm font-semibold text-slate-700">{label}</span>}
       <span className="relative block">
         <input
+          ref={inputRef}
           readOnly={!onChange}
           type={type}
           inputMode={type === 'tel' ? 'tel' : undefined}
