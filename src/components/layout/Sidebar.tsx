@@ -111,7 +111,7 @@ function NavItem({
         'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
         collapsed && 'justify-center px-2',
         isActive
-          ? 'bg-primary-50 font-semibold text-primary-600'
+          ? 'bg-primary-50 font-semibold text-primary-600 dark:bg-primary-900 dark:text-primary-300'
           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
       )}
     >

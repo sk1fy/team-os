@@ -213,10 +213,12 @@ describe('academy route policy', () => {
     expect(partnerNav).not.toContain('Курсы партнёров');
     expect(partnerNav).not.toContain('Отчёты');
     expect(partnerNav).not.toContain('Внешние ученики');
+    expect(partnerNav).not.toContain('Шаблоны');
     expect(ownerNav).toContain('Курсы компании');
     expect(ownerNav).not.toContain('Курсы партнёров');
     expect(ownerNav).not.toContain('Отчёты');
     expect(ownerNav).not.toContain('Внешние ученики');
+    expect(ownerNav).not.toContain('Шаблоны');
     expect(academyNavForRole('employee').map((i) => i.id)).toEqual(['home', 'catalog']);
   });
 

@@ -32,7 +32,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         className={cn(
           'h-9.5 w-full rounded-md border bg-surface px-3 text-sm text-slate-900 transition-colors',
           'focus:outline-2 focus:-outline-offset-1',
-          'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400',
+          'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-500',
           error
             ? 'border-danger-500 focus:outline-danger-500'
             : 'border-slate-200 focus:outline-primary-600',

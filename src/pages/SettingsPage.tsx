@@ -38,7 +38,7 @@ import { registrationTokenErrorView } from '@/pages/auth/publicAuthFlow';
 
 function PreviewSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl border border-primary-100 bg-gradient-to-br from-primary-50/80 via-surface to-surface p-4 shadow-card sm:p-5">
+    <div className="overflow-hidden rounded-xl border border-primary-100 bg-gradient-to-br from-primary-50/80 via-surface to-surface p-4 shadow-card dark:border-slate-600 dark:bg-none dark:bg-surface sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-14 shrink-0 animate-pulse rounded-xl bg-primary-100/80" />
@@ -96,10 +96,10 @@ function SettingsPreview({
   const userName = user ? fullName(user) : 'Ваш профиль';
 
   return (
-    <div className="overflow-hidden rounded-xl border border-primary-100 bg-gradient-to-br from-primary-50/80 via-surface to-surface shadow-card">
-      <div className="flex flex-col divide-y divide-primary-100/80 sm:flex-row sm:divide-x sm:divide-y-0">
+    <div className="overflow-hidden rounded-xl border border-primary-100 bg-gradient-to-br from-primary-50/80 via-surface to-surface shadow-card dark:border-slate-600 dark:bg-none dark:bg-surface">
+      <div className="flex flex-col divide-y divide-primary-100/80 dark:divide-slate-600 sm:flex-row sm:divide-x sm:divide-y-0">
         <div className="flex min-w-0 flex-1 items-center gap-3 p-4 sm:p-5">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-surface shadow-sm">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-surface shadow-sm dark:border-slate-600 dark:bg-surface-muted">
             {companyError ? (
               <Building2 className="size-6 text-primary-400" />
             ) : (
@@ -191,7 +191,7 @@ function FormPanel({ icon: Icon, title, description, busy, dirty, children }: Fo
       )}
     >
       <header className="flex items-start gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-300">
           <Icon className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -259,7 +259,7 @@ function ImageField({
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
       <div className="flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2">
-        <div className="flex size-16 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-primary-50/50 p-1.5">
+        <div className="flex size-16 shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-primary-50/50 p-1.5 dark:border-slate-600 dark:bg-surface-muted">
           <Avatar name={previewName} src={value || undefined} size="lg" />
         </div>
         <span className="text-xs text-slate-400 sm:text-center">{label}</span>
@@ -313,12 +313,14 @@ function SaveBar({
             Сохраняем {label}…
           </span>
         ) : savedAt && !isDirty ? (
-          <span className="inline-flex items-center gap-1.5 font-medium text-success-700">
+          <span className="inline-flex items-center gap-1.5 font-medium text-success-700 dark:text-green-300">
             <Check className="size-3.5" />
             {label} сохранён
           </span>
         ) : isDirty ? (
-          <span className="font-medium text-warning-700">Изменения ещё не сохранены</span>
+          <span className="font-medium text-warning-700 dark:text-amber-300">
+            Изменения ещё не сохранены
+          </span>
         ) : (
           'Все данные актуальны'
         )}
@@ -459,10 +461,12 @@ function CompanyProfileSection() {
           disabled={busy}
         />
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-600 dark:bg-surface-muted">
           <p className="text-sm font-medium text-slate-800">Интеграция amoCRM</p>
           {companyQuery.data?.amoAccountId ? (
-            <p className="mt-1 text-sm text-success-700">Интеграция подключена</p>
+            <p className="mt-1 text-sm text-success-700 dark:text-green-300">
+              Интеграция подключена
+            </p>
           ) : (
             <div className="mt-3 space-y-3">
               <Input

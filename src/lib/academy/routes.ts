@@ -56,19 +56,11 @@ export function academyNavForRole(role: UserRole | undefined): AcademyNavItem[] 
   }
 
   if (role === 'partner') {
-    return [
-      ...learner,
-      { id: 'courses', to: academyRoutes.courses, label: 'Мои курсы' },
-      { id: 'templates', to: academyRoutes.templates, label: 'Шаблоны' },
-    ];
+    return [...learner, { id: 'courses', to: academyRoutes.courses, label: 'Мои курсы' }];
   }
 
   // owner / admin
-  return [
-    ...learner,
-    { id: 'courses', to: academyRoutes.courses, label: 'Курсы компании' },
-    { id: 'templates', to: academyRoutes.templates, label: 'Шаблоны' },
-  ];
+  return [...learner, { id: 'courses', to: academyRoutes.courses, label: 'Курсы компании' }];
 }
 
 /** Academy sub-route policy (module already allowed). */

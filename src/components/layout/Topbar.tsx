@@ -95,8 +95,8 @@ export function Topbar() {
         </button>
 
         {currentUser && (
-          <div className="hidden items-center gap-2 rounded-md bg-primary-50 px-3 py-2 text-[13px] font-medium text-slate-700 md:flex">
-            <span className="size-[7px] rounded-full bg-primary-600" />
+          <div className="hidden items-center gap-2 rounded-md bg-primary-50 px-3 py-2 text-[13px] font-medium text-slate-700 dark:bg-primary-900 dark:text-primary-200 md:flex">
+            <span className="size-[7px] rounded-full bg-primary-600 dark:bg-primary-400" />
             {roleLabels[currentUser.role]}
           </div>
         )}
