@@ -126,7 +126,7 @@ export interface User {
   hiredAt?: ISODate;
   /** Базовая норма отпуска сотрудника в днях за год. */
   vacationAllowance?: number;
-  /** Показывать сотрудника в рабочем графике; для владельца всегда false. */
+  /** Сотрудник явно активирован в рабочем графике; для владельца всегда false. */
   showInSchedule?: boolean;
   /** Источник пользователя: local — создан в TeamOS, amo — импортирован из amoCRM. */
   source?: UserSource;

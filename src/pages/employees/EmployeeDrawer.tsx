@@ -117,7 +117,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     phone: '',
     hire: '',
     birth: '',
-    showInSchedule: true,
+    showInSchedule: false,
   });
   const [scheduleType, setScheduleType] = useState<'week' | 'cycle'>('week');
   const [weekDraft, setWeekDraft] = useState({
@@ -238,7 +238,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       phone: formatPhoneInput(user.phone ?? ''),
       hire: user.hiredAt ?? '',
       birth: user.birthDate ?? '',
-      showInSchedule: user.role !== 'owner' && user.showInSchedule !== false,
+      showInSchedule: user.role !== 'owner' && user.showInSchedule === true,
     });
     setVacationNorm(user.vacationAllowance ?? 28);
     setSectionDraft(user.sectionAccess ?? defaultEmployeeSections);
@@ -645,13 +645,8 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                       onCheckedChange={(showInSchedule) =>
                         setProfileDraft((draft) => ({ ...draft, showInSchedule }))
                       }
-                      label="Показывать в Графике"
+                      label="Активировать сотрудника в графике работ"
                     />
-                    <p className="mt-1.5 pl-6.5 text-xs leading-relaxed text-slate-500">
-                      {user.role === 'owner'
-                        ? 'Владелец компании не отображается в рабочем графике.'
-                        : 'Отключите, чтобы скрыть сотрудника из графика и его статистики.'}
-                    </p>
                   </div>
                   <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
                     <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />

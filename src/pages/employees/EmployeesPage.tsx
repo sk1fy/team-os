@@ -3,15 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Search,
-} from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { orgApi } from '@/api';
 import type { ID } from '@/types';
 import {
@@ -62,7 +54,6 @@ const sortLabels: Record<EmployeeSortField, string> = {
   status: 'Статус',
 };
 
-const tabs = ['employees', 'structure'] as const;
 const sortFields = ['name', 'department', 'role', 'status'] as const;
 const sortDirections = ['asc', 'desc'] as const;
 
@@ -92,7 +83,7 @@ export function EmployeesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
-  const tab = oneOf(searchParams.get('tab'), tabs, 'employees');
+  const tab = 'employees';
   const search = searchParams.get('q') ?? '';
   const departmentFilter = searchParams.get('department') ?? 'all';
   const roleFilter = searchParams.get('role') ?? 'all';
@@ -388,12 +379,6 @@ export function EmployeesPage() {
             ? `${usersQuery.data.length} ${plural(usersQuery.data.length, ['человек', 'человека', 'человек'])} в компании`
             : undefined
         }
-        actions={
-          <Button onClick={() => updateParams({ addUser: '1' })}>
-            <Plus className="size-4" />
-            Добавить сотрудника
-          </Button>
-        }
       />
 
       <Tabs
@@ -407,7 +392,12 @@ export function EmployeesPage() {
         className="mt-6"
         items={[
           { value: 'employees', label: 'Сотрудники', content: employeesContent },
-          { value: 'structure', label: 'Оргструктура', content: <StructurePage embedded /> },
+          {
+            value: 'structure',
+            label: 'Оргструктура',
+            content: <StructurePage embedded />,
+            disabled: true,
+          },
         ]}
       />
 

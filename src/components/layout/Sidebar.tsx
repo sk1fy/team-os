@@ -35,6 +35,7 @@ type NavItemDefinition = {
   end?: boolean;
   disabled?: boolean;
   description?: string;
+  badge?: string;
 };
 
 const academyV2 = isAcademyV2Enabled();
@@ -42,8 +43,14 @@ const navItems: NavItemDefinition[] = [
   { to: '/dashboard', label: 'Главная', icon: Home, end: true },
   { to: '/employees', label: 'Сотрудники', icon: Users },
   { to: '/schedule', label: 'График', icon: CalendarDays },
-  { to: '/knowledge', label: 'База знаний', icon: Library },
-  { to: '/academy', label: 'Академия', icon: GraduationCap },
+  { to: '/knowledge', label: 'База знаний', icon: Library, badge: 'Бета' },
+  {
+    to: '/academy',
+    label: 'Академия',
+    icon: GraduationCap,
+    disabled: true,
+    description: 'Находится в разработке',
+  },
   // Experimental academies hidden after V2 cutover (routes may still redirect).
   ...(!academyV2
     ? ([
@@ -59,6 +66,8 @@ const integrationItems: NavItemDefinition[] = [
     to: '/duplicate-search',
     label: 'Автопоиск дубликатов',
     icon: ScanSearch,
+    disabled: true,
+    description: 'Находится в разработке',
   },
   {
     to: '/distribution',
@@ -76,6 +85,7 @@ function NavItem({
   end,
   disabled,
   description,
+  badge,
   collapsed,
 }: NavItemDefinition & { collapsed: boolean }) {
   const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
@@ -116,12 +126,30 @@ function NavItem({
       )}
     >
       <Icon className="size-5 shrink-0" />
-      {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">{label}</span>
+          {badge && (
+            <span className="shrink-0 rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-600">
+              {badge}
+            </span>
+          )}
+        </span>
+      )}
     </NavLink>
   );
 
   return collapsed ? (
-    <Tooltip content={disabled && description ? `${label} — ${description}` : label} side="right">
+    <Tooltip
+      content={
+        disabled && description
+          ? `${label} — ${description}`
+          : badge
+            ? `${label} — ${badge}`
+            : label
+      }
+      side="right"
+    >
       {link}
     </Tooltip>
   ) : (

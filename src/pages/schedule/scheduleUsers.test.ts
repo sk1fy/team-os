@@ -15,6 +15,18 @@ const users: User[] = [
     role: 'employee',
     status: 'active',
     source: 'local',
+    showInSchedule: true,
+    positionIds: [],
+    createdAt: '2026-07-16T00:00:00Z',
+  },
+  {
+    id: 'inactive-user',
+    email: 'inactive@example.com',
+    firstName: 'Неактивированный',
+    lastName: 'Сотрудник',
+    role: 'employee',
+    status: 'active',
+    source: 'amo',
     positionIds: [],
     createdAt: '2026-07-16T00:00:00Z',
   },
@@ -48,6 +60,7 @@ const users: User[] = [
     role: 'employee',
     status: 'active',
     source: 'amo',
+    showInSchedule: true,
     positionIds: [],
     createdAt: '2026-07-16T00:00:00Z',
   },
@@ -58,13 +71,14 @@ const users: User[] = [
     lastName: 'Сотрудник',
     role: 'employee',
     status: 'deactivated',
+    showInSchedule: true,
     positionIds: [],
     createdAt: '2026-07-16T00:00:00Z',
   },
 ];
 
 describe('filterScheduleUsers', () => {
-  it('показывает сотрудников без созданного шаблона графика', () => {
+  it('показывает активированных сотрудников без созданного шаблона графика', () => {
     const result = filterScheduleUsers(
       users.filter((user) => user.status !== 'deactivated'),
       {
@@ -78,7 +92,7 @@ describe('filterScheduleUsers', () => {
     expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
   });
 
-  it('скрывает владельца и сотрудников с выключенным флагом', () => {
+  it('скрывает владельца и сотрудников без явной активации', () => {
     const result = filterScheduleUsers(
       users.filter((user) => user.status !== 'deactivated'),
       {

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { EmployeesPage } from './EmployeesPage';
 
 describe('EmployeesPage', () => {
-  it('показывает доступное действие добавления сотрудника', () => {
+  it('скрывает действие добавления сотрудника', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -18,7 +18,8 @@ describe('EmployeesPage', () => {
       </QueryClientProvider>,
     );
 
-    expect(html).toContain('<button');
-    expect(html).toContain('Добавить сотрудника');
+    expect(html).not.toContain('Добавить сотрудника');
+    expect(html).toContain('Оргструктура');
+    expect(html).toContain('disabled=""');
   });
 });

@@ -16,17 +16,14 @@ import {
   Search,
   Share2,
   Trash2,
-  UsersRound,
 } from 'lucide-react';
-import { authApi, kbApi, orgApi } from '@/api';
+import { authApi, kbApi } from '@/api';
 import type { Article, ArticleSection, ArticleVisibility, ID, RichTextContent } from '@/types';
 import { formatDate, formatRelativeDate } from '@/lib/format';
-import { fullName } from '@/lib/labels';
 import { copyText } from '@/lib/clipboard';
 import { getRichTextHeadings, plainTextToRichText, richTextToPlainText } from '@/lib/richText';
 import { toast } from '@/stores/toast';
 import {
-  Avatar,
   Badge,
   Button,
   Drawer,
@@ -674,7 +671,6 @@ export function KnowledgePage() {
     queryKey: queryKeys.kb.articles,
     queryFn: () => kbApi.getArticles(),
   });
-  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
   const currentUserQuery = useQuery({
     queryKey: queryKeys.currentUser,
     queryFn: authApi.getCurrentUser,
@@ -814,7 +810,7 @@ export function KnowledgePage() {
       <div className="border-b border-slate-200 bg-surface px-4 py-5 sm:px-6">
         <PageHeader
           title="База знаний"
-          description="Разделы, регламенты, версии и подтверждение ознакомления."
+          description="Статьи, разделы, регламенты для ознакомления"
           actions={
             canEdit ? (
               <>
@@ -1035,28 +1031,6 @@ export function KnowledgePage() {
                     ) : (
                       <p className="text-sm text-slate-500">Заголовков пока нет.</p>
                     )}
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                      <UsersRound className="size-4 text-slate-400" />
-                      Ознакомились
-                    </div>
-                    <div className="space-y-3">
-                      {(usersQuery.data ?? []).map((user) => (
-                        <div key={user.id} className="flex items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" />
-                            <span className="truncate text-sm text-slate-700">
-                              {fullName(user)}
-                            </span>
-                          </div>
-                          <Badge variant={acknowledgedUserIds.has(user.id) ? 'success' : 'neutral'}>
-                            {acknowledgedUserIds.has(user.id) ? 'Да' : 'Нет'}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </aside>
               </article>
