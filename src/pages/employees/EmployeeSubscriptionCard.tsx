@@ -8,6 +8,7 @@ import {
   basicRenewalPrice,
   BASIC_INCLUDED_USERS,
 } from './subscriptionPricing';
+import { countActiveEmployees } from './employeeActivation';
 
 const PAID_UNTIL = '2027-07-14T00:00:00Z';
 const currencyFormatter = new Intl.NumberFormat('ru-RU', {
@@ -63,11 +64,9 @@ export function EmployeeSubscriptionCard({ users }: { users: User[] }) {
   const [purchaseQuantity, setPurchaseQuantity] = useState(1);
   const [renewalUsers, setRenewalUsers] = useState(BASIC_INCLUDED_USERS);
   const purchasedUsers: number = BASIC_INCLUDED_USERS;
-  const usedUsers = Math.min(
-    purchasedUsers,
-    users.filter((user) => user.role !== 'partner' && user.status !== 'deactivated').length,
-  );
-  const progress = purchasedUsers === 0 ? 0 : Math.round((usedUsers / purchasedUsers) * 100);
+  const usedUsers = countActiveEmployees(users);
+  const progress =
+    purchasedUsers === 0 ? 0 : Math.min(100, Math.round((usedUsers / purchasedUsers) * 100));
   const paidUntilLabel = paidUntilFormatter.format(new Date(PAID_UNTIL));
   const purchaseTotal = useMemo(
     () => additionalUsersPrice(PAID_UNTIL, purchaseQuantity),

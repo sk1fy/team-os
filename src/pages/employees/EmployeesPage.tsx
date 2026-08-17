@@ -31,8 +31,13 @@ import {
 } from './employeeTable';
 import { createDefaultWeekTemplate } from '@/lib/schedule';
 import { canManageContent } from '@/lib/permissions';
-import { isScheduleEligibleUser } from '@/pages/schedule/scheduleUsers';
 import { EmployeeSubscriptionCard } from './EmployeeSubscriptionCard';
+import { BASIC_INCLUDED_USERS } from './subscriptionPricing';
+import {
+  canActivateEmployee,
+  countActiveEmployees,
+  isEmployeeActivationEligible,
+} from './employeeActivation';
 
 const PAGE_SIZE = 10;
 const lastLoginDateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -164,8 +169,12 @@ export function EmployeesPage() {
       toast.error(error instanceof Error ? error.message : 'Не удалось удалить сотрудника'),
   });
 
-  const toggleScheduleUser = useMutation({
+  const toggleEmployeeActive = useMutation({
     mutationFn: async ({ user, enabled }: { user: User; enabled: boolean }) => {
+      const currentUsers = queryClient.getQueryData<User[]>(queryKeys.users.all) ?? [];
+      if (enabled && !canActivateEmployee(currentUsers, user, BASIC_INCLUDED_USERS)) {
+        throw new Error('Достигнут лимит пользователей тарифа');
+      }
       const hasSchedule = (schedulesQuery.data ?? []).some(
         (schedule) => schedule.userId === user.id,
       );
@@ -185,11 +194,15 @@ export function EmployeesPage() {
       );
       return { previousUsers };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       if (context?.previousUsers) {
         queryClient.setQueryData(queryKeys.users.all, context.previousUsers);
       }
-      toast.error('Не удалось изменить состав графика');
+      toast.error(
+        error instanceof Error && error.message === 'Достигнут лимит пользователей тарифа'
+          ? 'Все доступные места заняты. Докупите пользователей или деактивируйте другого сотрудника.'
+          : 'Не удалось изменить активность сотрудника',
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
@@ -198,7 +211,12 @@ export function EmployeesPage() {
   });
 
   const deleteUser = usersQuery.data?.find((u) => u.id === deleteUserId) ?? null;
-  const canEditSchedule = canManageContent(currentUserQuery.data?.role);
+  const canEditEmployees = canManageContent(currentUserQuery.data?.role);
+  const activeUsersCount = useMemo(
+    () => countActiveEmployees(usersQuery.data ?? []),
+    [usersQuery.data],
+  );
+  const activationLimitReached = activeUsersCount >= BASIC_INCLUDED_USERS;
   const lookups = useMemo(
     () => ({
       positionById: new Map((positionsQuery.data ?? []).map((p) => [p.id, p])),
@@ -307,7 +325,7 @@ export function EmployeesPage() {
               ))}
               <th className="px-3 py-2.5 font-semibold">Должность</th>
               <th className="px-3 py-2.5 font-semibold">Последний вход</th>
-              <th className="px-2 py-2.5 text-center font-semibold">В графике</th>
+              <th className="px-2 py-2.5 text-center font-semibold">Активен</th>
             </tr>
           </thead>
           <tbody>
@@ -411,22 +429,31 @@ export function EmployeesPage() {
                 </td>
                 <td className="px-2 py-2.5">
                   <div className="flex justify-center" onClick={(event) => event.stopPropagation()}>
-                    {canEditSchedule &&
-                    isScheduleEligibleUser(user) &&
-                    user.status !== 'deactivated' ? (
-                      <Switch
-                        checked={user.showInSchedule === true}
-                        disabled={
-                          toggleScheduleUser.isPending &&
-                          toggleScheduleUser.variables?.user.id === user.id
+                    {canEditEmployees && isEmployeeActivationEligible(user) ? (
+                      <span
+                        title={
+                          user.showInSchedule !== true && activationLimitReached
+                            ? 'Все доступные места заняты'
+                            : undefined
                         }
-                        aria-label={
-                          user.showInSchedule
-                            ? `Убрать ${fullName(user)} из графика`
-                            : `Добавить ${fullName(user)} в график`
-                        }
-                        onCheckedChange={(enabled) => toggleScheduleUser.mutate({ user, enabled })}
-                      />
+                      >
+                        <Switch
+                          checked={user.showInSchedule === true}
+                          disabled={
+                            (toggleEmployeeActive.isPending &&
+                              toggleEmployeeActive.variables?.user.id === user.id) ||
+                            (user.showInSchedule !== true && activationLimitReached)
+                          }
+                          aria-label={
+                            user.showInSchedule
+                              ? `Деактивировать ${fullName(user)}`
+                              : `Активировать ${fullName(user)}`
+                          }
+                          onCheckedChange={(enabled) =>
+                            toggleEmployeeActive.mutate({ user, enabled })
+                          }
+                        />
+                      </span>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
