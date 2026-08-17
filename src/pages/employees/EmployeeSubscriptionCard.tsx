@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Minus, Plus, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, Minus, Plus, Users } from 'lucide-react';
 import type { User } from '@/types';
 import { Badge, Button, Drawer } from '@/components/ui';
 import { toast } from '@/stores/toast';
+import { plural } from '@/lib/format';
 import {
   additionalUsersPrice,
   basicRenewalPrice,
@@ -21,6 +22,12 @@ const paidUntilFormatter = new Intl.DateTimeFormat('ru-RU', {
   month: 'long',
   year: 'numeric',
 });
+
+function addYear(value: string): Date {
+  const date = new Date(value);
+  date.setUTCFullYear(date.getUTCFullYear() + 1);
+  return date;
+}
 
 type BillingAction = 'purchase' | 'renew' | null;
 
@@ -59,6 +66,15 @@ function QuantityControl({
   );
 }
 
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-surface px-3 py-2.5">
+      <p className="text-[11px] font-medium tracking-wide text-slate-400 uppercase">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
 export function EmployeeSubscriptionCard({ users }: { users: User[] }) {
   const [action, setAction] = useState<BillingAction>(null);
   const [purchaseQuantity, setPurchaseQuantity] = useState(1);
@@ -67,7 +83,9 @@ export function EmployeeSubscriptionCard({ users }: { users: User[] }) {
   const usedUsers = countActiveEmployees(users);
   const progress =
     purchasedUsers === 0 ? 0 : Math.min(100, Math.round((usedUsers / purchasedUsers) * 100));
+  const availableUsers = Math.max(0, purchasedUsers - usedUsers);
   const paidUntilLabel = paidUntilFormatter.format(new Date(PAID_UNTIL));
+  const renewedUntilLabel = paidUntilFormatter.format(addYear(PAID_UNTIL));
   const purchaseTotal = useMemo(
     () => additionalUsersPrice(PAID_UNTIL, purchaseQuantity),
     [purchaseQuantity],
@@ -126,8 +144,8 @@ export function EmployeeSubscriptionCard({ users }: { users: User[] }) {
         title={isPurchase ? 'Докупить пользователей' : 'Продлить доступ'}
         description={
           isPurchase
-            ? `Текущий доступ действует до ${paidUntilLabel}`
-            : 'Продление Базового тарифа на 1 год'
+            ? `Новые места будут доступны до ${paidUntilLabel}`
+            : 'Базовый тариф · продление на 1 год'
         }
         size="lg"
         footer={
@@ -141,52 +159,146 @@ export function EmployeeSubscriptionCard({ users }: { users: User[] }) {
           </>
         }
       >
-        <div className="rounded-lg border border-primary-200 bg-primary-50 p-4">
-          <div className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-md bg-white text-primary-600 shadow-card">
-              <Users className="size-4.5" />
-            </span>
-            <div>
-              <p className="font-semibold text-ink">Базовый</p>
-              <p className="text-xs text-slate-500">
-                {isPurchase ? `${purchasedUsers} пользователей куплено` : 'Доступ на 1 год'}
-              </p>
+        {isPurchase ? (
+          <>
+            <div className="rounded-lg border border-primary-200 bg-primary-50 p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-md bg-white text-primary-600 shadow-card">
+                  <Users className="size-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-ink">Базовый</p>
+                    <Badge variant="primary">до {paidUntilLabel}</Badge>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Дополнительные места подключаются на оставшийся срок тарифа
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div className="mt-6">
-          <h3 className="text-base">
-            {isPurchase ? 'Количество дополнительных пользователей' : 'Количество пользователей'}
-          </h3>
-          <p className="mt-1 text-sm text-slate-500">
-            {isPurchase
-              ? 'Выберите, сколько пользователей хотите добавить.'
-              : 'В Базовый тариф включено минимум 5 пользователей.'}
-          </p>
-          <div className="mt-4">
-            {isPurchase ? (
-              <QuantityControl
-                value={purchaseQuantity}
-                minimum={1}
-                onChange={setPurchaseQuantity}
-              />
-            ) : (
-              <QuantityControl
-                value={renewalUsers}
-                minimum={BASIC_INCLUDED_USERS}
-                onChange={setRenewalUsers}
-              />
-            )}
-          </div>
-        </div>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <Metric label="Куплено" value={purchasedUsers} />
+              <Metric label="Активно" value={usedUsers} />
+              <Metric label="Свободно" value={availableUsers} />
+            </div>
 
-        <div className="mt-6 rounded-lg border border-slate-200 bg-surface-muted p-5">
-          <p className="text-sm text-slate-500">К оплате</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight text-primary-700">
-            {currencyFormatter.format(finalTotal)}
-          </p>
-        </div>
+            <div className="mt-6">
+              <h3 className="text-base">Сколько мест добавить</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                После оплаты их можно сразу назначить сотрудникам в таблице.
+              </p>
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-surface p-4">
+                <QuantityControl
+                  value={purchaseQuantity}
+                  minimum={1}
+                  onChange={setPurchaseQuantity}
+                />
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">После покупки</p>
+                  <p className="mt-0.5 text-sm font-semibold text-ink">
+                    {purchasedUsers + purchaseQuantity} мест · свободно{' '}
+                    {availableUsers + purchaseQuantity}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-lg border border-primary-200 bg-primary-50/70 p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">Итого к оплате</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    За {purchaseQuantity}{' '}
+                    {plural(purchaseQuantity, [
+                      'дополнительное место',
+                      'дополнительных места',
+                      'дополнительных мест',
+                    ])}
+                  </p>
+                </div>
+                <p
+                  aria-live="polite"
+                  className="text-3xl font-semibold tracking-tight text-primary-700"
+                >
+                  {currencyFormatter.format(purchaseTotal)}
+                </p>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="rounded-lg border border-primary-200 bg-primary-50 p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-md bg-white text-primary-600 shadow-card">
+                  <CalendarDays className="size-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-ink">Базовый</p>
+                    <Badge variant="primary">1 год</Badge>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Продление начнётся после окончания текущего периода
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-slate-200 bg-surface p-4">
+              <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                Срок доступа
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-slate-500">Сейчас до</p>
+                  <p className="mt-0.5 font-semibold text-ink">{paidUntilLabel}</p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-primary-500" />
+                <div className="min-w-0 flex-1 text-right">
+                  <p className="text-xs text-slate-500">После продления</p>
+                  <p className="mt-0.5 font-semibold text-primary-700">{renewedUntilLabel}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-base">Количество пользователей</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                В Базовый тариф включено минимум 5 пользователей.
+              </p>
+              <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-surface p-4">
+                <QuantityControl
+                  value={renewalUsers}
+                  minimum={BASIC_INCLUDED_USERS}
+                  onChange={setRenewalUsers}
+                />
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Продление</p>
+                  <p className="mt-0.5 text-sm font-semibold text-ink">
+                    {renewalUsers} пользователей · 1 год
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-lg border border-primary-200 bg-primary-50/70 p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-sm text-slate-500">Итого к оплате</p>
+                  <p className="mt-1 text-xs text-slate-400">Базовый тариф на 1 год</p>
+                </div>
+                <p
+                  aria-live="polite"
+                  className="text-3xl font-semibold tracking-tight text-primary-700"
+                >
+                  {currencyFormatter.format(renewalTotal)}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </Drawer>
     </>
   );
