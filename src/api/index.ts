@@ -801,7 +801,7 @@ const mockOrgApi = {
       if (input.hiredAt !== undefined) user.hiredAt = input.hiredAt || undefined;
       if (input.vacationAllowance !== undefined) user.vacationAllowance = input.vacationAllowance;
       if (input.showInSchedule !== undefined) {
-        user.showInSchedule = user.role === 'owner' ? false : input.showInSchedule;
+        user.showInSchedule = input.showInSchedule;
       }
       if (input.role !== undefined) user.role = input.role;
       if (input.status !== undefined) user.status = input.status;

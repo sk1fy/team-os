@@ -1,7 +1,10 @@
 import type { User } from '@/types';
 
 export function isEmployeeActivationEligible(user: User): boolean {
-  return (user.role === 'employee' || user.role === 'admin') && user.status !== 'deactivated';
+  return (
+    (user.role === 'owner' || user.role === 'admin' || user.role === 'employee') &&
+    user.status !== 'deactivated'
+  );
 }
 
 export function countActiveEmployees(users: User[]): number {

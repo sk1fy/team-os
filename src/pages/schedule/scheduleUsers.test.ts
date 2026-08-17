@@ -100,10 +100,10 @@ describe('filterScheduleUsers', () => {
       },
     );
 
-    expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
+    expect(result.map((user) => user.id)).toEqual(['local-user', 'owner-user', 'amo-user']);
   });
 
-  it('скрывает владельца и сотрудников без явной активации', () => {
+  it('показывает владельца и скрывает пользователей без явной активации', () => {
     const result = filterScheduleUsers(
       users.filter((user) => user.status !== 'deactivated'),
       {
@@ -114,7 +114,7 @@ describe('filterScheduleUsers', () => {
       },
     );
 
-    expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
+    expect(result.map((user) => user.id)).toEqual(['local-user', 'owner-user', 'amo-user']);
   });
 
   it('не считает сотрудника без графика работающим или отсутствующим', () => {
@@ -134,7 +134,7 @@ describe('selectScheduleStaffUsers', () => {
   it('показывает обычному сотруднику всех активных коллег, даже если выбран фильтр уволенных', () => {
     const result = selectScheduleStaffUsers(users, 'employee', 'fired');
 
-    expect(result.map((user) => user.id)).toEqual(['local-user', 'amo-user']);
+    expect(result.map((user) => user.id)).toEqual(['local-user', 'owner-user', 'amo-user']);
   });
 
   it('сохраняет фильтр активных и уволенных для руководителей', () => {

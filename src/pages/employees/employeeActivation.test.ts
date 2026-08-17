@@ -17,6 +17,14 @@ function employee(id: string, active: boolean): User {
 }
 
 describe('employee activation limit', () => {
+  it('разрешает активировать владельца и администратора', () => {
+    const owner = { ...employee('owner', false), role: 'owner' as const };
+    const admin = { ...employee('admin', false), role: 'admin' as const };
+
+    expect(canActivateEmployee([owner, admin], owner, 5)).toBe(true);
+    expect(canActivateEmployee([owner, admin], admin, 5)).toBe(true);
+  });
+
   it('разрешает занять последнее доступное место', () => {
     const users = [
       employee('1', true),

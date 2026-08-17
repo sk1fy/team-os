@@ -3375,7 +3375,7 @@ export interface components {
             birthDate?: components["schemas"]["LocalDate"];
             hiredAt?: components["schemas"]["LocalDate"];
             vacationAllowance?: number;
-            /** @description Показывать пользователя в рабочем графике. Для владельца всегда false. */
+            /** @description Показывать пользователя в рабочем графике. */
             showInSchedule: boolean;
             /** @description Дата и время последнего успешного входа по паролю или постоянной ссылке. */
             lastLoginAt?: components["schemas"]["ISODateTime"];

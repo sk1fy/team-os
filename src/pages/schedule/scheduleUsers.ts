@@ -59,7 +59,7 @@ export function isUserShownInSchedule(user: User): boolean {
   return isScheduleEligibleUser(user) && user.showInSchedule === true;
 }
 
-/** В рабочий график можно добавить сотрудника или администратора, но не владельца/партнёра. */
+/** В рабочий график можно добавить владельца, администратора или сотрудника, но не партнёра. */
 export function isScheduleEligibleUser(user: User): boolean {
-  return user.role === 'employee' || user.role === 'admin';
+  return user.role === 'owner' || user.role === 'admin' || user.role === 'employee';
 }

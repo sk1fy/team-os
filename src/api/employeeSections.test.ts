@@ -22,9 +22,9 @@ describe('видимость сотрудника в графике', () => {
     ).resolves.toMatchObject({ showInSchedule: false });
   });
 
-  it('не позволяет включить владельца в график', async () => {
+  it('позволяет включить владельца в график', async () => {
     await expect(orgApi.updateUser({ id: 'user-1', showInSchedule: true })).resolves.toMatchObject({
-      showInSchedule: false,
+      showInSchedule: true,
     });
   });
 });
