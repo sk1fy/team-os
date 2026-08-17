@@ -1480,6 +1480,8 @@ function EmployeeAccessSection({
         <Input
           label="Задать свой пароль"
           type="password"
+          name="employee-access-new-password"
+          autoComplete="new-password"
           value={customPassword}
           disabled={loading || linkEnabled}
           onChange={(event) => onCustomPasswordChange(event.target.value)}

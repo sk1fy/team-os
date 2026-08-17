@@ -279,9 +279,14 @@ export function EmployeesPage() {
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
+            name="employee-search"
+            autoComplete="off"
             placeholder="Поиск по имени или email…"
             value={search}
-            onChange={(e) => updateParams({ q: e.target.value || null }, true)}
+            onChange={(e) => {
+              if (selectedEmployeeId) return;
+              updateParams({ q: e.target.value || null }, true);
+            }}
             className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
           />
         </div>
