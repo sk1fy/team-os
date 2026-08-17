@@ -3377,6 +3377,8 @@ export interface components {
             vacationAllowance?: number;
             /** @description Показывать пользователя в рабочем графике. Для владельца всегда false. */
             showInSchedule: boolean;
+            /** @description Дата и время последнего успешного входа по паролю или постоянной ссылке. */
+            lastLoginAt?: components["schemas"]["ISODateTime"];
             createdAt: components["schemas"]["ISODateTime"];
         };
         /** @description Фактический способ входа сотрудника. Поля `linkToken` и `linkCreatedAt` возвращаются только для режима `link`. */

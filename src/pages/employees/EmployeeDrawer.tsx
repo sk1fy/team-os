@@ -49,7 +49,7 @@ import {
 import { cn } from '@/lib/cn';
 import { MONTH_LABELS, MONTH_LABELS_GENITIVE } from '@/lib/schedule';
 import { toast } from '@/stores/toast';
-import { Avatar, Badge, Button, Checkbox, Drawer, Input, Modal, Select } from '@/components/ui';
+import { Avatar, Badge, Button, Drawer, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
 import { splitEmployeeName } from './employeeName';
 import { formatPhoneInput } from '@/lib/formValidation';
@@ -117,7 +117,6 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
     phone: '',
     hire: '',
     birth: '',
-    showInSchedule: false,
   });
   const [scheduleType, setScheduleType] = useState<'week' | 'cycle'>('week');
   const [weekDraft, setWeekDraft] = useState({
@@ -238,8 +237,6 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       phone: formatPhoneInput(user.phone ?? ''),
       hire: user.hiredAt ?? '',
       birth: user.birthDate ?? '',
-      showInSchedule:
-        (user.role === 'employee' || user.role === 'admin') && user.showInSchedule === true,
     });
     setVacationNorm(user.vacationAllowance ?? 28);
     setSectionDraft(user.sectionAccess ?? defaultEmployeeSections);
@@ -307,8 +304,6 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
           birthDate: profileDraft.birth,
           hiredAt: profileDraft.hire,
           vacationAllowance: vacationNorm,
-          showInSchedule:
-            user.role === 'employee' || user.role === 'admin' ? profileDraft.showInSchedule : false,
           role: user.role,
           status: user.status,
           positionIds:
@@ -640,19 +635,6 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                       setPhoneError(undefined);
                     }}
                   />
-                  <div className="rounded-md border border-slate-200 bg-surface p-3">
-                    <Checkbox
-                      checked={
-                        (user.role === 'employee' || user.role === 'admin') &&
-                        profileDraft.showInSchedule
-                      }
-                      disabled={user.role !== 'employee' && user.role !== 'admin'}
-                      onCheckedChange={(showInSchedule) =>
-                        setProfileDraft((draft) => ({ ...draft, showInSchedule }))
-                      }
-                      label="Активировать сотрудника в графике работ"
-                    />
-                  </div>
                   <div className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
                     <ImageIcon className="mt-0.5 size-3.5 shrink-0 text-primary-600" />
                     <span>Фото подтягивается автоматически из amoCRM</span>

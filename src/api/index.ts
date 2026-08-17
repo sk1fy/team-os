@@ -177,6 +177,8 @@ const mockAuthApi = {
         throw new ApiError('Неверный логин или пароль', 401);
       }
       db.setCurrentUserId(user.id);
+      user.accessMode = 'password';
+      user.lastLoginAt = now();
       return { accessToken: 'mock-access-token', user };
     }),
 
@@ -189,6 +191,8 @@ const mockAuthApi = {
       if (!user || user.status !== 'active')
         throw new ApiError('Ссылка недействительна или отозвана', 401);
       db.setCurrentUserId(user.id);
+      user.accessMode = 'link';
+      user.lastLoginAt = now();
       return { accessToken: 'mock-access-token', user };
     }),
 

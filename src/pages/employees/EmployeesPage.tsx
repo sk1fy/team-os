@@ -15,7 +15,7 @@ import {
 } from '@/lib/labels';
 import { plural } from '@/lib/format';
 import { toast } from '@/stores/toast';
-import { Avatar, Badge, Button, Modal, Select, Tabs } from '@/components/ui';
+import { Avatar, Badge, Button, Modal, Select, Switch, Tabs } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { AddUserModal } from './AddUserModal';
 import { EmployeeDrawer } from './EmployeeDrawer';
@@ -32,9 +32,16 @@ import {
 import { createDefaultWeekTemplate } from '@/lib/schedule';
 import { canManageContent } from '@/lib/permissions';
 import { isScheduleEligibleUser } from '@/pages/schedule/scheduleUsers';
-import { ScheduleEmployeePicker } from '@/pages/schedule/ScheduleEmployeePicker';
+import { EmployeeSubscriptionCard } from './EmployeeSubscriptionCard';
 
 const PAGE_SIZE = 10;
+const lastLoginFormatter = new Intl.DateTimeFormat('ru-RU', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 const roleFilterOptions = [
   { value: 'all', label: 'Все роли' },
@@ -190,14 +197,6 @@ export function EmployeesPage() {
 
   const deleteUser = usersQuery.data?.find((u) => u.id === deleteUserId) ?? null;
   const canEditSchedule = canManageContent(currentUserQuery.data?.role);
-  const schedulePickerUsers = useMemo(
-    () =>
-      (usersQuery.data ?? []).filter(
-        (user) => isScheduleEligibleUser(user) && user.status !== 'deactivated',
-      ),
-    [usersQuery.data],
-  );
-
   const lookups = useMemo(
     () => ({
       positionById: new Map((positionsQuery.data ?? []).map((p) => [p.id, p])),
@@ -266,15 +265,6 @@ export function EmployeesPage() {
             className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
           />
         </div>
-        {canEditSchedule && (
-          <ScheduleEmployeePicker
-            users={schedulePickerUsers}
-            pendingUserId={
-              toggleScheduleUser.isPending ? toggleScheduleUser.variables?.user.id : undefined
-            }
-            onToggle={(user, enabled) => toggleScheduleUser.mutate({ user, enabled })}
-          />
-        )}
         <Select
           options={departmentOptions}
           value={departmentFilter}
@@ -298,7 +288,7 @@ export function EmployeesPage() {
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200 bg-surface shadow-card">
-        <table className="w-full min-w-[720px] text-left">
+        <table className="w-full min-w-[1040px] text-left">
           <thead>
             <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-400 uppercase">
               {(['name', 'department', 'role', 'status'] as EmployeeSortField[]).map((field) => (
@@ -314,13 +304,15 @@ export function EmployeesPage() {
                 </th>
               ))}
               <th className="px-4 py-3 font-semibold">Должность</th>
+              <th className="px-4 py-3 font-semibold">Последний вход</th>
+              <th className="px-4 py-3 text-center font-semibold">В графике</th>
             </tr>
           </thead>
           <tbody>
             {usersQuery.isPending &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-slate-100">
-                  <td colSpan={5} className="px-4 py-3">
+                  <td colSpan={7} className="px-4 py-3">
                     <div className="h-8 animate-pulse rounded bg-slate-200/60" />
                   </td>
                 </tr>
@@ -328,7 +320,7 @@ export function EmployeesPage() {
 
             {usersQuery.isError && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center">
+                <td colSpan={7} className="px-4 py-10 text-center">
                   <p className="text-sm text-danger-700">Не удалось загрузить сотрудников.</p>
                   <Button
                     variant="secondary"
@@ -344,7 +336,7 @@ export function EmployeesPage() {
 
             {usersQuery.isSuccess && processedUsers.totalItems === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
                   Никого не нашлось. Измените запрос или фильтр.
                 </td>
               </tr>
@@ -394,6 +386,34 @@ export function EmployeesPage() {
                 <td className="px-4 py-3 text-sm text-slate-600">
                   {userPositionNames(user.positionIds) || '—'}
                 </td>
+                <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                  {user.accessMode && user.accessMode !== 'none' && user.lastLoginAt
+                    ? lastLoginFormatter.format(new Date(user.lastLoginAt))
+                    : '—'}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-center" onClick={(event) => event.stopPropagation()}>
+                    {canEditSchedule &&
+                    isScheduleEligibleUser(user) &&
+                    user.status !== 'deactivated' ? (
+                      <Switch
+                        checked={user.showInSchedule === true}
+                        disabled={
+                          toggleScheduleUser.isPending &&
+                          toggleScheduleUser.variables?.user.id === user.id
+                        }
+                        aria-label={
+                          user.showInSchedule
+                            ? `Убрать ${fullName(user)} из графика`
+                            : `Добавить ${fullName(user)} в график`
+                        }
+                        onCheckedChange={(enabled) => toggleScheduleUser.mutate({ user, enabled })}
+                      />
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -442,6 +462,8 @@ export function EmployeesPage() {
             : undefined
         }
       />
+
+      <EmployeeSubscriptionCard users={usersQuery.data ?? []} />
 
       <Tabs
         value={tab}
