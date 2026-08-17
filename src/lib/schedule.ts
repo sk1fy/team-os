@@ -3,7 +3,7 @@
  * подсчёт часов и форматирование. Не зависит от React и API.
  */
 
-import type { ScheduleTemplate, ShiftException, ShiftType } from '@/types';
+import type { ScheduleTemplate, ShiftException, ShiftType, WeekTemplate } from '@/types';
 
 /** Состояние конкретного дня сотрудника после применения шаблона и правок. */
 export interface DayState {
@@ -14,6 +14,11 @@ export interface DayState {
 }
 
 export const WEEKDAY_SHORT = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+
+/** Базовый график нового сотрудника: пятидневка, 09:00–18:00. */
+export function createDefaultWeekTemplate(): WeekTemplate {
+  return { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' };
+}
 
 export const MONTH_LABELS = [
   'январь',

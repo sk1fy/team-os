@@ -36,7 +36,8 @@ export function scheduleEmptyStatePresentation(hasActiveFilters: boolean) {
       }
     : {
         title: 'В графике пока нет сотрудников',
-        description: 'Активируйте нужных сотрудников в их карточках в разделе «Сотрудники».',
+        description:
+          'Добавьте их через кнопку рядом с поиском или активируйте в карточке сотрудника.',
       };
 }
 
@@ -54,7 +55,12 @@ export function selectScheduleStaffUsers(
   );
 }
 
-/** Сотрудник попадает в график только после явной активации; владелец исключён всегда. */
+/** Сотрудник попадает в график только после явной активации. */
 export function isUserShownInSchedule(user: User): boolean {
-  return user.role !== 'owner' && user.showInSchedule === true;
+  return isScheduleEligibleUser(user) && user.showInSchedule === true;
+}
+
+/** В рабочий график можно добавить сотрудника или администратора, но не владельца/партнёра. */
+export function isScheduleEligibleUser(user: User): boolean {
+  return user.role === 'employee' || user.role === 'admin';
 }

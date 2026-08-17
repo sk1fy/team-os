@@ -25,6 +25,7 @@ import { createId } from '@/lib/id';
 import { EMAIL_ERROR, PHONE_ERROR, isValidEmail, isValidPhone } from '@/lib/formValidation';
 import { canAccessCourse } from '@/lib/contentVisibility';
 import { canManageAccess } from '@/lib/permissions';
+import { createDefaultWeekTemplate } from '@/lib/schedule';
 import type {
   AppNotification,
   AmoWidgetContinuation,
@@ -65,6 +66,12 @@ const now = () => new Date().toISOString();
 
 function assertValidPhone(phone?: string) {
   if (phone !== undefined && !isValidPhone(phone)) throw new ApiError(PHONE_ERROR, 400);
+}
+
+function ensureDefaultSchedule(user: User) {
+  if (user.role !== 'employee' && user.role !== 'admin') return;
+  if (db.schedules.some((schedule) => schedule.userId === user.id)) return;
+  db.schedules.push({ userId: user.id, template: createDefaultWeekTemplate() });
 }
 
 // ============================================================================
@@ -647,19 +654,24 @@ const mockOrgApi = {
           existing.role = input.role;
           existing.status = 'invited';
           existing.positionIds = input.positionId ? [input.positionId] : [];
+          existing.showInSchedule = false;
+          ensureDefaultSchedule(existing);
         } else {
           const [local] = normalized.split('@');
           const firstName = local.split(/[._-]/)[0] ?? 'Новый';
-          db.users.push({
+          const user: User = {
             id: uid(),
             email: normalized,
             firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1),
             lastName: 'Сотрудник',
             role: input.role,
             status: 'invited',
+            showInSchedule: false,
             positionIds: input.positionId ? [input.positionId] : [],
             createdAt: now(),
-          });
+          };
+          db.users.push(user);
+          ensureDefaultSchedule(user);
         }
       }
 
@@ -695,10 +707,12 @@ const mockOrgApi = {
         role: input.role,
         status: 'active',
         source: 'local',
+        showInSchedule: false,
         positionIds: input.positionIds ?? [],
         createdAt: now(),
       };
       db.users.push(user);
+      ensureDefaultSchedule(user);
       return user;
     }),
 

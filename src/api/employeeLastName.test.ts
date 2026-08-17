@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { orgApi } from './index';
-import { users } from './fixtures';
+import { schedules, users } from './fixtures';
 import { fullName } from '@/lib/labels';
 
 beforeEach(() => {
@@ -26,8 +26,17 @@ describe('сотрудник без фамилии', () => {
 
     expect(created.lastName).toBe('');
     expect(fullName(created)).toBe('Алексей');
+    expect(created.showInSchedule).toBe(false);
+    expect(schedules.find((schedule) => schedule.userId === created.id)?.template).toEqual({
+      type: 'week',
+      days: [0, 1, 2, 3, 4],
+      start: '09:00',
+      end: '18:00',
+    });
     const index = users.findIndex((user) => user.id === created.id);
     if (index >= 0) users.splice(index, 1);
+    const scheduleIndex = schedules.findIndex((schedule) => schedule.userId === created.id);
+    if (scheduleIndex >= 0) schedules.splice(scheduleIndex, 1);
   });
 
   it('отображает импортированного из amoCRM сотрудника без лишнего пробела', () => {

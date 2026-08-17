@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   baseState,
+  createDefaultWeekTemplate,
   dayState,
   daysInMonth,
   formatHours,
@@ -10,6 +11,24 @@ import {
   weekdayIndex,
 } from './schedule';
 import type { CycleTemplate, ShiftException, WeekTemplate } from '@/types';
+
+describe('createDefaultWeekTemplate', () => {
+  it('создаёт пятидневку для нового сотрудника', () => {
+    expect(createDefaultWeekTemplate()).toEqual({
+      type: 'week',
+      days: [0, 1, 2, 3, 4],
+      start: '09:00',
+      end: '18:00',
+    });
+  });
+
+  it('возвращает новый шаблон, чтобы изменения одного сотрудника не затрагивали других', () => {
+    const first = createDefaultWeekTemplate();
+    first.days.pop();
+
+    expect(createDefaultWeekTemplate().days).toEqual([0, 1, 2, 3, 4]);
+  });
+});
 
 const week: WeekTemplate = { type: 'week', days: [0, 1, 2, 3, 4], start: '09:00', end: '18:00' };
 // Цикл 2/2 со стартом 1 июля 2026 (среда).

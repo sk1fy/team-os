@@ -53,6 +53,17 @@ const users: User[] = [
     createdAt: '2026-07-16T00:00:00Z',
   },
   {
+    id: 'partner-user',
+    email: 'partner@example.com',
+    firstName: 'Внешний',
+    lastName: 'Партнёр',
+    role: 'partner',
+    status: 'active',
+    showInSchedule: true,
+    positionIds: [],
+    createdAt: '2026-07-16T00:00:00Z',
+  },
+  {
     id: 'amo-user',
     email: 'amo@example.com',
     firstName: 'Импортированный',

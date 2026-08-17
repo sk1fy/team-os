@@ -238,7 +238,8 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       phone: formatPhoneInput(user.phone ?? ''),
       hire: user.hiredAt ?? '',
       birth: user.birthDate ?? '',
-      showInSchedule: user.role !== 'owner' && user.showInSchedule === true,
+      showInSchedule:
+        (user.role === 'employee' || user.role === 'admin') && user.showInSchedule === true,
     });
     setVacationNorm(user.vacationAllowance ?? 28);
     setSectionDraft(user.sectionAccess ?? defaultEmployeeSections);
@@ -306,7 +307,8 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
           birthDate: profileDraft.birth,
           hiredAt: profileDraft.hire,
           vacationAllowance: vacationNorm,
-          showInSchedule: user.role === 'owner' ? false : profileDraft.showInSchedule,
+          showInSchedule:
+            user.role === 'employee' || user.role === 'admin' ? profileDraft.showInSchedule : false,
           role: user.role,
           status: user.status,
           positionIds:
@@ -640,8 +642,11 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                   />
                   <div className="rounded-md border border-slate-200 bg-surface p-3">
                     <Checkbox
-                      checked={user.role !== 'owner' && profileDraft.showInSchedule}
-                      disabled={user.role === 'owner'}
+                      checked={
+                        (user.role === 'employee' || user.role === 'admin') &&
+                        profileDraft.showInSchedule
+                      }
+                      disabled={user.role !== 'employee' && user.role !== 'admin'}
                       onCheckedChange={(showInSchedule) =>
                         setProfileDraft((draft) => ({ ...draft, showInSchedule }))
                       }
@@ -731,7 +736,14 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
                     />
                     <ScheduleModeCard
                       active={scheduleType === 'cycle'}
-                      onClick={() => setScheduleType('cycle')}
+                      onClick={() => {
+                        setScheduleType('cycle');
+                        setCycleDraft((draft) => ({
+                          ...draft,
+                          cycleStart:
+                            draft.cycleStart || isoDateLocal(cycleYm.year, cycleYm.month, 1),
+                        }));
+                      }}
                       badge={
                         scheduleType === 'cycle' ? `${cycleDraft.on}/${cycleDraft.off}` : '2/2'
                       }
@@ -2004,40 +2016,44 @@ function CycleTemplateEditor({
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between">
-        <button
-          className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-600"
-          type="button"
-          onClick={() =>
-            onYmChange((prev) =>
-              prev.month === 1
-                ? { year: prev.year - 1, month: 12 }
-                : { ...prev, month: prev.month - 1 },
-            )
-          }
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <span className="font-semibold text-ink capitalize">
-          {MONTH_LABELS[ym.month - 1]} {ym.year}
-        </span>
-        <button
-          className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 text-slate-600"
-          type="button"
-          onClick={() =>
-            onYmChange((prev) =>
-              prev.month === 12
-                ? { year: prev.year + 1, month: 1 }
-                : { ...prev, month: prev.month + 1 },
-            )
-          }
-        >
-          <ChevronRight className="size-4" />
-        </button>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          <button
+            className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-surface text-slate-600 transition-colors hover:border-primary-200 hover:text-primary-700"
+            type="button"
+            aria-label="Предыдущий месяц"
+            onClick={() =>
+              onYmChange((prev) =>
+                prev.month === 1
+                  ? { year: prev.year - 1, month: 12 }
+                  : { ...prev, month: prev.month - 1 },
+              )
+            }
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <span className="min-w-28 text-center font-semibold text-ink capitalize">
+            {MONTH_LABELS[ym.month - 1]} {ym.year}
+          </span>
+          <button
+            className="flex size-8 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-surface text-slate-600 transition-colors hover:border-primary-200 hover:text-primary-700"
+            type="button"
+            aria-label="Следующий месяц"
+            onClick={() =>
+              onYmChange((prev) =>
+                prev.month === 12
+                  ? { year: prev.year + 1, month: 1 }
+                  : { ...prev, month: prev.month + 1 },
+              )
+            }
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => onYmChange({ year: todayYear, month: todayMonth })}
-          className="ml-auto cursor-pointer text-sm font-semibold text-primary-600"
+          className="cursor-pointer text-sm font-semibold text-primary-600 hover:text-primary-700"
         >
           Сегодня
         </button>
@@ -2086,7 +2102,7 @@ function CycleCalendar({
     return day > 0 ? day : null;
   });
   return (
-    <div className="rounded-lg bg-slate-50 p-4">
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
       <div className="font-semibold text-ink">Расписание</div>
       <div className="mt-1 text-xs text-slate-500">
         Нажмите на день, чтобы сделать его рабочим (норма) или выходным.
@@ -2107,10 +2123,12 @@ function CycleCalendar({
               return (
                 <button
                   type="button"
-                  key={day}
+                  key={iso}
+                  aria-pressed={work}
+                  aria-label={`${day} ${MONTH_LABELS_GENITIVE[month - 1]}: ${work ? 'рабочий день' : 'выходной'}`}
                   onClick={() => onToggleDay(iso)}
                   className={cn(
-                    'flex h-9 cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-colors',
+                    'flex h-9 min-w-0 cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600',
                     work
                       ? 'border-primary-200 bg-primary-50 text-primary-700'
                       : 'border-slate-200 bg-surface text-slate-500',
@@ -2122,7 +2140,7 @@ function CycleCalendar({
               );
             })()
           ) : (
-            <span key={`empty-${index}`} />
+            <span key={`empty-${index}`} aria-hidden="true" />
           ),
         )}
       </div>

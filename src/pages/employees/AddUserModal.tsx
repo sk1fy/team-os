@@ -1,12 +1,13 @@
-import { queryKeys } from '@/api/queryKeys';
+import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { orgApi } from '@/api';
+import { orgApi, scheduleApi } from '@/api';
 import type { UserRole } from '@/types';
 import { roleLabels } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { Button, Input, Modal, Select } from '@/components/ui';
 import { buildPositionOptions, NO_POSITION_VALUE } from './positionSelect';
+import { createDefaultWeekTemplate } from '@/lib/schedule';
 import {
   EMAIL_ERROR,
   PHONE_ERROR,
@@ -68,18 +69,39 @@ export function AddUserModal({ open, onClose, initialRole = 'employee' }: AddUse
   );
 
   const createUser = useMutation({
-    mutationFn: () =>
-      orgApi.createUser({
+    mutationFn: async () => {
+      const user = await orgApi.createUser({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
         phone: phone.trim() || undefined,
         role,
         positionIds: positionId === NO_POSITION_VALUE ? [] : [positionId],
-      }),
-    onSuccess: () => {
+      });
+      let scheduleSaved = true;
+      if (user.role === 'employee' || user.role === 'admin') {
+        try {
+          await scheduleApi.saveSchedule({
+            userId: user.id,
+            template: createDefaultWeekTemplate(),
+          });
+        } catch {
+          scheduleSaved = false;
+        }
+      }
+      return { user, scheduleSaved };
+    },
+    onSuccess: ({ scheduleSaved }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
-      toast.success('Пользователь добавлен');
+      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates });
+      if (scheduleSaved) {
+        toast.success('Пользователь добавлен');
+      } else {
+        toast.error(
+          'Пользователь добавлен, но график 5/2 не сохранён',
+          'Попробуйте включить сотрудника в графике ещё раз.',
+        );
+      }
       onClose();
     },
     onError: (error) =>
