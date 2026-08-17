@@ -35,10 +35,12 @@ import { isScheduleEligibleUser } from '@/pages/schedule/scheduleUsers';
 import { EmployeeSubscriptionCard } from './EmployeeSubscriptionCard';
 
 const PAGE_SIZE = 10;
-const lastLoginFormatter = new Intl.DateTimeFormat('ru-RU', {
+const lastLoginDateFormatter = new Intl.DateTimeFormat('ru-RU', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
+});
+const lastLoginTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
   hour: '2-digit',
   minute: '2-digit',
 });
@@ -292,7 +294,7 @@ export function EmployeesPage() {
           <thead>
             <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-400 uppercase">
               {(['name', 'department', 'role', 'status'] as EmployeeSortField[]).map((field) => (
-                <th key={field} className="px-4 py-3 font-semibold">
+                <th key={field} className="px-3 py-2.5 font-semibold">
                   <button
                     type="button"
                     onClick={() => toggleSort(field)}
@@ -303,9 +305,9 @@ export function EmployeesPage() {
                   </button>
                 </th>
               ))}
-              <th className="px-4 py-3 font-semibold">Должность</th>
-              <th className="px-4 py-3 font-semibold">Последний вход</th>
-              <th className="px-4 py-3 text-center font-semibold">В графике</th>
+              <th className="px-3 py-2.5 font-semibold">Должность</th>
+              <th className="px-3 py-2.5 font-semibold">Последний вход</th>
+              <th className="px-2 py-2.5 text-center font-semibold">В графике</th>
             </tr>
           </thead>
           <tbody>
@@ -348,11 +350,11 @@ export function EmployeesPage() {
                 onClick={() => updateParams({ drawer: user.id })}
                 className="cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
               >
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
+                <td className="px-3 py-2.5">
+                  <div className="flex items-center gap-2">
                     <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <EmployeeOpenButton
                           name={fullName(user)}
                           onOpen={() => updateParams({ drawer: user.id })}
@@ -372,26 +374,42 @@ export function EmployeesPage() {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  {getUserDepartmentNames(user.positionIds, lookups, user.departmentIds) || '—'}
+                <td className="px-3 py-2.5 text-sm text-slate-600">
+                  <p
+                    className="truncate"
+                    title={getUserDepartmentNames(user.positionIds, lookups, user.departmentIds)}
+                  >
+                    {getUserDepartmentNames(user.positionIds, lookups, user.departmentIds) || '—'}
+                  </p>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5">
                   <Badge variant={roleVariants[user.role]}>{roleLabels[user.role]}</Badge>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5">
                   <Badge variant={userStatusVariants[user.status]}>
                     {userStatusLabels[user.status]}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
-                  {userPositionNames(user.positionIds) || '—'}
+                <td className="px-3 py-2.5 text-sm text-slate-600">
+                  <p className="truncate" title={userPositionNames(user.positionIds)}>
+                    {userPositionNames(user.positionIds) || '—'}
+                  </p>
                 </td>
-                <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                  {user.accessMode && user.accessMode !== 'none' && user.lastLoginAt
-                    ? lastLoginFormatter.format(new Date(user.lastLoginAt))
-                    : '—'}
+                <td className="px-3 py-2.5 text-sm text-slate-600">
+                  {user.accessMode && user.accessMode !== 'none' && user.lastLoginAt ? (
+                    <span className="block leading-tight whitespace-nowrap">
+                      <span className="block">
+                        {lastLoginDateFormatter.format(new Date(user.lastLoginAt))}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-400">
+                        {lastLoginTimeFormatter.format(new Date(user.lastLoginAt))}
+                      </span>
+                    </span>
+                  ) : (
+                    '—'
+                  )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-2.5">
                   <div className="flex justify-center" onClick={(event) => event.stopPropagation()}>
                     {canEditSchedule &&
                     isScheduleEligibleUser(user) &&
@@ -453,7 +471,7 @@ export function EmployeesPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <PageHeader
         title="Сотрудники"
         description={
