@@ -34,7 +34,6 @@ import {
   shiftHours,
   weekdayIndex,
   type DayState,
-  createDefaultWeekTemplate,
 } from '@/lib/schedule';
 import { fullName, pluralRu } from '@/lib/labels';
 import { toast } from '@/stores/toast';
@@ -46,13 +45,11 @@ import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
 import { cn } from '@/lib/cn';
 import {
   filterScheduleUsers,
-  isScheduleEligibleUser,
   isUserShownInSchedule,
   scheduleEmptyStatePresentation,
   selectScheduleStaffUsers,
 } from './scheduleUsers';
 import { canManageContent } from '@/lib/permissions';
-import { ScheduleEmployeePicker } from './ScheduleEmployeePicker';
 
 /** Черновик правки одной ячейки (до публикации). */
 type Draft = { type: ShiftType; start?: string; end?: string; note?: string };
@@ -488,39 +485,6 @@ export function SchedulePage() {
     queryFn: () => scheduleApi.getExceptions(key),
   });
 
-  const toggleScheduleUser = useMutation({
-    mutationFn: async ({ user, enabled }: { user: User; enabled: boolean }) => {
-      const hasSchedule = (schedulesQuery.data ?? []).some(
-        (schedule) => schedule.userId === user.id,
-      );
-      if (enabled && !hasSchedule) {
-        await scheduleApi.saveSchedule({
-          userId: user.id,
-          template: createDefaultWeekTemplate(),
-        });
-      }
-      return orgApi.updateUser({ id: user.id, showInSchedule: enabled });
-    },
-    onMutate: async ({ user, enabled }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.users.all });
-      const previousUsers = queryClient.getQueryData<User[]>(queryKeys.users.all);
-      queryClient.setQueryData<User[]>(queryKeys.users.all, (current = []) =>
-        current.map((item) => (item.id === user.id ? { ...item, showInSchedule: enabled } : item)),
-      );
-      return { previousUsers };
-    },
-    onError: (_error, _variables, context) => {
-      if (context?.previousUsers) {
-        queryClient.setQueryData(queryKeys.users.all, context.previousUsers);
-      }
-      toast.error('Не удалось изменить состав графика');
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
-      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates });
-    },
-  });
-
   const publish = useMutation({
     mutationFn: () =>
       scheduleApi.saveExceptions(
@@ -570,10 +534,6 @@ export function SchedulePage() {
   const currentUserRole = currentUserQuery.data?.role;
   const canEdit = canManageContent(currentUserRole);
   const isEmployeeView = currentUserRole === 'employee';
-  const schedulePickerUsers = useMemo(
-    () => users.filter((user) => isScheduleEligibleUser(user) && user.status !== 'deactivated'),
-    [users],
-  );
   const positionById = useMemo(
     () => new Map((positionsQuery.data ?? []).map((position) => [position.id, position])),
     [positionsQuery.data],
@@ -964,15 +924,6 @@ export function SchedulePage() {
                   className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-[15px] transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
                 />
               </div>
-              {canEdit && (
-                <ScheduleEmployeePicker
-                  users={schedulePickerUsers}
-                  pendingUserId={
-                    toggleScheduleUser.isPending ? toggleScheduleUser.variables?.user.id : undefined
-                  }
-                  onToggle={(user, enabled) => toggleScheduleUser.mutate({ user, enabled })}
-                />
-              )}
               {(
                 [
                   { value: 'all', label: 'Все', count: staffUsers.length },

@@ -36,8 +36,7 @@ export function scheduleEmptyStatePresentation(hasActiveFilters: boolean) {
       }
     : {
         title: 'В графике пока нет сотрудников',
-        description:
-          'Добавьте их через кнопку рядом с поиском или активируйте в карточке сотрудника.',
+        description: 'Активируйте нужных людей в разделе «Сотрудники» или в их карточках.',
       };
 }
 

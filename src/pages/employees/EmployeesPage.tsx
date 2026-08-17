@@ -1,11 +1,11 @@
-import { queryKeys } from '@/api/queryKeys';
+import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { orgApi } from '@/api';
-import type { ID } from '@/types';
+import { authApi, orgApi, scheduleApi } from '@/api';
+import type { ID, User } from '@/types';
 import {
   fullName,
   roleLabels,
@@ -29,6 +29,10 @@ import {
   type EmployeeSortField,
   type SortDirection,
 } from './employeeTable';
+import { createDefaultWeekTemplate } from '@/lib/schedule';
+import { canManageContent } from '@/lib/permissions';
+import { isScheduleEligibleUser } from '@/pages/schedule/scheduleUsers';
+import { ScheduleEmployeePicker } from '@/pages/schedule/ScheduleEmployeePicker';
 
 const PAGE_SIZE = 10;
 
@@ -118,6 +122,14 @@ export function EmployeesPage() {
     queryFn: orgApi.getUsers,
     refetchOnMount: true,
   });
+  const currentUserQuery = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: authApi.getCurrentUser,
+  });
+  const schedulesQuery = useQuery({
+    queryKey: scheduleQueryKeys.templates,
+    queryFn: scheduleApi.getSchedules,
+  });
   const orgSyncReady = usersQuery.isSuccess && !usersQuery.isFetching;
   const positionsQuery = useQuery({
     queryKey: queryKeys.positions,
@@ -143,7 +155,48 @@ export function EmployeesPage() {
       toast.error(error instanceof Error ? error.message : 'Не удалось удалить сотрудника'),
   });
 
+  const toggleScheduleUser = useMutation({
+    mutationFn: async ({ user, enabled }: { user: User; enabled: boolean }) => {
+      const hasSchedule = (schedulesQuery.data ?? []).some(
+        (schedule) => schedule.userId === user.id,
+      );
+      if (enabled && !hasSchedule) {
+        await scheduleApi.saveSchedule({
+          userId: user.id,
+          template: createDefaultWeekTemplate(),
+        });
+      }
+      return orgApi.updateUser({ id: user.id, showInSchedule: enabled });
+    },
+    onMutate: async ({ user, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.users.all });
+      const previousUsers = queryClient.getQueryData<User[]>(queryKeys.users.all);
+      queryClient.setQueryData<User[]>(queryKeys.users.all, (current = []) =>
+        current.map((item) => (item.id === user.id ? { ...item, showInSchedule: enabled } : item)),
+      );
+      return { previousUsers };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousUsers) {
+        queryClient.setQueryData(queryKeys.users.all, context.previousUsers);
+      }
+      toast.error('Не удалось изменить состав графика');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates });
+    },
+  });
+
   const deleteUser = usersQuery.data?.find((u) => u.id === deleteUserId) ?? null;
+  const canEditSchedule = canManageContent(currentUserQuery.data?.role);
+  const schedulePickerUsers = useMemo(
+    () =>
+      (usersQuery.data ?? []).filter(
+        (user) => isScheduleEligibleUser(user) && user.status !== 'deactivated',
+      ),
+    [usersQuery.data],
+  );
 
   const lookups = useMemo(
     () => ({
@@ -213,6 +266,15 @@ export function EmployeesPage() {
             className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
           />
         </div>
+        {canEditSchedule && (
+          <ScheduleEmployeePicker
+            users={schedulePickerUsers}
+            pendingUserId={
+              toggleScheduleUser.isPending ? toggleScheduleUser.variables?.user.id : undefined
+            }
+            onToggle={(user, enabled) => toggleScheduleUser.mutate({ user, enabled })}
+          />
+        )}
         <Select
           options={departmentOptions}
           value={departmentFilter}
