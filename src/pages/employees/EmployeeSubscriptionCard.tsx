@@ -266,7 +266,7 @@ export function EmployeeSubscriptionCard({ users }: { users: User[] }) {
             <div className="mt-6">
               <h3 className="text-base">Количество пользователей</h3>
               <p className="mt-1 text-sm text-slate-500">
-                В Базовый тариф включено минимум 5 пользователей.
+                В Базовый тариф включено минимум {BASIC_INCLUDED_USERS} пользователей.
               </p>
               <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-surface p-4">
                 <QuantityControl

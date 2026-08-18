@@ -1,6 +1,6 @@
 const DAY_MS = 86_400_000;
 
-export const BASIC_INCLUDED_USERS = 5;
+export const BASIC_INCLUDED_USERS = 100;
 export const BASIC_YEAR_PRICE = 3_000;
 export const BASIC_EXTRA_USER_YEAR_PRICE = 6_000;
 export const ADDITIONAL_USER_DAY_PRICE = 16;

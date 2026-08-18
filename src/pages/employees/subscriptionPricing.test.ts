@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   additionalUsersPrice,
   basicRenewalPrice,
+  BASIC_INCLUDED_USERS,
   subscriptionDaysRemaining,
 } from './subscriptionPricing';
 
@@ -20,7 +21,8 @@ describe('subscription pricing', () => {
   });
 
   it('считает годовое продление отдельно от докупки', () => {
-    expect(basicRenewalPrice(5)).toBe(3_000);
-    expect(basicRenewalPrice(6)).toBe(9_000);
+    expect(BASIC_INCLUDED_USERS).toBe(100);
+    expect(basicRenewalPrice(BASIC_INCLUDED_USERS)).toBe(3_000);
+    expect(basicRenewalPrice(BASIC_INCLUDED_USERS + 1)).toBe(9_000);
   });
 });

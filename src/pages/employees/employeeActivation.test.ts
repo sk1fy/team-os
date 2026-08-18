@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { User } from '@/types';
 import { canActivateEmployee, countActiveEmployees } from './employeeActivation';
+import { BASIC_INCLUDED_USERS } from './subscriptionPricing';
 
 function employee(id: string, active: boolean): User {
   return {
@@ -21,33 +22,31 @@ describe('employee activation limit', () => {
     const owner = { ...employee('owner', false), role: 'owner' as const };
     const admin = { ...employee('admin', false), role: 'admin' as const };
 
-    expect(canActivateEmployee([owner, admin], owner, 5)).toBe(true);
-    expect(canActivateEmployee([owner, admin], admin, 5)).toBe(true);
+    expect(canActivateEmployee([owner, admin], owner, BASIC_INCLUDED_USERS)).toBe(true);
+    expect(canActivateEmployee([owner, admin], admin, BASIC_INCLUDED_USERS)).toBe(true);
   });
 
   it('разрешает занять последнее доступное место', () => {
-    const users = [
-      employee('1', true),
-      employee('2', true),
-      employee('3', true),
-      employee('4', true),
-      employee('5', false),
-    ];
+    const users = Array.from({ length: BASIC_INCLUDED_USERS }, (_, index) =>
+      employee(String(index + 1), index < BASIC_INCLUDED_USERS - 1),
+    );
 
-    expect(canActivateEmployee(users, users[4], 5)).toBe(true);
+    expect(canActivateEmployee(users, users[BASIC_INCLUDED_USERS - 1], BASIC_INCLUDED_USERS)).toBe(
+      true,
+    );
   });
 
   it('запрещает активировать сотрудника сверх лимита', () => {
     const users = [
-      employee('1', true),
-      employee('2', true),
-      employee('3', true),
-      employee('4', true),
-      employee('5', true),
-      employee('6', false),
+      ...Array.from({ length: BASIC_INCLUDED_USERS }, (_, index) =>
+        employee(String(index + 1), true),
+      ),
+      employee(String(BASIC_INCLUDED_USERS + 1), false),
     ];
 
-    expect(countActiveEmployees(users)).toBe(5);
-    expect(canActivateEmployee(users, users[5], 5)).toBe(false);
+    expect(countActiveEmployees(users)).toBe(BASIC_INCLUDED_USERS);
+    expect(
+      canActivateEmployee(users, users[BASIC_INCLUDED_USERS], BASIC_INCLUDED_USERS),
+    ).toBe(false);
   });
 });
