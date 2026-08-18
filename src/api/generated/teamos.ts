@@ -194,14 +194,34 @@ export interface paths {
         put?: never;
         /**
          * Подготовить создание компании или вход из виджета amoCRM
-         * @description Клиент TeamOS передаёт токен в JSON-теле. Официальный WEB SDK amoCRM
-         *     передаёт тот же токен в заголовке `X-Auth-Token`. Должен быть указан
-         *     ровно один источник токена. Gateway передаёт только токен в company-service,
-         *     который проверяет его одним служебным запросом в widgets-rkrs. Профиль,
-         *     аккаунт и права из JSON-тела не используются для авторизации или ролей.
+         * @deprecated
+         * @description Прежний публичный сценарий отключён. Вход из amoCRM выполняется только
+         *     через уже существующую Bearer-сессию TeamOS и `/api/v1/amocrm/session-access`.
          *
          */
         post: operations["exchangeAmoWidgetSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/amocrm/session-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Проверить переход из amoCRM по действующей сессии TeamOS
+         * @description Пользователь определяется исключительно из Bearer-сессии TeamOS.
+         *     Browser-подсказки пользователя и прав не принимаются.
+         *
+         */
+        post: operations["checkAmoSessionAccess"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3568,6 +3588,17 @@ export interface components {
         AmoAccountAvailabilityResponse: {
             exists: boolean;
         };
+        AmoSessionAccessInput: {
+            amoAccountId: string;
+        };
+        AmoSessionAccessResponse: {
+            /** @constant */
+            allowed: true;
+            /** @description В успешном ответе возвращается только `admin` или `owner`. */
+            role: components["schemas"]["UserRole"];
+            /** @constant */
+            redirectUrl: "/schedule";
+        };
         AmoWidgetSessionInput: {
             token?: string;
             /**
@@ -5388,6 +5419,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Компания или интеграция временно заблокирована */
+        Locked: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Ошибка API */
         Error: {
             headers: {
@@ -5432,6 +5472,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["AmoWidgetSessionResponse"];
+            };
+        };
+        /** @description Доступ к переходу из amoCRM подтверждён текущей сессией TeamOS */
+        AmoSessionAccess: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AmoSessionAccessResponse"];
             };
         };
         /** @description Ссылка самостоятельного входа подтверждённого администратора amoCRM */
@@ -6736,6 +6785,30 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+            410: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    checkAmoSessionAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmoSessionAccessInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AmoSessionAccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            423: components["responses"]["Locked"];
             default: components["responses"]["Error"];
         };
     };

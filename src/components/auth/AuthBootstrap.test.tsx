@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthCheckingScreen } from './AuthBootstrap';
+import { isAmoSessionAuthRoute, isPublicAuthTokenRoute } from './authRouteMode';
 import { restoreAuthenticatedSession } from './sessionBootstrap';
 
 describe('auth bootstrap', () => {
@@ -33,5 +34,11 @@ describe('auth bootstrap', () => {
     await restoreAuthenticatedSession(async () => false, loadCurrentUser);
 
     expect(loadCurrentUser).not.toHaveBeenCalled();
+  });
+
+  it('восстанавливает first-party сессию для session-only входа из amoCRM', () => {
+    expect(isPublicAuthTokenRoute('/auth/amocrm', '?sessionToken=legacy')).toBe(true);
+    expect(isPublicAuthTokenRoute('/auth/amocrm', '?mode=session&accountId=31355990')).toBe(false);
+    expect(isAmoSessionAuthRoute('/auth/amocrm', '?mode=session&accountId=31355990')).toBe(true);
   });
 });

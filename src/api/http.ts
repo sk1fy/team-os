@@ -1,5 +1,6 @@
 import { httpRequest, jsonBody, refreshAccessToken, type AuthSession } from './client';
 import { useAuthStore } from '@/stores/auth';
+import type { AmoSessionAccessInput, AmoSessionAccessResponse } from './amocrm';
 import type {
   Acknowledgement,
   AmoWidgetContinuation,
@@ -100,6 +101,8 @@ export const httpAuthApi = {
     publicRequest('/public/company-registration-tokens/validate', 'POST', { registrationToken }),
   validateAmoWidgetContinuation: (sessionToken: string): Promise<AmoWidgetContinuation> =>
     publicRequest('/public/amocrm/widget-sessions/validate', 'POST', { sessionToken }),
+  authorizeAmoSession: (input: AmoSessionAccessInput): Promise<AmoSessionAccessResponse> =>
+    request('/amocrm/session-access', 'POST', input),
   reserveRegistrationLogin: (): Promise<RegistrationLoginReservation> =>
     publicRequest('/auth/registration-logins', 'POST'),
   updateCompany: (input: {

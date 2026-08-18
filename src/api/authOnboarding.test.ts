@@ -210,6 +210,31 @@ describe('onboarding auth API', () => {
     expect(useAuthStore.getState().accessToken).toBeNull();
   });
 
+  it('проверяет session-only доступ amoCRM с внутренним Bearer', async () => {
+    useAuthStore.getState().setAccessToken('internal-access');
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        allowed: true,
+        role: 'admin',
+        redirectUrl: '/schedule',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(httpAuthApi.authorizeAmoSession({ amoAccountId: '31355990' })).resolves.toEqual({
+      allowed: true,
+      role: 'admin',
+      redirectUrl: '/schedule',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://localhost:8080/api/v1/amocrm/session-access');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ amoAccountId: '31355990' });
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer internal-access');
+    expect(init.credentials).toBe('include');
+  });
+
   it('завершает вход из amoCRM паролем и запоминает сессию', async () => {
     const fetchMock = vi
       .fn()
