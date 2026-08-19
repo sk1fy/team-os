@@ -5,7 +5,6 @@
  */
 
 import { ApiError, mockRequest, notFound, type AuthSession } from './client';
-import type { AmoSessionAccessInput, AmoSessionAccessResponse } from './amocrm';
 import { isHttpApiMode } from './config';
 import {
   httpAcademyApi,
@@ -124,22 +123,6 @@ const mockAuthApi = {
           requiresPasswordSetup: false,
           expiresAt: new Date(Date.now() + 600_000).toISOString(),
         };
-      },
-      { noFail: true },
-    ),
-
-  authorizeAmoSession: (input: AmoSessionAccessInput): Promise<AmoSessionAccessResponse> =>
-    mockRequest(
-      () => {
-        const user =
-          db.users.find((item) => item.id === db.CURRENT_USER_ID) ?? notFound('Пользователь');
-        if (db.company.amoAccountId !== input.amoAccountId) {
-          throw new ApiError('Компания для аккаунта amoCRM не найдена', 404);
-        }
-        if (user.role !== 'owner' && user.role !== 'admin') {
-          throw new ApiError('Недостаточно прав для входа из amoCRM', 403);
-        }
-        return { allowed: true, role: user.role, redirectUrl: '/schedule' };
       },
       { noFail: true },
     ),

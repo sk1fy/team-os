@@ -6,7 +6,6 @@ import { useTitle } from '@reactuses/core';
 import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
-import { isAmoSessionAuthRoute } from '@/components/auth/authRouteMode';
 import { resolvePostLoginPath } from '@/lib/permissions';
 
 export function LoginPage() {
@@ -44,12 +43,11 @@ export function LoginPage() {
           from?: { pathname?: string; search?: string; hash?: string };
         } | null
       )?.from;
-      const amoSessionReturnPath = isAmoSessionAuthRoute(from?.pathname ?? '', from?.search)
-        ? from?.pathname
-        : undefined;
-      const pathname =
-        amoSessionReturnPath ??
-        resolvePostLoginPath(session.user.role, from?.pathname, session.user.sectionAccess);
+      const pathname = resolvePostLoginPath(
+        session.user.role,
+        from?.pathname,
+        session.user.sectionAccess,
+      );
       const isAllowedReturnPath = from?.pathname === pathname;
       navigate(
         isAllowedReturnPath ? `${pathname}${from?.search ?? ''}${from?.hash ?? ''}` : pathname,

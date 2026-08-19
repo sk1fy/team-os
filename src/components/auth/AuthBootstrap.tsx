@@ -6,7 +6,6 @@ import { isHttpApiMode } from '@/api/config';
 import { queryKeys } from '@/api/queryKeys';
 import { safeHomePath } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/auth';
-import { isPublicAuthTokenRoute } from './authRouteMode';
 import { restoreAuthenticatedSession } from './sessionBootstrap';
 
 export function AuthCheckingScreen() {
@@ -22,12 +21,13 @@ export function AuthCheckingScreen() {
 }
 
 export function AuthBootstrap({ children }: { children: ReactNode }) {
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const initialized = useAuthStore((state) => state.initialized);
   const setInitialized = useAuthStore((state) => state.setInitialized);
   const queryClient = useQueryClient();
   const startedRef = useRef(false);
-  const isPublicTokenRoute = isPublicAuthTokenRoute(pathname, search);
+  const isPublicTokenRoute =
+    pathname === '/onboarding' || pathname === '/register-company' || pathname === '/auth/amocrm';
 
   useEffect(() => {
     if (isPublicTokenRoute || initialized) return;

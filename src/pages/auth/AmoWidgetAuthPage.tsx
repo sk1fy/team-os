@@ -1,119 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { CheckCircle2, Copy } from 'lucide-react';
 import { authApi } from '@/api';
 import { ApiError } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
-import { RequireAuth } from '@/components/auth/AuthBootstrap';
 import { Button, Input } from '@/components/ui';
 import { copyText } from '@/lib/clipboard';
-import { useAuthStore } from '@/stores/auth';
 import type { AmoWidgetContinuation } from '@/types';
 import { PublicAuthError } from './PublicAuthError';
 import { amoWidgetContinuationErrorView, type PublicAuthErrorView } from './publicAuthFlow';
 import { claimOneTimeRequest, useOneTimeQueryValue } from './useOneTimeQueryToken';
-import {
-  amoSessionAccessErrorView,
-  isValidAmoAccountId,
-  safeAmoSessionRedirect,
-} from './amoSessionAccess';
 
 export function AmoWidgetAuthPage() {
-  const [searchParams] = useSearchParams();
-  const sessionMode = searchParams.get('mode') === 'session';
-  const accountId = searchParams.get('accountId')?.trim() ?? '';
-
-  if (sessionMode) {
-    return (
-      <RequireAuth>
-        <AmoSessionAccessPage key={accountId} accountId={accountId} />
-      </RequireAuth>
-    );
-  }
-
-  return <AmoWidgetContinuationPage />;
-}
-
-function AmoSessionAccessPage({ accountId }: { accountId: string }) {
-  useTitle('Вход из amoCRM — TeamOS');
-  const navigate = useNavigate();
-  const location = useLocation();
-  const requestStartedRef = useRef(false);
-  const [attempt, setAttempt] = useState(0);
-  const [error, setError] = useState<PublicAuthErrorView>();
-
-  useEffect(() => {
-    if (!claimOneTimeRequest(requestStartedRef)) return;
-    if (!isValidAmoAccountId(accountId)) {
-      setError({
-        title: 'Некорректная ссылка',
-        description: 'Вернитесь в amoCRM и снова нажмите кнопку «Перейти в TeamOS».',
-        action: 'none',
-      });
-      return;
-    }
-
-    setError(undefined);
-    void authApi
-      .authorizeAmoSession({ amoAccountId: accountId })
-      .then((access) => {
-        if (!access.allowed) {
-          setError(amoSessionAccessErrorView(new ApiError('Доступ не подтверждён', 403)));
-          return;
-        }
-        const redirectPath = safeAmoSessionRedirect(access.redirectUrl);
-        if (!redirectPath) {
-          setError(
-            amoSessionAccessErrorView(
-              new ApiError('TeamOS вернул недопустимый адрес перехода', 502),
-            ),
-          );
-          return;
-        }
-        navigate(redirectPath, { replace: true });
-      })
-      .catch((caught: unknown) => {
-        if (caught instanceof ApiError && caught.status === 401) {
-          useAuthStore.getState().clear();
-          navigate('/auth/login', { replace: true, state: { from: location } });
-          return;
-        }
-        setError(amoSessionAccessErrorView(caught));
-      });
-  }, [accountId, attempt, location, navigate]);
-
-  if (error) {
-    return (
-      <PublicAuthError
-        error={error}
-        onRetry={
-          error.action === 'retry'
-            ? () => {
-                requestStartedRef.current = false;
-                setAttempt((value) => value + 1);
-              }
-            : undefined
-        }
-      />
-    );
-  }
-
-  return (
-    <div
-      className="w-full max-w-md rounded-xl border border-slate-200 bg-surface p-8 text-center shadow-card"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <div className="mx-auto size-8 animate-spin rounded-full border-3 border-primary-100 border-t-primary-600" />
-      <h1 className="mt-5 text-xl font-semibold text-slate-950">Проверяем доступ…</h1>
-      <p className="mt-2 text-sm text-slate-500">Подтверждаем компанию и вашу роль.</p>
-    </div>
-  );
-}
-
-function AmoWidgetContinuationPage() {
   useTitle('Вход из amoCRM — TeamOS');
   const continuationToken = useOneTimeQueryValue('sessionToken');
   const navigate = useNavigate();

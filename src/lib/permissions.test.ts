@@ -73,7 +73,6 @@ describe('permissions', () => {
     expect(resolvePostLoginPath('partner', '/employees')).toBe('/academy');
     expect(resolvePostLoginPath('partner', '/academy/courses')).toBe('/academy/courses');
     expect(resolvePostLoginPath('employee', '/')).toBe('/schedule');
-    expect(resolvePostLoginPath('admin', '/auth/amocrm')).toBe('/auth/amocrm');
     expect(resolvePostLoginPath('owner', '/')).toBe('/');
     expect(resolvePostLoginPath('owner')).toBe('/dashboard');
   });
