@@ -5,6 +5,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { LoaderCircle } from 'lucide-react';
 import { authApi } from '@/api';
+import { createAccessLinkLoginDeduplicator } from './accessLinkLogin';
+import { getAccessLinkDestination } from './accessLinkNavigation';
+
+const loginWithAccessLinkOnce = createAccessLinkLoginDeduplicator(authApi.loginWithAccessLink);
 
 export function AccessLinkPage() {
   useTitle('Вход по ссылке — TeamOS');
@@ -19,12 +23,15 @@ export function AccessLinkPage() {
       setFailed(true);
       return;
     }
-    void authApi
-      .loginWithAccessLink(token)
+    void loginWithAccessLinkOnce(token)
       .then((session) => {
         if (!active) return;
         queryClient.setQueryData(queryKeys.currentUser, session.user);
-        navigate('/schedule', { replace: true });
+        const destination = getAccessLinkDestination(session);
+        navigate(destination.pathname, {
+          replace: true,
+          state: destination.state,
+        });
       })
       .catch(() => active && setFailed(true));
     return () => {

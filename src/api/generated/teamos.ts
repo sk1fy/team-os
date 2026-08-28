@@ -3590,7 +3590,13 @@ export interface components {
             /** @description JWT access-токен со сроком жизни 15 минут. */
             accessToken: string;
             user: components["schemas"]["User"];
+            entryContext?: components["schemas"]["EntryContext"];
         };
+        /**
+         * @description Одноразовый контекст первого входа после создания компании.
+         * @enum {string}
+         */
+        EntryContext: "company_created";
         BootstrapAuthResponse: {
             /** @description JWT access-токен со сроком жизни 15 минут. */
             accessToken: string;

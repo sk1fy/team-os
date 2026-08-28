@@ -71,6 +71,8 @@ export interface HttpRequestOptions {
 export interface AuthSession<TUser> {
   accessToken: string;
   user: TUser;
+  /** Одноразовый контекст точки входа, который может вернуть backend. */
+  entryContext?: 'company_created';
 }
 
 export async function mockRequest<T>(

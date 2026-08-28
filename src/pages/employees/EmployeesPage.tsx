@@ -1,6 +1,6 @@
 import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
-import { useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
@@ -38,6 +38,11 @@ import {
   countActiveEmployees,
   isEmployeeActivationEligible,
 } from './employeeActivation';
+import { CompanyCreatedWelcome } from './CompanyCreatedWelcome';
+import {
+  isCompanyCreatedWelcomeState,
+  summarizeImportedUsers,
+} from './companyCreatedWelcomeState';
 
 const PAGE_SIZE = 10;
 const lastLoginDateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -98,8 +103,18 @@ function SortIcon({
 
 export function EmployeesPage() {
   useTitle('Сотрудники — TeamOS');
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const [companyCreatedWelcomeOpen, setCompanyCreatedWelcomeOpen] = useState(() =>
+    isCompanyCreatedWelcomeState(location.state),
+  );
+
+  useEffect(() => {
+    if (!isCompanyCreatedWelcomeState(location.state)) return;
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [location.pathname, location.search, location.state, navigate]);
 
   const tab = 'employees';
   const search = searchParams.get('q') ?? '';
@@ -135,6 +150,11 @@ export function EmployeesPage() {
     queryKey: queryKeys.users.all,
     queryFn: orgApi.getUsers,
     refetchOnMount: true,
+  });
+  const companyQuery = useQuery({
+    queryKey: queryKeys.company,
+    queryFn: authApi.getCompany,
+    enabled: companyCreatedWelcomeOpen,
   });
   const currentUserQuery = useQuery({
     queryKey: queryKeys.currentUser,
@@ -216,6 +236,10 @@ export function EmployeesPage() {
     () => countActiveEmployees(usersQuery.data ?? []),
     [usersQuery.data],
   );
+  const importedUsersSummary = useMemo(
+    () => (usersQuery.data ? summarizeImportedUsers(usersQuery.data) : undefined),
+    [usersQuery.data],
+  );
   const activationLimitReached = activeUsersCount >= BASIC_INCLUDED_USERS;
   const lookups = useMemo(
     () => ({
@@ -270,6 +294,11 @@ export function EmployeesPage() {
     } else {
       updateParams({ sort: field, dir: 'asc' }, true);
     }
+  };
+
+  const closeCompanyCreatedWelcome = () => {
+    setCompanyCreatedWelcomeOpen(false);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   };
 
   const employeesContent = (
@@ -541,6 +570,26 @@ export function EmployeesPage() {
         onClose={() => updateParams({ addUser: null })}
       />
       <EmployeeDrawer userId={selectedEmployeeId} onClose={() => updateParams({ drawer: null })} />
+      <Modal
+        open={companyCreatedWelcomeOpen}
+        onOpenChange={(open) => !open && closeCompanyCreatedWelcome()}
+        title="Добро пожаловать в TeamOS"
+        description="Компания создана и готова к работе"
+        size="md"
+        footer={<Button onClick={closeCompanyCreatedWelcome}>Посмотреть сотрудников</Button>}
+      >
+        <CompanyCreatedWelcome
+          companyName={companyQuery.data?.name}
+          summary={importedUsersSummary}
+          loading={
+            usersQuery.isPending ||
+            usersQuery.isFetching ||
+            companyQuery.isPending ||
+            companyQuery.isFetching
+          }
+          failed={usersQuery.isError || companyQuery.isError}
+        />
+      </Modal>
       <Modal
         open={Boolean(deleteUserId)}
         onOpenChange={(open) => !open && updateParams({ deleteUser: null })}
