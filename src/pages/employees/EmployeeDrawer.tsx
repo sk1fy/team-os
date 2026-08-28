@@ -56,6 +56,7 @@ import { formatPhoneInput } from '@/lib/formValidation';
 import { canManageAccess, defaultEmployeeSections, safeHomePath } from '@/lib/permissions';
 import { copyText } from '@/lib/clipboard';
 import { validateEmployeePhone } from './employeePhoneValidation';
+import { hasAmoWidgetAccess } from './employeeAmoWidgetAccess';
 
 const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const monthShortNames = [
@@ -1249,6 +1250,8 @@ function EmployeeAccessSection({
   const access = loadedAccess ?? { mode: 'none' as const };
   const passwordEnabled = access.passwordEnabled ?? access.mode === 'password';
   const linkEnabled = access.linkEnabled ?? access.mode === 'link';
+  const amoWidgetAccessEnabled = hasAmoWidgetAccess(user);
+  const linkAccessActive = linkEnabled || amoWidgetAccessEnabled;
   const login = access.login ?? user.login ?? '';
   const accessUrl = access.linkToken ? `${window.location.origin}/access/${access.linkToken}` : '';
 
@@ -1385,27 +1388,33 @@ function EmployeeAccessSection({
         <div
           className={cn(
             'rounded-lg border p-4',
-            linkEnabled ? 'border-primary-100 bg-primary-50/40' : 'border-slate-200 bg-surface',
+            linkAccessActive
+              ? 'border-primary-100 bg-primary-50/40'
+              : 'border-slate-200 bg-surface',
           )}
         >
           <div className="flex items-start justify-between gap-3">
             <span
               className={cn(
                 'flex size-9 shrink-0 items-center justify-center rounded-full',
-                linkEnabled ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-500',
+                linkAccessActive
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-slate-100 text-slate-500',
               )}
             >
               <Link2 className="size-4" />
             </span>
-            <Badge variant={linkEnabled ? 'primary' : 'neutral'}>
-              {linkEnabled ? 'Выдана' : 'Не выдана'}
+            <Badge variant={linkAccessActive ? 'primary' : 'neutral'}>
+              {amoWidgetAccessEnabled ? 'Активна' : linkEnabled ? 'Выдана' : 'Не выдана'}
             </Badge>
           </div>
-          <p className="mt-3 text-sm font-semibold text-ink">Ссылка доступа</p>
+          <p className="mt-3 text-sm font-semibold text-ink">Доступ по ссылке</p>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            {linkEnabled
-              ? 'Сотрудник может открыть TeamOS по персональной ссылке.'
-              : 'Одноразовая выдача доступа без передачи пароля.'}
+            {amoWidgetAccessEnabled
+              ? 'Администратор может входить в TeamOS через виджет amoCRM.'
+              : linkEnabled
+                ? 'Сотрудник может открыть TeamOS по персональной ссылке.'
+                : 'Одноразовая выдача доступа без передачи пароля.'}
           </p>
         </div>
       </div>
