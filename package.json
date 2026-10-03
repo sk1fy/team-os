@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "test": "vitest run --exclude \"e2e/**\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e:distribution": "playwright test --config=playwright.distribution.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
