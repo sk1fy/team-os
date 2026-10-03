@@ -15,6 +15,7 @@ import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
 import { Failure, panelClass, useVisiblePolling, reasonText, dateText } from './runtimeShared';
 import { DistributionQueue } from './DistributionQueue';
+import { DistributionObservations, ExecutionModeNotice } from './DistributionObservations';
 export function DistributionGroupPage() {
   const { groupId } = useParams();
   const create = groupId === 'new';
@@ -106,6 +107,7 @@ export function DistributionGroupPage() {
               </div>
             )}
           </div>
+          {rule && <ExecutionModeNotice rule={rule} />}
           <div hidden={!settingsOpen}>
             {(rules.data?.items.filter((r) => r.groupId === groupId).length ?? 0) > 1 ? (
               <div role="alert" className={panelClass}>
@@ -180,6 +182,9 @@ export function DistributionGroupPage() {
               )}
             </section>
           )}
+          {!settingsOpen && rule && (
+            <DistributionObservations rule={rule} users={users.data ?? []} />
+          )}
           {!create && !settingsOpen && (
             <DistributionQueue groupId={groupId} groups={groups.data ?? []} />
           )}
@@ -218,11 +223,22 @@ function Editor({
   const [status, setStatus] = useState(rule?.statusId ?? '');
   const [keep, setKeep] = useState(rule?.keepCurrentResponsible ?? true);
   const [active, setActive] = useState(rule?.active ?? false);
+  const [executionMode, setExecutionMode] = useState<'live' | 'observe' | ''>(
+    rule?.executionMode === 'observe'
+      ? 'observe'
+      : rule?.executionMode === 'live' || !rule?.executionMode
+        ? rule
+          ? 'live'
+          : 'observe'
+        : '',
+  );
   const [timezone, setTimezone] = useState(initialTimezone ?? '');
   const [groupRevision, setGroupRevision] = useState(group?.revision);
   const [ruleRevision, setRuleRevision] = useState(rule?.revision);
   const [savedGroup, setSavedGroup] = useState<Group | undefined>(group);
   const [savedRule, setSavedRule] = useState<Rule | undefined>(rule);
+  const modeSupported =
+    !savedRule || savedRule.executionMode === 'live' || savedRule.executionMode === 'observe';
   const [message, setMessage] = useState('');
   const [creationUncertain, setCreationUncertain] = useState(false);
   const savedSteps = useRef<string[]>([]);
@@ -315,6 +331,7 @@ function Editor({
       if (savedRule) {
         nextRule = await api.updateRule(savedRule.id, {
           expectedRevision: ruleRevision ?? savedRule.revision,
+          ...(modeSupported && executionMode ? { executionMode } : {}),
           active,
           keepCurrentResponsible: keep,
           pipelineId: pipeline,
@@ -322,6 +339,7 @@ function Editor({
         });
       } else {
         nextRule = await api.createRule({
+          executionMode: executionMode || 'observe',
           bindingId: binding.bindingId,
           bindingRevision: binding.revision,
           groupId: target.id,
@@ -470,6 +488,26 @@ function Editor({
             setTimezone(e.target.value);
           }}
         />
+        <label className="block text-sm">
+          Режим правила
+          <select
+            disabled={!modeSupported}
+            aria-label="Режим правила"
+            className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+            value={executionMode}
+            onChange={(event) => setExecutionMode(event.target.value as 'live' | 'observe')}
+          >
+            {!modeSupported && <option value="">Режим требует совместимого сервера</option>}
+            <option value="observe">Наблюдение — без назначений</option>
+            <option value="live">Рабочий — назначение в amoCRM</option>
+          </select>
+        </label>
+        <p className="text-sm text-slate-500">
+          Наблюдение записывает предварительное решение, не изменяет ответственного и очередь
+          назначения. Рабочий режим начинает отдельный период: прежние наблюдения не превращаются в
+          назначения. Новые входы после границы могут ожидать возобновления при паузе. Незавершённые
+          рабочие операции нужно сначала выяснить.
+        </p>
         <p className="text-sm">Алгоритм: по очереди (Round-robin)</p>
         <label className="flex items-start gap-3 text-sm">
           <input

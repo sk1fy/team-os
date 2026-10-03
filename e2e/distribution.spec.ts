@@ -15,6 +15,12 @@ async function fixture(
     conflict?: boolean;
     actionTimeout?: boolean;
     accepted202?: boolean;
+    mode?: string;
+    modeConflict?: boolean;
+    observationOutage?: boolean;
+    observationMalformed?: boolean;
+    observationFuture?: boolean;
+    night?: boolean;
   } = {},
 ) {
   let state = 'waiting',
@@ -22,6 +28,11 @@ async function fixture(
     groupRevision = 1,
     updated = '2026-10-03T08:00:00Z';
   let outage = !!options.outage;
+  let mode = options.mode,
+    executionEpoch = 1,
+    liveStartedAt: string | null = mode === 'live' ? updated : null;
+  let modeConflictTriggered = false;
+  const liveWork = !options.mode || options.mode === 'live';
   let conflictTriggered = false;
   let actionTimedOut = false;
   let workerPending = false;
@@ -56,6 +67,7 @@ async function fixture(
     statusId: '20',
     active: true,
     keepCurrentResponsible: true,
+    ...(mode ? { executionMode: mode, executionEpoch, liveStartedAt } : {}),
     revision,
     createdAt: updated,
     updatedAt: updated,
@@ -130,11 +142,63 @@ async function fixture(
         data = group();
       }
     } else if (path.endsWith('/distribution/rules')) data = { items: [rule()] };
-    else if (path.endsWith(`/rules/${ruleId}`)) {
-      if (body?.expectedRevision !== revision) {
+    else if (path.endsWith(`/rules/${ruleId}/observations`)) {
+      if (options.observationMalformed) {
+        data = {};
+      } else if (options.observationOutage) {
+        status = 503;
+        data = { error: { message: 'Источник наблюдений недоступен', status: 503 } };
+      } else
+        data = {
+          items: [
+            {
+              id: '00000000-0000-4000-8000-000000000010',
+              ruleId,
+              groupId,
+              entryId: queueId,
+              eventId: queueId,
+              executionEpoch: 1,
+              ruleRevision: 1,
+              availabilityRevision: 1,
+              observationRevision: 1,
+              checkedAt: updated,
+              crmObservedAt: updated,
+              bindingRevision: 1,
+              sourceOccurredAt: updated,
+              sourceReceivedAt: updated,
+              decisionKind: options.observationFuture
+                ? 'future_decision'
+                : options.night
+                  ? 'wait'
+                  : 'assign',
+              reason: options.night ? 'no_available_members' : 'decision_ready',
+              leadId: '987',
+              currentResponsibleUserId: '66',
+              plannedEmployeeId: options.night ? null : employeeId,
+              plannedResponsibleUserId: options.night ? null : '55',
+              nextShiftAt: options.night ? '2026-10-03T10:00:00Z' : null,
+            },
+          ],
+          limit: 25,
+          offset: Number(url.searchParams.get('offset') || 0),
+          hasMore: false,
+          checkedAt: updated,
+        };
+    } else if (path.endsWith(`/rules/${ruleId}`)) {
+      if (options.modeConflict && !modeConflictTriggered && body?.executionMode) {
+        modeConflictTriggered = true;
+        revision++;
+        status = 409;
+        data = { error: { message: 'Конфликт версии', status: 409 } };
+      } else if (body?.expectedRevision !== revision) {
         status = 409;
         data = { error: { message: 'Конфликт версии', status: 409 } };
       } else {
+        if (body?.executionMode && body.executionMode !== mode) {
+          mode = body.executionMode;
+          executionEpoch++;
+          liveStartedAt = mode === 'live' ? new Date().toISOString() : null;
+        }
         revision++;
         data = rule();
       }
@@ -158,7 +222,10 @@ async function fixture(
           pipelines: [
             { id: '10', name: 'Продажи', statuses: [{ id: '20', name: 'Новая заявка' }] },
           ],
-          users: [{ id: '55', name: 'Анна', isActive: true }],
+          users: [
+            { id: '55', name: 'Анна', isActive: true },
+            { id: '66', name: 'Иван', isActive: true },
+          ],
           freshUntil: '2099-01-01T00:00:00Z',
         };
     } else if (path.endsWith('/mappings'))
@@ -185,7 +252,7 @@ async function fixture(
         timezone: 'Europe/Moscow',
         checkedAt: updated,
         metricsAvailable: !options.denied,
-        waiting: options.denied ? null : state === 'waiting' ? 1 : 0,
+        waiting: options.denied ? null : liveWork && state === 'waiting' ? 1 : 0,
         assigning: ['dispatching', 'uncertain'].includes(state) ? 1 : 0,
         errors: state === 'failed' ? 1 : 0,
         confirmedToday: state === 'confirmed' ? 1 : 0,
@@ -195,7 +262,7 @@ async function fixture(
       const tab = url.searchParams.get('tab');
       data = {
         items:
-          (tab === 'waiting' && state === 'waiting') ||
+          (liveWork && tab === 'waiting' && state === 'waiting') ||
           (tab === 'assigning' && ['dispatching', 'uncertain'].includes(state)) ||
           (tab === 'completed' && state === 'confirmed') ||
           (tab === 'errors' && state === 'failed')
@@ -386,4 +453,109 @@ test('pause remains available during CRM source outage', async ({ page }) => {
   await page.getByRole('button', { name: 'Сохранить настройки' }).click();
   await expect(page.getByText('Настройки сохранены', { exact: true })).toBeVisible();
   expect(f.calls.find((c) => c.path.endsWith(`/rules/${ruleId}`))?.body.active).toBe(false);
+});
+
+test('observe records separate real owner and proposal; mode transition keeps history out of assignment queue', async ({
+  page,
+}) => {
+  const f = await fixture(page, { mode: 'observe' });
+  await page.goto(`/distribution/${groupId}`);
+  const records = page.getByRole('region', { name: 'Журнал наблюдений' });
+  await expect(page.getByRole('region', { name: 'Режим распределения' })).toContainText(
+    'Наблюдение — без назначений',
+  );
+  await expect(records.getByText('Иван', { exact: true })).toBeVisible();
+  await expect(records.getByText('Анна Пескова', { exact: true })).toBeVisible();
+  await expect(records).toContainText('предварительное решение');
+  await expect(page.getByRole('button', { name: 'Сделка №987' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByLabel('Режим правила').selectOption('live');
+  await page.getByRole('button', { name: 'Сохранить настройки' }).click();
+  await expect(page.getByText('Настройки сохранены', { exact: true })).toBeVisible();
+  const write = f.calls.find((c) => c.path.endsWith(`/rules/${ruleId}`));
+  expect(write?.body.executionMode).toBe('live');
+  expect(write?.body.expectedRevision).toBe(1);
+  await page.getByRole('button', { name: 'Очередь группы', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Режим распределения' })).toContainText(
+    'Рабочий режим',
+  );
+  await expect(records.getByText('Иван', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Сделка №987' })).toHaveCount(0);
+  expect(f.calls.filter((c) => c.path.endsWith('/actions'))).toHaveLength(0);
+  await page.screenshot({
+    path: '/Users/nikpeskov/.codex/state/clickup/rs10-artifacts/team-observe-1440.png',
+    fullPage: true,
+  });
+});
+test('night observe at390 shows wait and source failure is an error, never empty success', async ({
+  page,
+}) => {
+  await fixture(page, { mode: 'observe', night: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/distribution/${groupId}`);
+  const records = page.getByRole('region', { name: 'Журнал наблюдений' });
+  await expect(records).toContainText('Предлагается ожидание');
+  await expect(records).toContainText('Следующая смена');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({
+    path: '/Users/nikpeskov/.codex/state/clickup/rs10-artifacts/team-observe-night-390.png',
+    fullPage: true,
+  });
+  await page.route('**/rules/*/observations?*', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { message: 'Источник наблюдений недоступен', status: 503 } }),
+    }),
+  );
+  await page.reload();
+  await expect(records).toContainText('Источник наблюдений недоступен');
+  await expect(records.getByText('В доступной области записей наблюдения пока нет.')).toHaveCount(
+    0,
+  );
+});
+test('409 keeps mode draft; unknown mode is disabled and never silently written as live', async ({
+  page,
+}) => {
+  const f = await fixture(page, { mode: 'observe', modeConflict: true });
+  await page.goto(`/distribution/${groupId}`);
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await page.getByLabel('Режим правила').selectOption('live');
+  await page.getByRole('button', { name: 'Сохранить настройки' }).click();
+  await expect(page.getByText('Настройки изменились на сервере.', { exact: false })).toBeVisible();
+  await expect(page.getByLabel('Режим правила')).toHaveValue('live');
+  expect(f.calls.filter((c) => c.path.endsWith(`/rules/${ruleId}`))).toHaveLength(1);
+  await fixture(page, { mode: 'future_mode' });
+  await page.reload();
+  await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+  await expect(page.getByLabel('Режим правила')).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Режим распределения' })).toContainText(
+    'Режим не подтверждён',
+  );
+});
+
+test('malformed200 is a source error; future decisions stay unknown and refs failure cannot claim cached names', async ({
+  page,
+}) => {
+  await fixture(page, { mode: 'observe', observationMalformed: true });
+  await page.goto(`/distribution/${groupId}`);
+  const records = page.getByRole('region', { name: 'Журнал наблюдений' });
+  await expect(records).toContainText('неполные данные наблюдений');
+  await expect(records).not.toContainText('В доступной области записей наблюдения пока нет.');
+  await fixture(page, { mode: 'observe', observationFuture: true });
+  await page.reload();
+  await expect(records).toContainText('Тип решения неизвестен');
+  await expect(records).not.toContainText('Наблюдение пропущено');
+  await page.route('**/distribution/references?*', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { message: 'Справочник недоступен', status: 503 } }),
+    }),
+  );
+  await page.reload();
+  await expect(records).toContainText('Имена пользователей amoCRM не удалось проверить');
+  await expect(records).toContainText('Имя ответственного недоступно');
+  await expect(records.getByText('Иван', { exact: true })).toHaveCount(0);
+  await expect(records).toContainText('Тип решения неизвестен');
 });

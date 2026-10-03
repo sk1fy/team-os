@@ -6,6 +6,7 @@ export interface Group extends DealDistributionGroup {
 }
 type Schema = components['schemas'];
 export type Rule = Schema['DistributionRuntimeRule'];
+export type DistributionObservation = Schema['DistributionObservation'];
 export type Connection = Schema['DistributionConnection'];
 export type References = Schema['DistributionReferences'];
 export type Mapping = Schema['DistributionEmployeeMapping'];
@@ -72,6 +73,37 @@ export const distributionRuntimeApi = {
       undefined,
       signal,
     ),
+  observations: async (ruleId: string, offset: number, signal?: AbortSignal) => {
+    const result = await request<Schema['DistributionRuntimeObservations']>(
+      `/distribution/rules/${encodeURIComponent(ruleId)}/observations?limit=25&offset=${offset}`,
+      'GET',
+      undefined,
+      signal,
+    );
+    if (
+      !result ||
+      !Array.isArray(result.items) ||
+      typeof result.hasMore !== 'boolean' ||
+      !Number.isSafeInteger(result.offset) ||
+      typeof result.checkedAt !== 'string' ||
+      Number.isNaN(Date.parse(result.checkedAt)) ||
+      result.items.some(
+        (item) =>
+          !item ||
+          item.ruleId !== ruleId ||
+          typeof item.id !== 'string' ||
+          typeof item.leadId !== 'string' ||
+          typeof item.decisionKind !== 'string' ||
+          typeof item.reason !== 'string' ||
+          typeof item.checkedAt !== 'string' ||
+          Number.isNaN(Date.parse(item.checkedAt)),
+      )
+    )
+      throw new Error(
+        'Источник вернул неполные данные наблюдений. Повторите чтение после проверки сервера.',
+      );
+    return result;
+  },
   settings: (signal?: AbortSignal) =>
     request<{ timezone: string; revision: number }>(
       '/distribution/settings',

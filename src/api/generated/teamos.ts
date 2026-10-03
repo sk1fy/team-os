@@ -142,6 +142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/distribution/rules/{ruleId}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить результаты наблюдения без назначения */
+        get: operations["getDistributionObservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/distribution/queue": {
         parameters: {
             query?: never;
@@ -3702,7 +3719,53 @@ export interface components {
         DistributionTimezoneInput: {
             timezone: string;
         };
+        DistributionObservation: {
+            /** Format: int64 */
+            bindingRevision?: number;
+            sourceOccurredAt?: string | null;
+            sourceReceivedAt?: string | null;
+            /** Format: date-time */
+            crmObservedAt?: string;
+            id: components["schemas"]["ID"];
+            ruleId: components["schemas"]["ID"];
+            groupId: components["schemas"]["ID"];
+            entryId: components["schemas"]["ID"];
+            eventId: components["schemas"]["ID"];
+            /** Format: int64 */
+            executionEpoch: number;
+            /** Format: int64 */
+            ruleRevision: number;
+            /** Format: int64 */
+            availabilityRevision: number;
+            /** Format: int64 */
+            observationRevision: number;
+            /** Format: date-time */
+            checkedAt: string;
+            /** @enum {string} */
+            decisionKind: "assign" | "keep" | "wait" | "requires_configuration" | "skipped";
+            reason: string;
+            leadId: components["schemas"]["DistributionCRMID"];
+            currentResponsibleUserId: string | null;
+            plannedEmployeeId: string | null;
+            plannedResponsibleUserId: string | null;
+            nextShiftAt: string | null;
+        };
+        DistributionRuntimeObservations: {
+            hasMore?: boolean;
+            /** Format: date-time */
+            checkedAt?: string;
+            items: components["schemas"]["DistributionObservation"][];
+            /** Format: int32 */
+            limit: number;
+            /** Format: int32 */
+            offset: number;
+        };
         DistributionRuntimeRule: {
+            /** @enum {string} */
+            executionMode?: "live" | "observe";
+            /** Format: int64 */
+            executionEpoch?: number;
+            liveStartedAt?: string | null;
             id: components["schemas"]["ID"];
             bindingId: components["schemas"]["ID"];
             /** Format: int64 */
@@ -3721,6 +3784,11 @@ export interface components {
             updatedAt: string;
         };
         DistributionRuleCreateInput: {
+            /**
+             * @default live
+             * @enum {string}
+             */
+            executionMode: "live" | "observe";
             bindingId: components["schemas"]["ID"];
             /** Format: int64 */
             bindingRevision: number;
@@ -3733,6 +3801,8 @@ export interface components {
             keepCurrentResponsible: boolean;
         };
         DistributionRuleUpdateInput: {
+            /** @enum {string} */
+            executionMode?: "live" | "observe";
             pipelineId?: components["schemas"]["DistributionCRMID"];
             statusId?: components["schemas"]["DistributionCRMID"];
             /** Format: int64 */
@@ -7507,6 +7577,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DistributionRuntimeAvailability"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionObservations: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                ruleId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Только сделки с подтверждённым доступом */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeObservations"];
                 };
             };
             400: components["responses"]["BadRequest"];
