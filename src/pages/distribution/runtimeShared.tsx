@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { Badge, Button } from '@/components/ui';
+export const isAccessDenied = (error: unknown) =>
+  error instanceof ApiError && (error.status === 401 || error.status === 403);
 export function useVisiblePolling() {
   const [active, setActive] = useState(!document.hidden && navigator.onLine);
   useEffect(() => {

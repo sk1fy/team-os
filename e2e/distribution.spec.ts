@@ -14,6 +14,8 @@ async function fixture(
     outage?: boolean;
     conflict?: boolean;
     actionTimeout?: boolean;
+    actionReplayDenied?: boolean;
+    groupPaused?: boolean;
     accepted202?: boolean;
     mode?: string;
     modeConflict?: boolean;
@@ -28,6 +30,7 @@ async function fixture(
     groupRevision = 1,
     updated = '2026-10-03T08:00:00Z';
   let outage = !!options.outage;
+  let groupActive = !options.groupPaused;
   let mode = options.mode,
     executionEpoch = 1,
     liveStartedAt: string | null = mode === 'live' ? updated : null;
@@ -52,7 +55,7 @@ async function fixture(
     name: 'Новые заявки',
     memberIds: [employeeId],
     disabledMemberIds: [],
-    active: true,
+    active: groupActive,
     algorithm: 'round_robin',
     dealLimit: 10,
     revision: groupRevision,
@@ -139,6 +142,7 @@ async function fixture(
         data = { error: { message: 'Неверная конфигурация', status: 400 } };
       } else {
         groupRevision++;
+        groupActive = body.active;
         data = group();
       }
     } else if (path.endsWith('/distribution/rules')) data = { items: [rule()] };
@@ -280,6 +284,19 @@ async function fixture(
         hasMore: false,
       };
     else if (path.endsWith('/actions')) {
+      if (
+        options.actionReplayDenied &&
+        calls.filter((call) => call.path.endsWith('/actions')).length === 2
+      ) {
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: { message: 'Право на повтор временно отозвано', status: 403 },
+          }),
+        });
+        return;
+      }
       if (body.action === 'retry') state = 'waiting';
       updated = '2026-10-03T08:01:00Z';
       data = item();
@@ -325,6 +342,8 @@ for (const width of [1440, 390])
     await page.getByRole('button', { name: 'Настройки', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Настройки распределения' })).toBeVisible();
     await expect(page.getByLabel('Оставлять сделку')).toBeChecked();
+    await expect(page.getByLabel('Режим правила')).toHaveValue('');
+    await expect(page.getByLabel('Режим правила')).toBeDisabled();
     await page.getByLabel('Название группы').fill('Новые заявки — проверено');
     await page.getByRole('button', { name: 'Сохранить настройки' }).click();
     await expect(page.getByText('Настройки сохранены', { exact: true })).toBeVisible();
@@ -559,3 +578,90 @@ test('malformed200 is a source error; future decisions stay unknown and refs fai
   await expect(records.getByText('Иван', { exact: true })).toHaveCount(0);
   await expect(records).toContainText('Тип решения неизвестен');
 });
+
+test('denied replay keeps original unknown action and blocks replacement request', async ({
+  page,
+}) => {
+  const f = await fixture(page, { actionTimeout: true, actionReplayDenied: true });
+  await page.goto('/distribution');
+  await page.getByRole('button', { name: 'Сделка №987' }).click();
+  await page.getByRole('button', { name: 'Пересчитать', exact: true }).click();
+  await expect(page.getByText('Ответ на действие не получен.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Восстановить результат действия' }).click();
+  await expect.poll(() => f.calls.filter((c) => c.path.endsWith('/actions')).length).toBe(2);
+  await expect(page.getByRole('button', { name: 'Восстановить результат действия' })).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Проверить результат', exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await page.getByRole('link', { name: 'Открыть группу' }).click();
+  await expect(page.getByRole('link', { name: '← Все группы' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Назначаются', exact: true }).click();
+  await page.getByRole('button', { name: 'Сделка №987' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Проверить результат', exact: true }),
+  ).toBeDisabled();
+  await page.getByRole('button', { name: 'Восстановить результат действия' }).click();
+  await expect(page.getByText('Запрос принят.', { exact: false })).toBeVisible();
+  const requests = f.calls.filter((c) => c.path.endsWith('/actions'));
+  expect(requests).toHaveLength(3);
+  expect(requests[1].body).toEqual(requests[0].body);
+  expect(requests[2].body).toEqual(requests[0].body);
+});
+
+for (const screen of ['list', 'settings']) {
+  test(`revoked group access hides cached ${screen} content`, async ({ page }) => {
+    await fixture(page);
+    await page.goto(screen === 'settings' ? `/distribution/${groupId}` : '/distribution');
+    if (screen === 'settings') {
+      await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+      await page.getByLabel('Название группы').fill('Закрытый черновик');
+    }
+    await expect(page.getByRole('heading', { name: 'Новые заявки', exact: true })).toBeVisible();
+    await page.route('**/api/v1/distribution/groups', (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { message: 'Нет прав', status: 403 } }),
+      }),
+    );
+    // Wait for the bounded background poll to detect revoked access.
+    await expect(
+      page.getByText('Нет прав для работы с распределением.', { exact: false }),
+    ).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole('heading', { name: 'Новые заявки', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Название группы')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Сделка №987' })).toHaveCount(0);
+  });
+}
+
+for (const conflict of [false, true]) {
+  test(`switch from paused live to observe enables group only after saving rule (conflict=${conflict})`, async ({
+    page,
+  }) => {
+    const f = await fixture(page, { mode: 'live', groupPaused: true, modeConflict: conflict });
+    await page.goto(`/distribution/${groupId}`);
+    await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    await expect(page.getByLabel('Распределение включено')).not.toBeChecked();
+    await page.getByLabel('Режим правила').selectOption('observe');
+    await page.getByLabel('Распределение включено').check();
+    await page.getByRole('button', { name: 'Сохранить настройки' }).click();
+    if (conflict)
+      await expect(
+        page.getByText('Настройки изменились на сервере.', { exact: false }),
+      ).toBeVisible();
+    else await expect(page.getByText('Настройки сохранены', { exact: true })).toBeVisible();
+    const writes = f.calls.filter((c) => c.method === 'PUT');
+    expect(writes.map((c) => c.path)).toEqual([
+      `/api/v1/distribution/groups/${groupId}/configuration`,
+      `/api/v1/distribution/rules/${ruleId}`,
+      ...(conflict ? [] : [`/api/v1/distribution/groups/${groupId}/configuration`]),
+    ]);
+    expect(writes[0].body.active).toBe(false);
+    expect(writes[1].body.executionMode).toBe('observe');
+    if (!conflict) {
+      expect(writes[2].body.active).toBe(true);
+      expect(writes[2].body.expectedRevision).toBe(2);
+    }
+  });
+}

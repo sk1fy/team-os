@@ -7,7 +7,7 @@ import { distributionRuntimeApi as api, type Rule } from '@/api/distributionRunt
 import { queryKeys } from '@/api/queryKeys';
 import { Badge, Button } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Failure, useVisiblePolling, panelClass, dateText } from './runtimeShared';
+import { Failure, useVisiblePolling, panelClass, dateText, isAccessDenied } from './runtimeShared';
 import { DistributionQueue } from './DistributionQueue';
 export function DistributionPage() {
   useTitle('Распределение сделок — TeamOS');
@@ -57,10 +57,25 @@ export function DistributionPage() {
         retry: 1,
       })),
   });
-  const manage = user.data?.role === 'owner' || user.data?.role === 'admin';
+  const accessDenied = [groups.error, rules.error, connections.error, user.error].find(
+    isAccessDenied,
+  );
+  const manage = !accessDenied && (user.data?.role === 'owner' || user.data?.role === 'admin');
   const ruleFor = (groupId: string): Rule | undefined =>
     rules.data?.items.find((r) => r.groupId === groupId && r.active) ??
     rules.data?.items.find((r) => r.groupId === groupId);
+  if (accessDenied)
+    return (
+      <Failure
+        error={accessDenied}
+        retry={() => {
+          void groups.refetch();
+          void rules.refetch();
+          void connections.refetch();
+          void user.refetch();
+        }}
+      />
+    );
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
       <PageHeader

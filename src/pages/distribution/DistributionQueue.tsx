@@ -336,15 +336,38 @@ function QueueDetails({
   const poll = useVisiblePolling();
   const client = useQueryClient();
   const [historyOffset, setHistoryOffset] = useState(0);
-  const pendingRequests = useRef(
-    new Map<string, { action: string; expectedUpdatedAt: string; requestId: string }>(),
-  );
-  const [pendingBody, setPendingBody] = useState<{
-    action: string;
-    expectedUpdatedAt: string;
-    requestId: string;
-  } | null>(null);
-  const [message, setMessage] = useState('');
+  const actor = useQuery({
+    queryKey: queryKeys.distribution.runtime('actor'),
+    queryFn: authApi.getCurrentUser,
+  });
+  type ActionBody = { action: string; expectedUpdatedAt: string; requestId: string };
+  // Keep uncertain request identities for this authenticated actor across route
+  // changes and temporary access-denied screens, without browser persistence.
+  const pendingKey = queryKeys.distribution.runtime('pending-actions', actor.data?.id);
+  const { data: pendingRequests } = useQuery({
+    queryKey: pendingKey,
+    queryFn: async () => new Map<string, ActionBody>(),
+    initialData: new Map<string, ActionBody>(),
+    enabled: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+  const setPendingRequests = (
+    update: (current: Map<string, ActionBody>) => Map<string, ActionBody>,
+  ) =>
+    client.setQueryData<Map<string, ActionBody>>(pendingKey, (current) =>
+      update(current ?? new Map()),
+    );
+  const [messages, setMessages] = useState<Record<string, string>>({});
+  const clearPending = (itemId: string) =>
+    setPendingRequests((current) => {
+      const next = new Map(current);
+      next.delete(itemId);
+      return next;
+    });
+  const message = id ? messages[id] : '';
+  const setMessage = (itemId: string, value: string) =>
+    setMessages((current) => ({ ...current, [itemId]: value }));
   const detail = useQuery({
     queryKey: queryKeys.distribution.runtime('detail', id),
     queryFn: ({ signal }) => api.detail(id!, signal),
@@ -357,36 +380,40 @@ function QueueDetails({
     enabled: !!id && detail.isSuccess,
     ...poll,
   });
-  const actor = useQuery({
-    queryKey: queryKeys.distribution.runtime('actor'),
-    queryFn: authApi.getCurrentUser,
-  });
   const mutation = useMutation({
     mutationFn: ({
       item,
       body,
     }: {
       item: QueueItem;
+      recovery: boolean;
       body: { action: string; expectedUpdatedAt: string; requestId: string };
     }) => api.action(item.id, body),
     retry: false,
-    onSuccess: () => {
-      if (mutation.variables) pendingRequests.current.delete(mutation.variables.item.id);
-      setPendingBody(null);
-      setMessage('Запрос принят. Дождитесь подтверждённого результата.');
+    onSuccess: (_result, variables) => {
+      clearPending(variables.item.id);
+      setMessage(variables.item.id, 'Запрос принят. Дождитесь подтверждённого результата.');
       void client.invalidateQueries({ queryKey: queryKeys.distribution.all });
     },
     onError: (error, variables) => {
-      if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
-        pendingRequests.current.delete(variables.item.id);
-        setPendingBody(null);
+      // A refusal to replay (for example revoked rights) does not prove the original
+      // request failed. Keep its identity until a successful receipt resolves it.
+      if (
+        !variables.recovery &&
+        error instanceof ApiError &&
+        error.status >= 400 &&
+        error.status < 500
+      ) {
+        clearPending(variables.item.id);
         setMessage(
+          variables.item.id,
           error.status === 409
             ? 'Состояние изменилось. Действие не принято: обновите данные и выберите действие заново.'
             : error.message,
         );
       } else
         setMessage(
+          variables.item.id,
           'Ответ на действие не получен. Обновите состояние перед повтором; повтор отправляет тот же идентификатор запроса.',
         );
       void detail.refetch();
@@ -394,21 +421,19 @@ function QueueDetails({
   });
   const run = (action: string) => {
     if (!detail.data || mutation.isPending) return;
-    const body = pendingRequests.current.get(detail.data.id) ?? {
+    const held = pendingRequests.get(detail.data.id);
+    const body = held ?? {
       action,
       expectedUpdatedAt: detail.data.updatedAt,
       requestId: crypto.randomUUID(),
     };
-    pendingRequests.current.set(detail.data.id, body);
-    setPendingBody(body);
-    mutation.mutate({ item: detail.data, body });
+    setPendingRequests((current) => new Map(current).set(detail.data!.id, body));
+    mutation.mutate({ item: detail.data, body, recovery: !!held });
   };
   const close = () => {
     onClose();
     setHistoryOffset(0);
-    setMessage('');
-    setPendingBody(null);
-    mutation.reset();
+    // An in-flight request still belongs to its item when the dialog is closed.
   };
   const users = useQuery({
     queryKey: queryKeys.distribution.runtime('users'),
@@ -418,7 +443,7 @@ function QueueDetails({
     const user = users.data?.find((u) => u.id === id);
     return user ? fullName(user) : 'Нет подтверждённых данных';
   };
-  const heldRequest = id ? pendingRequests.current.get(id) : undefined;
+  const heldRequest = id ? pendingRequests.get(id) : undefined;
   const canManage = actor.data?.role === 'owner' || actor.data?.role === 'admin';
   return (
     <Modal
@@ -496,9 +521,7 @@ function QueueDetails({
                       size="sm"
                       loading={mutation.isPending && mutation.variables?.body.action === action}
                       disabled={
-                        mutation.isPending ||
-                        (!!(heldRequest ?? pendingBody) &&
-                          (heldRequest ?? pendingBody)?.action !== action)
+                        mutation.isPending || (!!heldRequest && heldRequest.action !== action)
                       }
                       onClick={() => run(action)}
                     >

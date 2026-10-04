@@ -13,7 +13,14 @@ import { ApiError } from '@/api/client';
 import { Button, Input, Badge } from '@/components/ui';
 import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
-import { Failure, panelClass, useVisiblePolling, reasonText, dateText } from './runtimeShared';
+import {
+  Failure,
+  panelClass,
+  useVisiblePolling,
+  reasonText,
+  dateText,
+  isAccessDenied,
+} from './runtimeShared';
 import { DistributionQueue } from './DistributionQueue';
 import { DistributionObservations, ExecutionModeNotice } from './DistributionObservations';
 export function DistributionGroupPage() {
@@ -62,7 +69,9 @@ export function DistributionGroupPage() {
     enabled: !!rule,
     ...poll,
   });
-  const error = groups.error ?? rules.error ?? connections.error ?? users.error;
+  const errors = [groups.error, rules.error, connections.error, users.error, actor.error];
+  const accessDenied = errors.find(isAccessDenied);
+  const error = accessDenied ?? errors.find(Boolean);
   return (
     <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
       <Link to="/distribution" className="text-sm font-semibold text-primary-700">
@@ -76,10 +85,14 @@ export function DistributionGroupPage() {
             void rules.refetch();
             void connections.refetch();
             void users.refetch();
+            void actor.refetch();
           }}
         />
       ) : null}
-      {groups.isPending || rules.isPending || connections.isPending || users.isPending ? (
+      {accessDenied ? null : groups.isPending ||
+        rules.isPending ||
+        connections.isPending ||
+        users.isPending ? (
         <p role="status">Загружаем настройки…</p>
       ) : !groups.data || !rules.data || !connections.data || !users.data ? null : !create &&
         !group ? (
@@ -222,15 +235,15 @@ function Editor({
   const [pipeline, setPipeline] = useState(rule?.pipelineId ?? '');
   const [status, setStatus] = useState(rule?.statusId ?? '');
   const [keep, setKeep] = useState(rule?.keepCurrentResponsible ?? true);
-  const [active, setActive] = useState(rule?.active ?? false);
+  const [active, setActive] = useState(!!rule?.active && !!group?.active);
   const [executionMode, setExecutionMode] = useState<'live' | 'observe' | ''>(
     rule?.executionMode === 'observe'
       ? 'observe'
-      : rule?.executionMode === 'live' || !rule?.executionMode
-        ? rule
-          ? 'live'
-          : 'observe'
-        : '',
+      : rule?.executionMode === 'live'
+        ? 'live'
+        : rule
+          ? ''
+          : 'observe',
   );
   const [timezone, setTimezone] = useState(initialTimezone ?? '');
   const [groupRevision, setGroupRevision] = useState(group?.revision);
@@ -317,10 +330,12 @@ function Editor({
         name: name.trim(),
         memberIds: members,
         disabledMemberIds: disabled.filter((id) => members.includes(id)),
-        active,
+        // Rule and group writes are separate transactions. Keep the group paused
+        // until the intended mode and rule revision have been saved successfully.
+        active: false,
         algorithm: 'round_robin',
       });
-      savedSteps.current.push('состав и настройки группы');
+      savedSteps.current.push('состав и настройки группы (приостановлена)');
       setSavedGroup(changed);
       setGroupRevision(changed.revision);
       if (effectiveTimezone !== initialTimezone || !settingsLoaded) {
@@ -351,6 +366,22 @@ function Editor({
       }
       setSavedRule(nextRule);
       setRuleRevision(nextRule.revision);
+      savedSteps.current.push('правило распределения');
+      if (active) {
+        if (!changed.revision)
+          throw new Error('Сервер не передал версию приостановленной группы. Обновите данные.');
+        const enabled = await api.configureGroup(target.id, {
+          expectedRevision: changed.revision,
+          name: name.trim(),
+          memberIds: members,
+          disabledMemberIds: disabled.filter((id) => members.includes(id)),
+          active: true,
+          algorithm: 'round_robin',
+        });
+        setSavedGroup(enabled);
+        setGroupRevision(enabled.revision);
+        savedSteps.current.push('группа включена');
+      }
       return target.id;
     },
     retry: false,
@@ -507,6 +538,10 @@ function Editor({
           назначения. Рабочий режим начинает отдельный период: прежние наблюдения не превращаются в
           назначения. Новые входы после границы могут ожидать возобновления при паузе. Незавершённые
           рабочие операции нужно сначала выяснить.
+        </p>
+        <p className="text-sm text-slate-500">
+          Во время сохранения группа приостанавливается и включается после успешной записи правила.
+          При ошибке сохранения проверьте настройки перед возобновлением.
         </p>
         <p className="text-sm">Алгоритм: по очереди (Round-robin)</p>
         <label className="flex items-start gap-3 text-sm">
