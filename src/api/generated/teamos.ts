@@ -4,6 +4,334 @@
  */
 
 export interface paths {
+    "/api/v1/distribution/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Показатели только доступных CRM сделок; неизвестные значения null */
+        get: operations["getDistributionSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/queue/{queueId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Детали сделки после текущей проверки прав CRM */
+        get: operations["getDistributionQueueItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/queue/{queueId}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Поставить идемпотентное действие в очередь; результат назначения подтверждает worker */
+        post: operations["actOnDistributionQueue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/groups/{groupId}/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Настройки группы с проверкой версии; только owner/admin */
+        put: operations["configureDistributionGroup"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить часовой пояс компании */
+        get: operations["getDistributionSettings"];
+        /** Сохранить часовой пояс компании; только owner/admin */
+        put: operations["setDistributionSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить правила текущей компании */
+        get: operations["getDistributionRules"];
+        put?: never;
+        /** Создать правило; только owner/admin */
+        post: operations["createDistributionRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Обновить правило по версии; только owner/admin */
+        put: operations["updateDistributionRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/rules/{ruleId}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Проверить доступность участников правила */
+        get: operations["getDistributionAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/rules/{ruleId}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить результаты наблюдения без назначения */
+        get: operations["getDistributionObservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить сохранённую очередь распределения */
+        get: operations["getDistributionQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/queue/{queueId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Получить сохранённую очередь распределенияHistory */
+        get: operations["getDistributionQueueHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/connections/{bindingId}/mappings/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Повторно доставить текущий снимок без изменения версии; только owner/admin */
+        post: operations["syncDistributionMappings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/connections/{bindingId}/mappings/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Переиспользовать существующие CRM ID и сверить удалённые элементы; только owner/admin */
+        post: operations["reconcileDistributionEmployeeMappings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/connections/{bindingId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отозвать связь, включая незавершенное намерение; только owner/admin */
+        post: operations["revokeDistributionConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Подключения текущей компании */
+        get: operations["getDistributionConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/connections/link-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Подтвердить связь owner/admin TeamOS и проверенного CRM-администратора */
+        post: operations["linkDistributionConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Полный свежий снимок пользователей, воронок и этапов через Core */
+        get: operations["getDistributionReferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/connections/{bindingId}/mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        /** Сопоставления сотрудников компании */
+        get: operations["getDistributionEmployeeMappings"];
+        /** Сопоставить существующего сотрудника с amoCRM; только owner/admin */
+        put: operations["setDistributionEmployeeMapping"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/distribution/connections/{bindingId}/lead-permission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Проверить текущие права CRM для текущего сотрудника */
+        post: operations["checkDistributionLeadPermission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me": {
         parameters: {
             query?: never;
@@ -3350,6 +3678,297 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        DistributionRuntimeSummary: {
+            metricsReason?: string;
+            timezone: string | null;
+            /** Format: date-time */
+            checkedAt: string;
+            metricsAvailable: boolean;
+            /** Format: int64 */
+            waiting: number | null;
+            /** Format: int64 */
+            assigning: number | null;
+            /** Format: int64 */
+            errors: number | null;
+            /** Format: int64 */
+            confirmedToday: number | null;
+            /** Format: int64 */
+            keptToday: number | null;
+        };
+        DistributionQueueActionInput: {
+            /** @enum {string} */
+            action: "recalculate" | "check" | "retry" | "cancel";
+            requestId: components["schemas"]["ID"];
+            /** Format: date-time */
+            expectedUpdatedAt: string;
+        };
+        DistributionGroupConfigurationInput: {
+            /** Format: int64 */
+            expectedRevision: number;
+            name: string;
+            memberIds: components["schemas"]["ID"][];
+            disabledMemberIds: components["schemas"]["ID"][];
+            active: boolean;
+            algorithm: components["schemas"]["DistributionAlgorithm"];
+        };
+        DistributionRuntimeSettings: {
+            timezone: string;
+            /** Format: int64 */
+            revision: number;
+        };
+        DistributionTimezoneInput: {
+            timezone: string;
+        };
+        DistributionObservation: {
+            /** Format: int64 */
+            bindingRevision?: number;
+            sourceOccurredAt?: string | null;
+            sourceReceivedAt?: string | null;
+            /** Format: date-time */
+            crmObservedAt?: string;
+            id: components["schemas"]["ID"];
+            ruleId: components["schemas"]["ID"];
+            groupId: components["schemas"]["ID"];
+            entryId: components["schemas"]["ID"];
+            eventId: components["schemas"]["ID"];
+            /** Format: int64 */
+            executionEpoch: number;
+            /** Format: int64 */
+            ruleRevision: number;
+            /** Format: int64 */
+            availabilityRevision: number;
+            /** Format: int64 */
+            observationRevision: number;
+            /** Format: date-time */
+            checkedAt: string;
+            /** @enum {string} */
+            decisionKind: "assign" | "keep" | "wait" | "requires_configuration" | "skipped";
+            reason: string;
+            leadId: components["schemas"]["DistributionCRMID"];
+            currentResponsibleUserId: string | null;
+            plannedEmployeeId: string | null;
+            plannedResponsibleUserId: string | null;
+            nextShiftAt: string | null;
+        };
+        DistributionRuntimeObservations: {
+            hasMore?: boolean;
+            /** Format: date-time */
+            checkedAt?: string;
+            items: components["schemas"]["DistributionObservation"][];
+            /** Format: int32 */
+            limit: number;
+            /** Format: int32 */
+            offset: number;
+        };
+        DistributionRuntimeRule: {
+            /** @enum {string} */
+            executionMode?: "live" | "observe";
+            /** Format: int64 */
+            executionEpoch?: number;
+            liveStartedAt?: string | null;
+            id: components["schemas"]["ID"];
+            bindingId: components["schemas"]["ID"];
+            /** Format: int64 */
+            bindingRevision: number;
+            accountId: components["schemas"]["DistributionCRMID"];
+            pipelineId: components["schemas"]["DistributionCRMID"];
+            statusId: components["schemas"]["DistributionCRMID"];
+            groupId: components["schemas"]["ID"];
+            active: boolean;
+            keepCurrentResponsible: boolean;
+            /** Format: int64 */
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        DistributionRuleCreateInput: {
+            /**
+             * @default live
+             * @enum {string}
+             */
+            executionMode: "live" | "observe";
+            bindingId: components["schemas"]["ID"];
+            /** Format: int64 */
+            bindingRevision: number;
+            groupId: components["schemas"]["ID"];
+            pipelineId: components["schemas"]["DistributionCRMID"];
+            statusId: components["schemas"]["DistributionCRMID"];
+            /** @default false */
+            active: boolean;
+            /** @default true */
+            keepCurrentResponsible: boolean;
+        };
+        DistributionRuleUpdateInput: {
+            /** @enum {string} */
+            executionMode?: "live" | "observe";
+            pipelineId?: components["schemas"]["DistributionCRMID"];
+            statusId?: components["schemas"]["DistributionCRMID"];
+            /** Format: int64 */
+            expectedRevision: number;
+            active: boolean;
+            keepCurrentResponsible: boolean;
+        };
+        DistributionRuntimeRules: {
+            items: components["schemas"]["DistributionRuntimeRule"][];
+        };
+        DistributionRuntimeEmployeeAvailability: {
+            employeeId: components["schemas"]["ID"];
+            crmUserId: string | null;
+            available: boolean;
+            reason: string;
+            /** Format: date-time */
+            until: string | null;
+            /** Format: date-time */
+            nextShift: string | null;
+        };
+        DistributionRuntimeAvailability: {
+            ruleId: components["schemas"]["ID"];
+            groupId: components["schemas"]["ID"];
+            /** Format: date-time */
+            checkedAt: string;
+            employees: components["schemas"]["DistributionRuntimeEmployeeAvailability"][];
+        };
+        DistributionRuntimeQueueItem: {
+            /** Format: date-time */
+            updatedAt?: string;
+            actions?: ("recalculate" | "check" | "retry" | "cancel")[];
+            /** Format: int64 */
+            resultVersion?: number | null;
+            leadName?: string | null;
+            leadUrl?: string | null;
+            /** Format: uuid */
+            currentEmployeeId?: string | null;
+            /** Format: uuid */
+            previousEmployeeId?: string | null;
+            id: components["schemas"]["ID"];
+            entryId: components["schemas"]["ID"];
+            ruleId: components["schemas"]["ID"];
+            groupId: components["schemas"]["ID"];
+            accountId: components["schemas"]["DistributionCRMID"];
+            /** @description CRM ID доступен только после проверки текущих прав сотрудника в amoCRM; иначе null */
+            leadId: string | null;
+            state: string;
+            reason: string;
+            /** Format: date-time */
+            nextAttemptAt: string;
+            /** Format: uuid */
+            operationId: string | null;
+            /** Format: uuid */
+            plannedEmployeeId: string | null;
+            /** Format: date-time */
+            plannedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DistributionRuntimeQueue: {
+            hasMore?: boolean;
+            /** Format: date-time */
+            checkedAt?: string;
+            items: components["schemas"]["DistributionRuntimeQueueItem"][];
+            /** Format: int32 */
+            limit: number;
+            /** Format: int32 */
+            offset: number;
+        };
+        DistributionRuntimeHistoryItem: {
+            /** Format: int64 */
+            id: number;
+            state: string;
+            reason: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Публичная история показывает только причины и переходы; приватные команды и CRM-доказательства остаются в защищённом аудите */
+            payload: Record<string, never>;
+        };
+        DistributionRuntimeHistory: {
+            items: components["schemas"]["DistributionRuntimeHistoryItem"][];
+            /** Format: int32 */
+            limit: number;
+            /** Format: int32 */
+            offset: number;
+        };
+        DistributionConnection: {
+            bindingId: components["schemas"]["ID"];
+            /** Format: int64 */
+            revision: number;
+            installationId: components["schemas"]["ID"];
+            integrationId: components["schemas"]["ID"];
+            accountId: components["schemas"]["DistributionCRMID"];
+            /** @enum {string} */
+            state: "pending" | "active" | "revoked";
+            intentId: components["schemas"]["ID"];
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: int64 */
+            mappingRevision: number;
+            /**
+             * Format: int64
+             * @description Меньше mappingRevision означает ожидание подтверждения Core; доступ к сделкам закрыт
+             */
+            mappingAckRevision: number;
+        };
+        DistributionLinkInput: {
+            installationId: components["schemas"]["ID"];
+            integrationId: components["schemas"]["ID"];
+            accountId: components["schemas"]["DistributionCRMID"];
+            intentId: components["schemas"]["ID"];
+            widgetToken?: string;
+        };
+        /** @description Канонический decimal ID, максимум 9223372036854775807 проверяется сервером */
+        DistributionCRMID: string;
+        DistributionCRMUser: {
+            id: components["schemas"]["DistributionCRMID"];
+            name: string;
+            isActive: boolean;
+            groupId: string | null;
+        };
+        DistributionCRMStatus: {
+            id: components["schemas"]["DistributionCRMID"];
+            name: string;
+        };
+        DistributionCRMPipeline: {
+            id: components["schemas"]["DistributionCRMID"];
+            name: string;
+            statuses: components["schemas"]["DistributionCRMStatus"][];
+        };
+        DistributionReferences: {
+            users: components["schemas"]["DistributionCRMUser"][];
+            pipelines: components["schemas"]["DistributionCRMPipeline"][];
+            /** Format: date-time */
+            fetchedAt: string;
+            /** Format: date-time */
+            freshUntil: string;
+            /** @enum {string} */
+            state: "fresh";
+        };
+        DistributionEmployeeMapping: {
+            id: components["schemas"]["ID"];
+            userId?: components["schemas"]["ID"];
+            userIdSnapshot: components["schemas"]["ID"];
+            crmUserId: components["schemas"]["DistributionCRMID"];
+            /** @enum {string} */
+            state: "verified" | "unavailable" | "ambiguous";
+            /** Format: int64 */
+            revision: number;
+            /** Format: date-time */
+            verifiedAt: string;
+        };
+        DistributionMappingInput: {
+            userId: components["schemas"]["ID"];
+            crmUserId: components["schemas"]["DistributionCRMID"];
+        };
+        DistributionPermissionInput: {
+            leadId: components["schemas"]["DistributionCRMID"];
+        };
+        DistributionLeadPermission: {
+            userId: components["schemas"]["DistributionCRMID"];
+            canViewLead: boolean;
+            reason: string;
+            /** Format: date-time */
+            checkedAt: string;
+        };
         /** Format: uuid */
         ID: string;
         ImpersonateUserInput: {
@@ -5437,6 +6056,8 @@ export interface components {
         /** @enum {string} */
         DistributionEventStatus: "accepted" | "in_progress" | "reassigned" | "declined";
         DealDistributionGroup: {
+            /** Format: int64 */
+            revision?: number;
             id: components["schemas"]["ID"];
             name: string;
             description?: string;
@@ -6698,6 +7319,584 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getDistributionSummary: {
+        parameters: {
+            query?: {
+                groupId?: components["schemas"]["ID"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Текущие данные компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionQueueItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                queueId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Текущие данные компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeQueueItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    actOnDistributionQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                queueId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionQueueActionInput"];
+            };
+        };
+        responses: {
+            /** @description Текущие данные компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeQueueItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    configureDistributionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionGroupConfigurationInput"];
+            };
+        };
+        responses: {
+            /** @description Текущие данные компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealDistributionGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setDistributionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionTimezoneInput"];
+            };
+        };
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionRules: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeRules"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createDistributionRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionRuleCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updateDistributionRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionRuleUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeAvailability"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionObservations: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                ruleId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Только сделки с подтверждённым доступом */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeObservations"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionQueue: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                tab?: "waiting" | "assigning" | "completed" | "errors" | "cancelled";
+                groupId?: components["schemas"]["ID"];
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeQueue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionQueueHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                queueId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат текущей компании */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionRuntimeHistory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    syncDistributionMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Снимок подтверждён Core */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    reconcileDistributionEmployeeMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сотрудники сверены и снимок подтверждён Core */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeDistributionConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Связь отозвана */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Подключения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionConnection"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    linkDistributionConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionLinkInput"];
+            };
+        };
+        responses: {
+            /** @description Подтвержденная связь; повтор intentId восстанавливает результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionConnection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionReferences: {
+        parameters: {
+            query: {
+                bindingId: components["schemas"]["ID"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Полный снимок; частичные или устаревшие источники возвращают ошибку */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionReferences"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionEmployeeMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сопоставления */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionEmployeeMapping"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setDistributionEmployeeMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionMappingInput"];
+            };
+        };
+        responses: {
+            /** @description Сохраненное сопоставление */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionEmployeeMapping"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    checkDistributionLeadPermission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionPermissionInput"];
+            };
+        };
+        responses: {
+            /** @description Проверенные права */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionLeadPermission"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
     getCurrentUser: {
         parameters: {
             query?: never;

@@ -73,8 +73,6 @@ const integrationItems: NavItemDefinition[] = [
     to: '/distribution',
     label: 'Распределение',
     icon: Shuffle,
-    disabled: true,
-    description: 'Находится в разработке',
   },
 ];
 

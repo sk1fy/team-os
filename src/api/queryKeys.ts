@@ -44,7 +44,10 @@ export const queryKeys = {
     commentsFor: (taskId: ID | null | undefined) => ['tasks', 'comments', taskId] as const,
   },
   distribution: {
+    all: ['distribution'] as const,
     groups: ['distribution', 'groups'] as const,
+    runtime: (resource: string, ...args: unknown[]) =>
+      ['distribution', 'runtime', resource, ...args] as const,
     events: (groupId: ID | null | undefined) => ['distribution', 'events', groupId] as const,
   },
   notifications: {

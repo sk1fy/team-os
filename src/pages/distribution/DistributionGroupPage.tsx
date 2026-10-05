@@ -1,528 +1,681 @@
-import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useTitle } from '@reactuses/core';
-import { Activity, ArrowLeft, Clock3, Pencil, RotateCcw } from 'lucide-react';
-import { distributionApi, orgApi, scheduleApi } from '@/api';
-import { queryKeys, scheduleQueryKeys } from '@/api/queryKeys';
-import type {
-  DealDistributionGroup,
-  DistributionAlgorithm,
-  DistributionEvent,
-  User,
-  UserSchedule,
-} from '@/types';
-import { pickDistributionMember } from '@/lib/dealDistribution';
+import { useRef, useState } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { httpAuthApi as authApi, httpOrgApi as orgApi } from '@/api/http';
+import { queryKeys } from '@/api/queryKeys';
+import {
+  distributionRuntimeApi as api,
+  type Group,
+  type Rule,
+  type Connection,
+} from '@/api/distributionRuntime';
+import { ApiError } from '@/api/client';
+import { Button, Input, Badge } from '@/components/ui';
+import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
-import { toast } from '@/stores/toast';
-import { Avatar, Button } from '@/components/ui';
-import { ErrorState } from '@/components/layout/ErrorState';
-import { DistributionGroupModal, type DistributionGroupValues } from './DistributionGroupModal';
-
-const algorithmOptions: Array<{ value: DistributionAlgorithm; label: string }> = [
-  { value: 'round_robin', label: 'По очереди' },
-  { value: 'least_loaded', label: 'По наименьшей нагрузке' },
-  { value: 'priority', label: 'С приоритетом' },
-];
-
-const eventStatus: Record<DistributionEvent['status'], { label: string; className: string }> = {
-  accepted: { label: 'принято', className: 'bg-success-50 text-success-700' },
-  in_progress: { label: 'в работе', className: 'bg-blue-50 text-blue-700' },
-  reassigned: { label: 'переброс', className: 'bg-warning-50 text-warning-700' },
-  declined: { label: 'отклонил', className: 'bg-danger-50 text-danger-600' },
-};
-
-function formatShift(schedule?: UserSchedule) {
-  if (!schedule) return '09:00–18:00';
-  return `${schedule.template.start}–${schedule.template.end}`;
-}
-
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function todayLabel() {
-  const text = new Intl.DateTimeFormat('ru-RU', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date());
-  return `Сегодня · ${text}`;
-}
-
-function GroupSwitch({ active, onChange }: { active: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className="flex items-center gap-2 text-sm font-semibold text-slate-600"
-      aria-pressed={active}
-    >
-      {active ? 'Активно' : 'Приостановлено'}
-      <span
-        className={`flex h-6 w-11 items-center rounded-full p-0.5 transition-colors ${
-          active ? 'justify-end bg-success-600' : 'justify-start bg-slate-300'
-        }`}
-      >
-        <span className="size-5 rounded-full bg-white shadow" />
-      </span>
-    </button>
-  );
-}
-
-function DistributionFeed({
-  events,
-  usersById,
-  onReset,
-  resetting,
-}: {
-  events: DistributionEvent[];
-  usersById: Map<string, User>;
-  onReset: () => void;
-  resetting: boolean;
-}) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-surface shadow-card">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-        <h2 className="text-base font-semibold text-slate-950">Лента распределения</h2>
-        <Button variant="secondary" size="sm" loading={resetting} onClick={onReset}>
-          <RotateCcw className="size-3.5" />
-          Сбросить
-        </Button>
-      </div>
-      {events.length === 0 ? (
-        <div className="px-5 py-12 text-center">
-          <Activity className="mx-auto size-7 text-slate-300" />
-          <p className="mt-2 text-sm text-slate-400">Сделок пока не было</p>
-        </div>
-      ) : (
-        <div className="divide-y divide-slate-100">
-          {events.slice(0, 10).map((event) => {
-            const user = usersById.get(event.userId);
-            const status = eventStatus[event.status];
-            return (
-              <div
-                key={event.id}
-                className="grid grid-cols-[44px_62px_1fr_auto] items-center gap-2 px-4 py-3 text-sm"
-              >
-                <span className="text-xs text-slate-400">{formatTime(event.createdAt)}</span>
-                <span className="font-semibold text-slate-700">#{event.dealNumber}</span>
-                <span className="truncate text-slate-700">
-                  → {user ? fullName(user) : 'Сотрудник'}
-                </span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.className}`}
-                >
-                  {status.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
+import {
+  Failure,
+  panelClass,
+  useVisiblePolling,
+  reasonText,
+  dateText,
+  isAccessDenied,
+} from './runtimeShared';
+import { DistributionQueue } from './DistributionQueue';
+import { DistributionObservations, ExecutionModeNotice } from './DistributionObservations';
 export function DistributionGroupPage() {
-  const { groupId = '' } = useParams();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [editOpen, setEditOpen] = useState(false);
-
-  const groupsQuery = useQuery({
+  const { groupId } = useParams();
+  const create = groupId === 'new';
+  const [settingsOpen, setSettingsOpen] = useState(create);
+  const poll = useVisiblePolling();
+  const groups = useQuery({
     queryKey: queryKeys.distribution.groups,
-    queryFn: distributionApi.getGroups,
+    queryFn: ({ signal }) => api.groups(signal),
+    ...poll,
   });
-  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
-  const schedulesQuery = useQuery({
-    queryKey: scheduleQueryKeys.templates,
-    queryFn: scheduleApi.getSchedules,
+  const rules = useQuery({
+    queryKey: queryKeys.distribution.runtime('rules'),
+    queryFn: ({ signal }) => api.rules(0, signal),
+    ...poll,
   });
-  const eventsQuery = useQuery({
-    queryKey: queryKeys.distribution.events(groupId),
-    queryFn: () => distributionApi.getEvents(groupId),
+  const connections = useQuery({
+    queryKey: queryKeys.distribution.runtime('connections'),
+    queryFn: ({ signal }) => api.connections(signal),
+    ...poll,
   });
-
-  const group = groupsQuery.data?.find((item) => item.id === groupId);
-  useTitle(group ? `${group.name} — TeamOS` : 'Распределение сделок — TeamOS');
-
-  const usersById = useMemo(
-    () => new Map((usersQuery.data ?? []).map((user) => [user.id, user])),
-    [usersQuery.data],
-  );
-  const schedulesByUser = useMemo(
-    () => new Map((schedulesQuery.data ?? []).map((schedule) => [schedule.userId, schedule])),
-    [schedulesQuery.data],
-  );
-  const events = eventsQuery.data ?? [];
-  const nextMemberId = group ? pickDistributionMember(group, events) : null;
-
-  const updateGroup = useMutation({
-    mutationFn: (input: Parameters<typeof distributionApi.updateGroup>[0]) =>
-      distributionApi.updateGroup(input),
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.distribution.groups });
-      const previous = queryClient.getQueryData<DealDistributionGroup[]>(
-        queryKeys.distribution.groups,
-      );
-      queryClient.setQueryData<DealDistributionGroup[]>(queryKeys.distribution.groups, (groups) =>
-        groups?.map((item) => (item.id === input.id ? { ...item, ...input } : item)),
-      );
-      return { previous };
-    },
-    onError: (error, _input, context) => {
-      queryClient.setQueryData(queryKeys.distribution.groups, context?.previous);
-      toast.error(error instanceof Error ? error.message : 'Не удалось обновить группу');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.distribution.groups }),
+  const users = useQuery({
+    queryKey: queryKeys.distribution.runtime('users'),
+    queryFn: orgApi.getUsers,
   });
-
-  const resetEvents = useMutation({
-    mutationFn: () => distributionApi.resetEvents(groupId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.distribution.events(groupId) });
-      toast.success('Лента распределения очищена');
-    },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : 'Не удалось очистить ленту'),
+  const actor = useQuery({
+    queryKey: queryKeys.distribution.runtime('actor'),
+    queryFn: authApi.getCurrentUser,
   });
-
-  const isLoading =
-    groupsQuery.isPending ||
-    usersQuery.isPending ||
-    schedulesQuery.isPending ||
-    eventsQuery.isPending;
-
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-7xl space-y-4 p-6">
-        <div className="h-24 animate-pulse rounded-lg bg-slate-200/60" />
-        <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-          <div className="h-96 animate-pulse rounded-lg bg-slate-200/60" />
-          <div className="h-72 animate-pulse rounded-lg bg-slate-200/60" />
-        </div>
-      </div>
-    );
-  }
-
-  if (
-    groupsQuery.isError ||
-    usersQuery.isError ||
-    schedulesQuery.isError ||
-    eventsQuery.isError ||
-    !group
-  ) {
-    return (
-      <div className="mx-auto max-w-4xl p-6">
-        <ErrorState
-          title={group ? 'Не удалось загрузить группу' : 'Группа не найдена'}
-          onRetry={() => {
-            groupsQuery.refetch();
-            usersQuery.refetch();
-            schedulesQuery.refetch();
-            eventsQuery.refetch();
+  const settings = useQuery({
+    queryKey: queryKeys.distribution.runtime('settings'),
+    queryFn: ({ signal }) => api.settings(signal),
+    retry: 1,
+  });
+  const group = groups.data?.find((g) => g.id === groupId);
+  const rule =
+    rules.data?.items.find((r) => r.groupId === groupId && r.active) ??
+    rules.data?.items.find((r) => r.groupId === groupId);
+  const binding =
+    connections.data?.find((c) => c.bindingId === rule?.bindingId) ??
+    connections.data?.find((c) => c.state === 'active');
+  const availability = useQuery({
+    queryKey: queryKeys.distribution.runtime('availability', rule?.id),
+    queryFn: ({ signal }) => api.availability(rule!.id, signal),
+    enabled: !!rule,
+    ...poll,
+  });
+  const errors = [groups.error, rules.error, connections.error, users.error, actor.error];
+  const accessDenied = errors.find(isAccessDenied);
+  const error = accessDenied ?? errors.find(Boolean);
+  return (
+    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
+      <Link to="/distribution" className="text-sm font-semibold text-primary-700">
+        ← Все группы
+      </Link>
+      {error ? (
+        <Failure
+          error={error}
+          retry={() => {
+            void groups.refetch();
+            void rules.refetch();
+            void connections.refetch();
+            void users.refetch();
+            void actor.refetch();
           }}
         />
-      </div>
-    );
-  }
-
-  const members = group.memberIds.flatMap((id) => {
-    const user = usersById.get(id);
-    return user ? [user] : [];
-  });
-  const onShiftCount = members.filter(
-    (user) => user.status === 'active' && !group.disabledMemberIds.includes(user.id),
-  ).length;
-  const todayCounts = new Map(
-    members.map((user) => [
-      user.id,
-      events.filter((event) => event.userId === user.id && event.status !== 'declined').length,
-    ]),
-  );
-  const maxToday = Math.max(1, ...todayCounts.values());
-  const totalToday = [...todayCounts.values()].reduce((sum, value) => sum + value, 0);
-  const average = members.length ? totalToday / members.length : 0;
-  const minToday = members.length ? Math.min(...todayCounts.values()) : 0;
-  const maxMemberToday = members.length ? Math.max(...todayCounts.values()) : 0;
-
-  const saveGroup = (values: DistributionGroupValues) => {
-    updateGroup.mutate(
-      { id: group.id, ...values },
-      {
-        onSuccess: () => {
-          setEditOpen(false);
-          toast.success('Настройки группы сохранены');
-        },
-      },
-    );
-  };
-
-  return (
-    <div className="mx-auto max-w-7xl p-6">
-      <button
-        type="button"
-        onClick={() => navigate('/distribution')}
-        className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-primary-700"
-      >
-        <ArrowLeft className="size-4" />
-        Все группы
-      </button>
-
-      <section className="rounded-lg border border-slate-200 bg-surface shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <span
-              className={`mt-1 size-2.5 shrink-0 rounded-full ${group.active ? 'bg-success-500' : 'bg-slate-300'}`}
-            />
-            <div className="min-w-0">
-              <h1 className="truncate text-xl">{group.name}</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {group.description ?? 'Автоматическое распределение новых сделок'}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700">
-              {todayLabel()}
-            </span>
-            <GroupSwitch
-              active={group.active}
-              onChange={() => updateGroup.mutate({ id: group.id, active: !group.active })}
-            />
-            <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="size-3.5" />
-              Настройки
-            </Button>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 bg-surface-muted px-5 py-4">
-          <div>
-            <p className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
-              Алгоритм очереди
-            </p>
-            <div className="mt-2 inline-flex flex-wrap rounded-md border border-slate-200 bg-surface p-1">
-              {algorithmOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => updateGroup.mutate({ id: group.id, algorithm: option.value })}
-                  className={`rounded-[8px] px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    group.algorithm === option.value
-                      ? 'bg-primary-600 text-white'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                  aria-pressed={group.algorithm === option.value}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <section className="rounded-lg border border-slate-200 bg-surface p-4 shadow-card">
+      ) : null}
+      {accessDenied ? null : groups.isPending ||
+        rules.isPending ||
+        connections.isPending ||
+        users.isPending ? (
+        <p role="status">Загружаем настройки…</p>
+      ) : !groups.data || !rules.data || !connections.data || !users.data ? null : !create &&
+        !group ? (
+        <p role="alert">Группа не найдена</p>
+      ) : (
+        <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-slate-950">
-              Очередь{' '}
-              <span className="text-xs font-medium text-primary-700">
-                {onShiftCount} на смене из {members.length}
-              </span>
-            </h2>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {members.map((user, index) => {
-              const today = todayCounts.get(user.id) ?? 0;
-              const activeDeals = Math.min(group.dealLimit, today + ((index * 2 + 2) % 5));
-              const isEnabled = !group.disabledMemberIds.includes(user.id);
-              const isNext = isEnabled && user.id === nextMemberId;
-              const onShift = isEnabled && user.status === 'active';
-              return (
-                <div
-                  key={user.id}
-                  className={`grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 py-3 sm:grid-cols-[24px_1fr_150px_54px_84px] ${
-                    isNext ? 'border-primary-500 bg-primary-50/70' : 'border-slate-200 bg-surface'
-                  } ${!isEnabled ? 'bg-slate-50 opacity-60' : ''}`}
+            <h1 className="text-2xl font-semibold">{create ? 'Новая группа' : group?.name}</h1>
+            {!create && (
+              <div className="flex gap-2">
+                <Button
+                  variant={settingsOpen ? 'secondary' : 'primary'}
+                  size="sm"
+                  onClick={() => setSettingsOpen(false)}
                 >
-                  <span className="text-center text-xs font-semibold text-slate-400">
-                    {index + 1}
-                  </span>
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <Avatar name={fullName(user)} src={user.avatarUrl} size="sm" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-800">
-                        {fullName(user)}
-                      </p>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
-                        <span
-                          className={`rounded-full px-2 py-0.5 font-semibold ${onShift ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-500'}`}
-                        >
-                          {isEnabled ? (onShift ? 'На смене' : 'Не на смене') : 'Выключен'}
-                        </span>
-                        <span className="text-slate-400">
-                          {formatShift(schedulesByUser.get(user.id))}
-                        </span>
-                        {isNext && (
-                          <span className="rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase">
-                            Следующий
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-start-2 row-start-2 mt-2 sm:col-auto sm:row-auto sm:mt-0">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span>в работе</span>
-                      <span>
-                        {activeDeals} / {group.dealLimit}
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-primary-600"
-                        style={{
-                          width: `${Math.min(100, (activeDeals / group.dealLimit) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-start-3 row-start-2 text-right sm:col-auto sm:row-auto">
-                    <span className="block text-xl font-bold text-slate-900">{today}</span>
-                    <span className="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
-                      сегодня
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const disabledMemberIds = isEnabled
-                        ? [...group.disabledMemberIds, user.id]
-                        : group.disabledMemberIds.filter((id) => id !== user.id);
-                      updateGroup.mutate({ id: group.id, disabledMemberIds });
-                    }}
-                    className="col-start-3 row-start-1 flex items-center justify-end text-slate-500 sm:col-auto sm:row-auto"
-                    aria-label={`${isEnabled ? 'Выключить' : 'Включить'} сотрудника ${fullName(user)}`}
-                    aria-pressed={isEnabled}
-                  >
-                    <span
-                      className={`flex h-5 w-9 items-center rounded-full p-0.5 ${
-                        isEnabled ? 'justify-end bg-primary-600' : 'justify-start bg-slate-300'
-                      }`}
+                  Очередь группы
+                </Button>
+                <Button
+                  variant={settingsOpen ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  Настройки
+                </Button>
+              </div>
+            )}
+          </div>
+          {rule && <ExecutionModeNotice rule={rule} />}
+          <div hidden={!settingsOpen}>
+            {(rules.data?.items.filter((r) => r.groupId === groupId).length ?? 0) > 1 ? (
+              <div role="alert" className={panelClass}>
+                <p>
+                  Для группы сохранено несколько правил. Требуется проверка конфигурации
+                  администратором; редактор временно недоступен.
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {rules.data?.items
+                    .filter((r) => r.groupId === groupId)
+                    .map((r) => (
+                      <li key={r.id} className="break-all text-xs">
+                        {r.id}: {r.active ? 'включено' : 'приостановлено'} · воронка {r.pipelineId},
+                        этап {r.statusId}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ) : (
+              <Editor
+                key={groupId}
+                group={group}
+                rule={rule}
+                binding={binding}
+                connections={connections.data ?? []}
+                users={users.data ?? []}
+                initialTimezone={settings.data?.timezone}
+                manage={actor.data?.role === 'owner' || actor.data?.role === 'admin'}
+                settingsLoaded={settings.isSuccess}
+              />
+            )}
+          </div>
+          {settings.isError && (
+            <Failure error={settings.error} retry={() => void settings.refetch()} />
+          )}
+          {!settingsOpen && rule && (
+            <section className={panelClass}>
+              <h2 className="text-lg font-semibold">Доступность по графику</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Рабочая нагрузка не рассчитывается: источник этой метрики пока не подключён.
+              </p>
+              {availability.isError ? (
+                <Failure error={availability.error} retry={() => void availability.refetch()} />
+              ) : availability.isPending ? (
+                <p role="status">Проверяем расписания…</p>
+              ) : (
+                <ul className="mt-4 space-y-3">
+                  {availability.data?.employees.map((e) => (
+                    <li
+                      key={e.employeeId}
+                      className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3"
                     >
-                      <span className="size-4 rounded-full bg-white shadow" />
-                    </span>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <DistributionFeed
-          events={events}
-          usersById={usersById}
-          onReset={() => resetEvents.mutate()}
-          resetting={resetEvents.isPending}
-        />
-      </div>
-
-      <section className="mt-4 rounded-lg border border-slate-200 bg-surface p-5 shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-950">
-            Баланс распределения за сегодня{' '}
-            <span className="ml-1 text-xs font-medium text-slate-400">
-              сколько сделок получил каждый сегодня
-            </span>
-          </h2>
-        </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-[190px_1fr]">
-          <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-            <div className="rounded-md bg-surface-muted p-3">
-              <span className="block text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
-                Всего сделок
-              </span>
-              <strong className="mt-1 block text-xl text-slate-900">{totalToday}</strong>
-            </div>
-            <div className="rounded-md bg-surface-muted p-3">
-              <span className="block text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
-                В среднем
-              </span>
-              <strong className="mt-1 block text-xl text-slate-900">{average.toFixed(1)}</strong>
-            </div>
-            <div className="rounded-md bg-surface-muted p-3">
-              <span className="block text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
-                Разница
-              </span>
-              <strong className="mt-1 block text-xl text-slate-900">
-                {maxMemberToday - minToday}
-              </strong>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {members.map((user) => {
-              const value = todayCounts.get(user.id) ?? 0;
-              const deviation = value - average;
-              const disabled = group.disabledMemberIds.includes(user.id);
-              return (
-                <div
-                  key={user.id}
-                  className={`grid grid-cols-[minmax(130px,1fr)_minmax(100px,2fr)_34px_48px] items-center gap-3 rounded-md border border-slate-100 px-3 py-2 ${
-                    disabled ? 'bg-slate-50 opacity-60' : ''
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Avatar name={fullName(user)} src={user.avatarUrl} size="xs" />
-                    <span className="truncate text-xs font-medium text-slate-700">
-                      {fullName(user)}
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full ${deviation > 0.5 ? 'bg-warning-500' : 'bg-primary-500'}`}
-                      style={{ width: `${(value / maxToday) * 100}%` }}
-                    />
-                  </div>
-                  <strong className="text-right text-sm text-slate-800">{value}</strong>
-                  <span
-                    className={`text-right text-[10px] font-semibold ${
-                      deviation > 0.5
-                        ? 'text-warning-600'
-                        : deviation < -0.5
-                          ? 'text-blue-600'
-                          : 'text-slate-400'
-                    }`}
-                  >
-                    {deviation > 0 ? '+' : ''}
-                    {deviation.toFixed(1)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <p className="mt-3 flex items-center gap-1 text-xs text-slate-400">
-          <Clock3 className="size-3.5" />
-          Статистика обновляется после каждой распределённой сделки
-        </p>
-      </section>
-
-      <DistributionGroupModal
-        open={editOpen}
-        group={group}
-        users={usersQuery.data ?? []}
-        pending={updateGroup.isPending}
-        onClose={() => setEditOpen(false)}
-        onSubmit={saveGroup}
-      />
+                      <div>
+                        <p className="font-medium">
+                          {fullName(
+                            users.data?.find((u) => u.id === e.employeeId) ??
+                              ({ firstName: 'Сотрудник', lastName: e.employeeId } as User),
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {e.available
+                            ? `Доступен до ${dateText(e.until, settings.data?.timezone)}`
+                            : `Следующая смена: ${dateText(e.nextShift, settings.data?.timezone)}`}
+                        </p>
+                      </div>
+                      <Badge variant={e.available ? 'success' : 'neutral'}>
+                        {e.available ? 'Доступен' : reasonText(e.reason)}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+          {!settingsOpen && rule && (
+            <DistributionObservations rule={rule} users={users.data ?? []} />
+          )}
+          {!create && !settingsOpen && (
+            <DistributionQueue groupId={groupId} groups={groups.data ?? []} />
+          )}
+        </>
+      )}
     </div>
+  );
+}
+function Editor({
+  group,
+  rule,
+  binding: initialBinding,
+  connections,
+  users,
+  initialTimezone,
+  manage,
+  settingsLoaded,
+}: {
+  group?: Group;
+  rule?: Rule;
+  binding?: Connection;
+  connections: Connection[];
+  users: User[];
+  initialTimezone?: string;
+  manage: boolean;
+  settingsLoaded: boolean;
+}) {
+  const [selectedBinding, setSelectedBinding] = useState(initialBinding?.bindingId ?? '');
+  const binding = connections.find((c) => c.bindingId === selectedBinding);
+  const navigate = useNavigate();
+  const client = useQueryClient();
+  const [name, setName] = useState(group?.name ?? '');
+  const [members, setMembers] = useState(group?.memberIds ?? []);
+  const [disabled, setDisabled] = useState(group?.disabledMemberIds ?? []);
+  const [pipeline, setPipeline] = useState(rule?.pipelineId ?? '');
+  const [status, setStatus] = useState(rule?.statusId ?? '');
+  const [keep, setKeep] = useState(rule?.keepCurrentResponsible ?? true);
+  const [active, setActive] = useState(!!rule?.active && !!group?.active);
+  const [executionMode, setExecutionMode] = useState<'live' | 'observe' | ''>(
+    rule?.executionMode === 'observe'
+      ? 'observe'
+      : rule?.executionMode === 'live'
+        ? 'live'
+        : rule
+          ? ''
+          : 'observe',
+  );
+  const [timezone, setTimezone] = useState(initialTimezone ?? '');
+  const [groupRevision, setGroupRevision] = useState(group?.revision);
+  const [ruleRevision, setRuleRevision] = useState(rule?.revision);
+  const [savedGroup, setSavedGroup] = useState<Group | undefined>(group);
+  const [savedRule, setSavedRule] = useState<Rule | undefined>(rule);
+  const modeSupported =
+    !savedRule || savedRule.executionMode === 'live' || savedRule.executionMode === 'observe';
+  const [message, setMessage] = useState('');
+  const [creationUncertain, setCreationUncertain] = useState(false);
+  const savedSteps = useRef<string[]>([]);
+  const refs = useQuery({
+    queryKey: queryKeys.distribution.runtime('references', binding?.bindingId),
+    queryFn: ({ signal }) => api.references(binding!.bindingId, signal),
+    enabled: !!binding,
+    retry: 1,
+  });
+  const mappings = useQuery({
+    queryKey: queryKeys.distribution.runtime('mappings', binding?.bindingId),
+    queryFn: ({ signal }) => api.mappings(binding!.bindingId, signal),
+    enabled: !!binding,
+    retry: 1,
+  });
+  const [timezoneTouched, setTimezoneTouched] = useState(false);
+  const effectiveTimezone = timezoneTouched ? timezone : timezone || initialTimezone || '';
+  const unmapped = members.filter(
+    (id) =>
+      !disabled.includes(id) &&
+      !mappings.data?.some(
+        (m) =>
+          m.userIdSnapshot === id &&
+          m.state === 'verified' &&
+          refs.data?.users.some((u) => u.id === m.crmUserId && u.isActive),
+      ),
+  );
+  const submit = useMutation({
+    mutationFn: async () => {
+      savedSteps.current = [];
+      if (!name.trim() || members.length === 0)
+        throw new Error('Укажите название и добавьте сотрудников.');
+      if (!pipeline || !status || !binding)
+        throw new Error('Выберите подключение, воронку и этап.');
+      if (active && binding && binding.mappingRevision !== binding.mappingAckRevision)
+        throw new Error('Сопоставления сотрудников ещё не подтверждены сервером amoCRM.');
+      if (active && (unmapped.length > 0 || !mappings.isSuccess || !refs.isSuccess))
+        throw new Error(
+          'Перед запуском сопоставьте всех включённых сотрудников с активными пользователями amoCRM.',
+        );
+      if (!effectiveTimezone) throw new Error('Выберите часовой пояс компании.');
+      try {
+        new Intl.DateTimeFormat('ru', { timeZone: effectiveTimezone });
+      } catch {
+        throw new Error('Укажите действительный часовой пояс, например Europe/Moscow.');
+      }
+      setMessage('');
+      let target = savedGroup;
+      if (!target) {
+        if (creationUncertain)
+          throw new Error(
+            'Ответ на создание группы не получен. Откройте список групп и проверьте, создалась ли группа, прежде чем создавать новую.',
+          );
+        setCreationUncertain(true);
+        try {
+          target = await api.createGroup({
+            name: name.trim(),
+            description: '',
+            memberIds: members,
+          });
+          setCreationUncertain(false);
+        } catch (error) {
+          if (error instanceof ApiError && error.status >= 400 && error.status < 500)
+            setCreationUncertain(false);
+          throw error;
+        }
+        savedSteps.current.push('группа создана');
+        setSavedGroup(target);
+        setGroupRevision(target.revision);
+      }
+      const expectedGroupRevision = groupRevision ?? target.revision;
+      if (!expectedGroupRevision)
+        throw new Error('Сервер не передал версию группы. Обновите данные перед сохранением.');
+      const changed = await api.configureGroup(target.id, {
+        expectedRevision: expectedGroupRevision,
+        name: name.trim(),
+        memberIds: members,
+        disabledMemberIds: disabled.filter((id) => members.includes(id)),
+        // Rule and group writes are separate transactions. Keep the group paused
+        // until the intended mode and rule revision have been saved successfully.
+        active: false,
+        algorithm: 'round_robin',
+      });
+      savedSteps.current.push('состав и настройки группы (приостановлена)');
+      setSavedGroup(changed);
+      setGroupRevision(changed.revision);
+      if (effectiveTimezone !== initialTimezone || !settingsLoaded) {
+        await api.timezone(effectiveTimezone);
+        savedSteps.current.push('часовой пояс компании');
+      }
+      let nextRule: Rule;
+      if (savedRule) {
+        nextRule = await api.updateRule(savedRule.id, {
+          expectedRevision: ruleRevision ?? savedRule.revision,
+          ...(modeSupported && executionMode ? { executionMode } : {}),
+          active,
+          keepCurrentResponsible: keep,
+          pipelineId: pipeline,
+          statusId: status,
+        });
+      } else {
+        nextRule = await api.createRule({
+          executionMode: executionMode || 'observe',
+          bindingId: binding.bindingId,
+          bindingRevision: binding.revision,
+          groupId: target.id,
+          pipelineId: pipeline,
+          statusId: status,
+          active,
+          keepCurrentResponsible: keep,
+        });
+      }
+      setSavedRule(nextRule);
+      setRuleRevision(nextRule.revision);
+      savedSteps.current.push('правило распределения');
+      if (active) {
+        if (!changed.revision)
+          throw new Error('Сервер не передал версию приостановленной группы. Обновите данные.');
+        const enabled = await api.configureGroup(target.id, {
+          expectedRevision: changed.revision,
+          name: name.trim(),
+          memberIds: members,
+          disabledMemberIds: disabled.filter((id) => members.includes(id)),
+          active: true,
+          algorithm: 'round_robin',
+        });
+        setSavedGroup(enabled);
+        setGroupRevision(enabled.revision);
+        savedSteps.current.push('группа включена');
+      }
+      return target.id;
+    },
+    retry: false,
+    onSuccess: (id) => {
+      setMessage('Настройки сохранены');
+      void client.invalidateQueries({ queryKey: queryKeys.distribution.all });
+      if (!group) navigate(`/distribution/${id}`, { replace: true });
+    },
+    onError: (error) => {
+      setMessage(
+        error instanceof ApiError && error.status === 409
+          ? 'Настройки изменились на сервере. Ваши поля сохранены. Загрузите новые версии и повторно проверьте изменения.'
+          : `${error instanceof Error ? error.message : 'Не удалось сохранить'} Некоторые настройки могли сохраниться; проверьте данные перед повтором.`,
+      );
+      if (savedSteps.current.length)
+        setMessage(
+          (current) =>
+            `${current} Уже сохранено: ${savedSteps.current.join(', ')}. Остальные изменения требуют проверки.`,
+        );
+      void client.invalidateQueries({ queryKey: queryKeys.distribution.all });
+    },
+  });
+  const reloadVersions = async () => {
+    const [gs, rs] = await Promise.all([api.groups(), api.rules()]);
+    const current = gs.find((g) => g.id === savedGroup?.id);
+    const currentRule = rs.items.find((r) => r.groupId === savedGroup?.id);
+    if (current) {
+      setGroupRevision(current.revision);
+      setSavedGroup(current);
+    }
+    if (currentRule) {
+      setRuleRevision(currentRule.revision);
+      setSavedRule(currentRule);
+    }
+    setMessage('Версии обновлены. Ваши поля сохранены: проверьте их перед сохранением.');
+  };
+  const move = (id: string, delta: number) =>
+    setMembers((current) => {
+      const copy = [...current];
+      const index = copy.indexOf(id);
+      if (index + delta < 0 || index + delta >= copy.length) return current;
+      [copy[index], copy[index + delta]] = [copy[index + delta]!, copy[index]!];
+      return copy;
+    });
+  return (
+    <form
+      className={panelClass}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!submit.isPending) submit.mutate();
+      }}
+    >
+      <h2 className="text-lg font-semibold">Настройки распределения</h2>
+      {!manage && (
+        <p role="status" className="mt-2 text-sm text-slate-500">
+          Настройки доступны только для просмотра.
+        </p>
+      )}
+      <fieldset disabled={!manage || submit.isPending} className="mt-5 space-y-5">
+        <label className="block text-sm">
+          Подключение amoCRM
+          <select
+            disabled={!!savedRule}
+            className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+            value={selectedBinding}
+            onChange={(e) => {
+              setSelectedBinding(e.target.value);
+              setPipeline('');
+              setStatus('');
+            }}
+          >
+            <option value="">Выберите подключение</option>
+            {connections
+              .filter((c) => c.state === 'active')
+              .map((c) => (
+                <option key={c.bindingId} value={c.bindingId}>
+                  Аккаунт {c.accountId}
+                </option>
+              ))}
+          </select>
+        </label>
+        <Input
+          label="Название группы"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          maxLength={200}
+        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm">
+            Воронка
+            <select
+              className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+              value={pipeline}
+              onChange={(e) => {
+                setPipeline(e.target.value);
+                setStatus('');
+              }}
+            >
+              <option value="">Выберите воронку</option>
+              {!refs.data && pipeline && <option value={pipeline}>Воронка {pipeline}</option>}
+              {refs.data?.pipelines.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Этап
+            <select
+              className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="">Выберите этап</option>
+              {!refs.data && status && <option value={status}>Этап {status}</option>}
+              {refs.data?.pipelines
+                .find((p) => p.id === pipeline)
+                ?.statuses.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </div>
+        <Input
+          label="Часовой пояс компании"
+          hint="Используется всеми группами и статистикой за сегодня."
+          placeholder="Europe/Moscow"
+          value={effectiveTimezone}
+          onChange={(e) => {
+            setTimezoneTouched(true);
+            setTimezone(e.target.value);
+          }}
+        />
+        <label className="block text-sm">
+          Режим правила
+          <select
+            disabled={!modeSupported}
+            aria-label="Режим правила"
+            className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+            value={executionMode}
+            onChange={(event) => setExecutionMode(event.target.value as 'live' | 'observe')}
+          >
+            {!modeSupported && <option value="">Режим требует совместимого сервера</option>}
+            <option value="observe">Наблюдение — без назначений</option>
+            <option value="live">Рабочий — назначение в amoCRM</option>
+          </select>
+        </label>
+        <p className="text-sm text-slate-500">
+          Наблюдение записывает предварительное решение, не изменяет ответственного и очередь
+          назначения. Рабочий режим начинает отдельный период: прежние наблюдения не превращаются в
+          назначения. Новые входы после границы могут ожидать возобновления при паузе. Незавершённые
+          рабочие операции нужно сначала выяснить.
+        </p>
+        <p className="text-sm text-slate-500">
+          Во время сохранения группа приостанавливается и включается после успешной записи правила.
+          При ошибке сохранения проверьте настройки перед возобновлением.
+        </p>
+        <p className="text-sm">Алгоритм: по очереди (Round-robin)</p>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={keep}
+            onChange={(e) => setKeep(e.target.checked)}
+          />
+          Оставлять сделку у текущего ответственного, если он доступен
+        </label>
+        <label className="flex items-center gap-3 text-sm">
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+          Распределение включено
+        </label>
+        <div>
+          <h3 className="font-semibold">Сотрудники и порядок очереди</h3>
+          <ul className="mt-3 space-y-3">
+            {members.map((id, index) => {
+              const employee = users.find((u) => u.id === id);
+              return (
+                <li
+                  key={id}
+                  className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 p-3"
+                >
+                  <span className="min-w-0 flex-1 text-sm">
+                    {index + 1}. {employee ? fullName(employee) : 'Удалённый сотрудник'}
+                    {unmapped.includes(id) && (
+                      <span className="block text-xs text-warning-700">
+                        Нет подтверждённой связи с активным пользователем amoCRM
+                      </span>
+                    )}
+                  </span>
+                  <label className="flex items-center gap-1 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={!disabled.includes(id)}
+                      onChange={(e) =>
+                        setDisabled((current) =>
+                          e.target.checked
+                            ? current.filter((value) => value !== id)
+                            : [...current, id],
+                        )
+                      }
+                    />
+                    Включён
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={index === 0}
+                    aria-label={`Поднять ${employee ? fullName(employee) : id}`}
+                    onClick={() => move(id, -1)}
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={index === members.length - 1}
+                    aria-label={`Опустить ${employee ? fullName(employee) : id}`}
+                    onClick={() => move(id, 1)}
+                  >
+                    ↓
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Убрать ${employee ? fullName(employee) : id}`}
+                    onClick={() => setMembers((current) => current.filter((value) => value !== id))}
+                  >
+                    Убрать
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+          <label className="mt-3 block text-sm">
+            Добавить сотрудника
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) setMembers((current) => [...current, e.target.value]);
+              }}
+              className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+            >
+              <option value="">Выберите сотрудника</option>
+              {users
+                .filter((u) => !members.includes(u.id))
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {fullName(u)}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </div>
+        <Button
+          type="submit"
+          loading={submit.isPending}
+          disabled={!binding || (!refs.isSuccess && (active || !savedRule))}
+        >
+          Сохранить настройки
+        </Button>
+      </fieldset>
+      {!binding && (
+        <p role="status" className="mt-3 text-sm text-warning-700">
+          Нет активного подключения amoCRM.
+        </p>
+      )}
+      {refs.isError && <Failure error={refs.error} retry={() => void refs.refetch()} />}
+      {mappings.isError && <Failure error={mappings.error} retry={() => void mappings.refetch()} />}
+      {message && (
+        <p role="status" className="mt-4 text-sm">
+          {message}
+        </p>
+      )}
+      {submit.isError && manage && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3"
+          onClick={() =>
+            void reloadVersions().catch(() =>
+              setMessage('Не удалось обновить версии. Попробуйте позже.'),
+            )
+          }
+        >
+          Загрузить новые версии
+        </Button>
+      )}
+    </form>
   );
 }
