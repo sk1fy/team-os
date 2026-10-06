@@ -13,7 +13,6 @@ import {
   Settings,
   ScanSearch,
   Shuffle,
-  Sparkles,
   Users,
   X,
 } from 'lucide-react';
@@ -25,7 +24,6 @@ import { useLogout } from '@/components/auth/useLogout';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
 import { canAccessRoute, canManageIntegrations } from '@/lib/permissions';
-import { isAcademyV2Enabled } from '@/lib/academy';
 import { prefetchRoute } from '@/lib/routePrefetch';
 
 type NavItemDefinition = {
@@ -38,7 +36,6 @@ type NavItemDefinition = {
   badge?: string;
 };
 
-const academyV2 = isAcademyV2Enabled();
 const navItems: NavItemDefinition[] = [
   { to: '/dashboard', label: 'Главная', icon: Home, end: true },
   { to: '/employees', label: 'Сотрудники', icon: Users },
@@ -51,13 +48,6 @@ const navItems: NavItemDefinition[] = [
     disabled: true,
     description: 'Находится в разработке',
   },
-  // Experimental academies hidden after V2 cutover (routes may still redirect).
-  ...(!academyV2
-    ? ([
-        { to: '/academy-opus', label: 'Академия Opus', icon: Sparkles },
-        { to: '/academy-grok', label: 'Академия Grok', icon: Sparkles },
-      ] as NavItemDefinition[])
-    : []),
 ];
 
 const integrationItems: NavItemDefinition[] = [

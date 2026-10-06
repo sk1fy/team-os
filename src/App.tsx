@@ -34,52 +34,6 @@ const AcademyPage = lazy(() =>
 const LearnPage = lazy(() =>
   import('@/pages/academy/LearnPage').then((module) => ({ default: module.LearnPage })),
 );
-const AcademyOpusPage = lazy(() =>
-  import('@/pages/academy-opus/AcademyOpusPage').then((module) => ({
-    default: module.AcademyOpusPage,
-  })),
-);
-const CourseBuilderPageOpus = lazy(() =>
-  import('@/pages/academy-opus/CourseBuilderPage').then((module) => ({
-    default: module.CourseBuilderPage,
-  })),
-);
-const LearnOpusPage = lazy(() =>
-  import('@/pages/academy-opus/LearnOpusPage').then((module) => ({
-    default: module.LearnOpusPage,
-  })),
-);
-const AcademyGrokHomePage = lazy(() =>
-  import('@/pages/academy-grok/AcademyGrokHomePage').then((module) => ({
-    default: module.AcademyGrokHomePage,
-  })),
-);
-const AcademyGrokCatalogPage = lazy(() =>
-  import('@/pages/academy-grok/AcademyGrokCatalogPage').then((module) => ({
-    default: module.AcademyGrokCatalogPage,
-  })),
-);
-const AcademyGrokCoursePage = lazy(() =>
-  import('@/pages/academy-grok/AcademyGrokCoursePage').then((module) => ({
-    default: module.AcademyGrokCoursePage,
-  })),
-);
-const AcademyGrokReportsPage = lazy(() =>
-  import('@/pages/academy-grok/AcademyGrokReportsPage').then((module) => ({
-    default: module.AcademyGrokReportsPage,
-  })),
-);
-const AcademyGrokLearnPage = lazy(() =>
-  import('@/pages/academy-grok/AcademyGrokLearnPage').then((module) => ({
-    default: module.AcademyGrokLearnPage,
-  })),
-);
-const AcademyGrokBuilderPage = lazy(() =>
-  import('@/pages/academy-grok/AcademyGrokBuilderPage').then((module) => ({
-    default: module.AcademyGrokBuilderPage,
-  })),
-);
-
 // Academy V2
 const AcademyLayout = lazy(() =>
   import('@/pages/academy/AcademyLayout').then((module) => ({ default: module.AcademyLayout })),
@@ -270,21 +224,10 @@ const DuplicateSearchPage = lazy(() =>
 
 const academyV2 = isAcademyV2Enabled();
 
-function RedirectAcademyBuilder() {
-  const { courseId = '' } = useParams();
-  const { search, hash } = useLocation();
-  return <Navigate to={`/academy/courses/${courseId}/builder${search}${hash}`} replace />;
-}
-
 function RedirectAcademyCourse() {
   const { courseId = '' } = useParams();
   const { search, hash } = useLocation();
   return <Navigate to={`/academy/courses/${courseId}${search}${hash}`} replace />;
-}
-
-function RedirectAcademyPath({ to }: { to: string }) {
-  const { search, hash } = useLocation();
-  return <Navigate to={`${to}${search}${hash}`} replace />;
 }
 
 function AccessDenied({ homePath }: { homePath: string }) {
@@ -434,40 +377,6 @@ export function App() {
             </>
           )}
 
-          {/* Experimental academies: live until cutover; redirect when V2 enabled */}
-          {academyV2 ? (
-            <>
-              <Route path="/academy-opus" element={<RedirectAcademyPath to="/academy" />} />
-              <Route path="/academy-opus/:courseId/builder" element={<RedirectAcademyBuilder />} />
-              <Route path="/academy-grok" element={<RedirectAcademyPath to="/academy" />} />
-              <Route
-                path="/academy-grok/catalog"
-                element={<RedirectAcademyPath to="/academy/catalog" />}
-              />
-              <Route
-                path="/academy-grok/reports"
-                element={<RedirectAcademyPath to="/academy/reports" />}
-              />
-              <Route path="/academy-grok/courses/:courseId" element={<RedirectAcademyCourse />} />
-              <Route
-                path="/academy-grok/courses/:courseId/builder"
-                element={<RedirectAcademyBuilder />}
-              />
-            </>
-          ) : (
-            <>
-              <Route path="/academy-opus" element={<AcademyOpusPage />} />
-              <Route path="/academy-opus/:courseId/builder" element={<CourseBuilderPageOpus />} />
-              <Route path="/academy-grok" element={<AcademyGrokHomePage />} />
-              <Route path="/academy-grok/catalog" element={<AcademyGrokCatalogPage />} />
-              <Route path="/academy-grok/courses/:courseId" element={<AcademyGrokCoursePage />} />
-              <Route
-                path="/academy-grok/courses/:courseId/builder"
-                element={<AcademyGrokBuilderPage />}
-              />
-              <Route path="/academy-grok/reports" element={<AcademyGrokReportsPage />} />
-            </>
-          )}
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
@@ -571,36 +480,6 @@ export function App() {
           <Route path="invite/:token" element={<InvitePage />} />
         </Route>
 
-        {academyV2 ? (
-          <>
-            {/* Old experiment players → V2 learn entry (courseId resolve) */}
-            <Route
-              path="/learn-opus/:courseId"
-              element={
-                <RequireAuth>
-                  <RequireModule>
-                    <LegacyCourseEnrollmentResolver />
-                  </RequireModule>
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/learn-grok/:courseId"
-              element={
-                <RequireAuth>
-                  <RequireModule>
-                    <LegacyCourseEnrollmentResolver />
-                  </RequireModule>
-                </RequireAuth>
-              }
-            />
-          </>
-        ) : (
-          <>
-            <Route path="/learn-opus/:courseId" element={<LearnOpusPage />} />
-            <Route path="/learn-grok/:courseId" element={<AcademyGrokLearnPage />} />
-          </>
-        )}
         <Route path="/share/article/:articleId" element={<ShareArticlePage />} />
         <Route path="/access/:token" element={<AccessLinkPage />} />
 

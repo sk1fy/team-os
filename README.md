@@ -48,8 +48,7 @@ VITE_ACADEMY_V2=true
 - API adapters в `src/api/academy/` (`/academy/*` относительно `/api/v1`);
 - query keys: `queryKeys.academyV2`, `queryKeys.externalAcademy`.
 
-Экспериментальные Opus/Grok остаются до cutover (Phase 9). Чеклист миграции:
-`docs/academy-v2-migration-checklist.md`.
+Прототипы Академии Opus и Grok удалены; используется основной раздел `/academy`.
 
 ### Текущие интеграции Rakurs
 

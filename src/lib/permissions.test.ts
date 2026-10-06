@@ -22,14 +22,9 @@ describe('permissions', () => {
       '/schedule',
       '/knowledge',
       '/academy',
-      '/academy-opus',
-      '/academy-grok',
-      '/academy-grok/catalog',
       '/notifications',
       '/settings',
       '/learn/course-1',
-      '/learn-opus/course-1',
-      '/learn-grok/course-1',
       '/share/article/a-1',
     ]) {
       expect(canAccessRoute('employee', path)).toBe(true);

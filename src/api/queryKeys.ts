@@ -145,56 +145,6 @@ export const queryKeys = {
     results: (enrollmentId: ID | null | undefined) =>
       ['external-academy', 'results', enrollmentId] as const,
   },
-  /**
-   * Академия Opus — параллельная реализация раздела. Отдельное поддерево
-   * ключей: данные те же, но набор запросов другой, и инвалидация одной
-   * Академии не должна дёргать вторую.
-   * @deprecated Remove after Academy V2 cutover (Phase 10).
-   */
-  academyOpus: {
-    all: ['academy-opus'] as const,
-    currentUser: ['academy-opus', 'current-user'] as const,
-    users: ['academy-opus', 'users'] as const,
-    positions: ['academy-opus', 'positions'] as const,
-    departments: ['academy-opus', 'departments'] as const,
-    courses: ['academy-opus', 'courses'] as const,
-    course: (courseId: ID | null | undefined) => ['academy-opus', 'course', courseId] as const,
-    sectionsFor: (courseId: ID | null | undefined) =>
-      ['academy-opus', 'sections', courseId] as const,
-    lessons: ['academy-opus', 'lessons'] as const,
-    lessonsFor: (courseId: ID | null | undefined) => ['academy-opus', 'lessons', courseId] as const,
-    quizzes: ['academy-opus', 'quizzes'] as const,
-    progress: ['academy-opus', 'progress'] as const,
-    progressFor: (courseId: ID | null | undefined) =>
-      ['academy-opus', 'progress', courseId] as const,
-    assignments: ['academy-opus', 'assignments'] as const,
-    myAssignments: ['academy-opus', 'my-assignments'] as const,
-    learnerRows: ['academy-opus', 'learner-rows'] as const,
-    dropOff: (courseId: ID | null | undefined) => ['academy-opus', 'drop-off', courseId] as const,
-  },
-  /**
-   * @deprecated Remove after Academy V2 cutover (Phase 10).
-   */
-  academyGrok: {
-    all: ['academy-grok'] as const,
-    currentUser: ['academy-grok', 'current-user'] as const,
-    users: ['academy-grok', 'users'] as const,
-    positions: ['academy-grok', 'positions'] as const,
-    departments: ['academy-grok', 'departments'] as const,
-    courses: ['academy-grok', 'courses'] as const,
-    course: (courseId: ID | null | undefined) => ['academy-grok', 'course', courseId] as const,
-    sectionsFor: (courseId: ID | null | undefined) =>
-      ['academy-grok', 'sections', courseId] as const,
-    lessons: ['academy-grok', 'lessons'] as const,
-    lessonsFor: (courseId: ID | null | undefined) => ['academy-grok', 'lessons', courseId] as const,
-    quizzes: ['academy-grok', 'quizzes'] as const,
-    progress: ['academy-grok', 'progress'] as const,
-    assignments: ['academy-grok', 'assignments'] as const,
-    learnProgress: (courseId: ID | null | undefined) =>
-      ['academy-grok', 'learn', 'progress', courseId] as const,
-    learnLessons: (courseId: ID | null | undefined) =>
-      ['academy-grok', 'learn', 'lessons', courseId] as const,
-  },
   schedule: scheduleQueryKeys,
   activity: {
     all: ['activity'] as const,

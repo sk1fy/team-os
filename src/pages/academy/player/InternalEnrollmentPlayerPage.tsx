@@ -450,7 +450,6 @@ export function InternalEnrollmentPlayerPage() {
  * Entry for /learn/:id when V2 is on.
  * 1) Treat id as enrollmentId (canonical).
  * 2) On 404, treat id as legacy courseId and resolve → replace with enrollment URL.
- * Also used for /learn-opus/:courseId and /learn-grok/:courseId redirects.
  */
 export function LearnRouteEntry() {
   const { enrollmentId: id = '' } = useParams();

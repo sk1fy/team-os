@@ -105,8 +105,4 @@ export function canAccessAcademyPath(role: UserRole | undefined, pathname: strin
 
 export const legacyAcademyRedirects: Array<{ from: string; to: string }> = [
   { from: '/academy/:courseId', to: '/academy/courses/:courseId' },
-  { from: '/academy-opus', to: '/academy' },
-  { from: '/academy-grok', to: '/academy' },
-  { from: '/academy-grok/catalog', to: '/academy/catalog' },
-  { from: '/academy-grok/reports', to: '/academy/reports' },
 ];

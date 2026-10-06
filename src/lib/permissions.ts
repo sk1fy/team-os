@@ -88,12 +88,7 @@ export function moduleForPath(pathname: string): AppModule | null {
   if (pathname.startsWith('/distribution')) return 'distribution';
   if (pathname.startsWith('/knowledge') || pathname.startsWith('/share/article/'))
     return 'knowledge';
-  if (
-    pathname.startsWith('/academy') ||
-    pathname.startsWith('/learn') ||
-    pathname.startsWith('/learn-opus') ||
-    pathname.startsWith('/learn-grok')
-  ) {
+  if (pathname.startsWith('/academy') || pathname.startsWith('/learn')) {
     return 'academy';
   }
   if (pathname.startsWith('/notifications')) return 'notifications';
@@ -108,13 +103,9 @@ const legacyEmployeeRoutes = [
   '/schedule',
   '/knowledge',
   '/academy',
-  '/academy-opus',
-  '/academy-grok',
   '/notifications',
   '/settings',
   '/learn/',
-  '/learn-opus/',
-  '/learn-grok/',
   '/share/article/',
 ] as const;
 
@@ -144,17 +135,10 @@ export function canAccessRoute(
     if (pathname === '/distribution' || pathname.startsWith('/distribution/')) {
       return allowedSections.includes('distribution');
     }
-    // Keep legacy experimental academy routes until cutover.
+    // Legacy Academy uses the employee section access list.
     if (!isAcademyV2Enabled()) {
       if (!matchesPrefixList(pathname, legacyEmployeeRoutes)) return false;
-      if (
-        pathname.startsWith('/academy') ||
-        pathname.startsWith('/learn') ||
-        pathname.startsWith('/academy-opus') ||
-        pathname.startsWith('/academy-grok') ||
-        pathname.startsWith('/learn-opus') ||
-        pathname.startsWith('/learn-grok')
-      ) {
+      if (pathname.startsWith('/academy') || pathname.startsWith('/learn')) {
         return allowedSections.includes('academy');
       }
       if (pathname.startsWith('/schedule')) return allowedSections.includes('schedule');
@@ -173,15 +157,6 @@ export function canAccessRoute(
       return false;
     }
     if (module === 'academy') {
-      // Employee may still open legacy experiment paths until Phase 9 cutover.
-      if (
-        pathname.startsWith('/academy-opus') ||
-        pathname.startsWith('/academy-grok') ||
-        pathname.startsWith('/learn-opus') ||
-        pathname.startsWith('/learn-grok')
-      ) {
-        return true;
-      }
       return canAccessAcademyPath(role, pathname);
     }
     return true;
@@ -191,18 +166,10 @@ export function canAccessRoute(
     const module = moduleForPath(pathname);
     if (!module || !canAccessModule(role, module)) return false;
     if (module === 'academy') {
-      if (
-        pathname.startsWith('/academy-opus') ||
-        pathname.startsWith('/academy-grok') ||
-        pathname.startsWith('/learn-opus') ||
-        pathname.startsWith('/learn-grok')
-      ) {
-        return true;
-      }
       if (isAcademyV2Enabled()) {
         return canAccessAcademyPath(role, pathname);
       }
-      // Legacy: partner could open academy experiments like non-employees historically.
+      // Legacy Academy access for partners.
       return pathname.startsWith('/academy') || pathname.startsWith('/learn');
     }
     return true;
