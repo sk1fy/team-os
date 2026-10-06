@@ -3763,6 +3763,11 @@ export interface components {
         DistributionRuntimeRule: {
             /** @enum {string} */
             executionMode?: "live" | "observe";
+            /**
+             * @default legacy_stage
+             * @enum {string}
+             */
+            source: "legacy_stage" | "creation" | "digital_pipeline";
             /** Format: int64 */
             executionEpoch?: number;
             liveStartedAt?: string | null;
@@ -3789,12 +3794,17 @@ export interface components {
              * @enum {string}
              */
             executionMode: "live" | "observe";
+            /**
+             * @default legacy_stage
+             * @enum {string}
+             */
+            source: "legacy_stage" | "creation" | "digital_pipeline";
             bindingId: components["schemas"]["ID"];
             /** Format: int64 */
             bindingRevision: number;
             groupId: components["schemas"]["ID"];
             pipelineId: components["schemas"]["DistributionCRMID"];
-            statusId: components["schemas"]["DistributionCRMID"];
+            statusId?: components["schemas"]["DistributionCRMID"];
             /** @default false */
             active: boolean;
             /** @default true */
@@ -3803,6 +3813,8 @@ export interface components {
         DistributionRuleUpdateInput: {
             /** @enum {string} */
             executionMode?: "live" | "observe";
+            /** @enum {string} */
+            source?: "legacy_stage" | "creation" | "digital_pipeline";
             pipelineId?: components["schemas"]["DistributionCRMID"];
             statusId?: components["schemas"]["DistributionCRMID"];
             /** Format: int64 */

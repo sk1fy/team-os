@@ -234,6 +234,9 @@ function Editor({
   const [disabled, setDisabled] = useState(group?.disabledMemberIds ?? []);
   const [pipeline, setPipeline] = useState(rule?.pipelineId ?? '');
   const [status, setStatus] = useState(rule?.statusId ?? '');
+  const [source, setSource] = useState<'legacy_stage' | 'creation' | 'digital_pipeline'>(
+    rule?.source ?? 'creation',
+  );
   const [keep, setKeep] = useState(rule?.keepCurrentResponsible ?? true);
   const [active, setActive] = useState(!!rule?.active && !!group?.active);
   const [executionMode, setExecutionMode] = useState<'live' | 'observe' | ''>(
@@ -284,8 +287,12 @@ function Editor({
       savedSteps.current = [];
       if (!name.trim() || members.length === 0)
         throw new Error('Укажите название и добавьте сотрудников.');
-      if (!pipeline || !status || !binding)
-        throw new Error('Выберите подключение, воронку и этап.');
+      if (!pipeline || !binding || (source !== 'creation' && !status))
+        throw new Error(
+          source === 'creation'
+            ? 'Выберите подключение и воронку.'
+            : 'Выберите подключение, воронку и этап.',
+        );
       if (active && binding && binding.mappingRevision !== binding.mappingAckRevision)
         throw new Error('Сопоставления сотрудников ещё не подтверждены сервером amoCRM.');
       if (active && (unmapped.length > 0 || !mappings.isSuccess || !refs.isSuccess))
@@ -349,8 +356,9 @@ function Editor({
           ...(modeSupported && executionMode ? { executionMode } : {}),
           active,
           keepCurrentResponsible: keep,
+          source,
           pipelineId: pipeline,
-          statusId: status,
+          ...(source !== 'creation' ? { statusId: status } : {}),
         });
       } else {
         nextRule = await api.createRule({
@@ -358,8 +366,9 @@ function Editor({
           bindingId: binding.bindingId,
           bindingRevision: binding.revision,
           groupId: target.id,
+          source,
           pipelineId: pipeline,
-          statusId: status,
+          ...(source !== 'creation' ? { statusId: status } : {}),
           active,
           keepCurrentResponsible: keep,
         });
@@ -470,6 +479,35 @@ function Editor({
           required
           maxLength={200}
         />
+        <label className="block text-sm">
+          Запуск распределения
+          <select
+            className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+            value={source}
+            onChange={(e) =>
+              setSource(e.target.value as 'legacy_stage' | 'creation' | 'digital_pipeline')
+            }
+          >
+            <option value="creation">При создании сделки в выбранной воронке</option>
+            <option value="digital_pipeline">По триггеру Digital Pipeline на этапе</option>
+            {source === 'legacy_stage' && (
+              <option value="legacy_stage">Существующее правило (вебхук этапа)</option>
+            )}
+          </select>
+        </label>
+        {source === 'legacy_stage' && (
+          <p className="text-sm text-slate-500">
+            Существующее правило срабатывает по обычному вебхуку на выбранном этапе. Режимы «создание
+            сделки» и «триггер Digital Pipeline» — отдельные, выберите один из них, чтобы перевести
+            правило на новый источник запуска.
+          </p>
+        )}
+        {source === 'digital_pipeline' && (
+          <p className="text-sm text-slate-500">
+            Срабатывает только по аутентифицированному триггеру виджета Digital Pipeline на выбранном
+            этапе. Обычный вебхук смены этапа не запускает распределение.
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm">
             Воронка
@@ -490,24 +528,26 @@ function Editor({
               ))}
             </select>
           </label>
-          <label className="text-sm">
-            Этап
-            <select
-              className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="">Выберите этап</option>
-              {!refs.data && status && <option value={status}>Этап {status}</option>}
-              {refs.data?.pipelines
-                .find((p) => p.id === pipeline)
-                ?.statuses.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-            </select>
-          </label>
+          {source !== 'creation' && (
+            <label className="text-sm">
+              Этап
+              <select
+                className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="">Выберите этап</option>
+                {!refs.data && status && <option value={status}>Этап {status}</option>}
+                {refs.data?.pipelines
+                  .find((p) => p.id === pipeline)
+                  ?.statuses.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
         </div>
         <Input
           label="Часовой пояс компании"
