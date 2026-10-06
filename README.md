@@ -70,4 +70,4 @@ VITE_ACADEMY_V2=true
 - `src/pages/<module>/` — страницы по модулям, роуты в `src/App.tsx`
 - `src/stores/` — клиентское UI-состояние (Zustand)
 
-Подробные соглашения для разработки — в [CLAUDE.md](CLAUDE.md).
+Документация распределения и границы проверок — в [docs/README.md](docs/README.md).
