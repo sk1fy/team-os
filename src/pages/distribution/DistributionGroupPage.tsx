@@ -10,7 +10,7 @@ import {
   type Connection,
 } from '@/api/distributionRuntime';
 import { ApiError } from '@/api/client';
-import { Button, Input, Badge } from '@/components/ui';
+import { Button, Input, Badge, Switch } from '@/components/ui';
 import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
 import {
@@ -21,6 +21,7 @@ import {
   dateText,
   isAccessDenied,
 } from './runtimeShared';
+import { DistributionEmployeePicker } from './DistributionEmployeePicker';
 import { DistributionQueue } from './DistributionQueue';
 import { DistributionObservations, ExecutionModeNotice } from './DistributionObservations';
 export function DistributionGroupPage() {
@@ -62,7 +63,9 @@ export function DistributionGroupPage() {
     rules.data?.items.find((r) => r.groupId === groupId);
   const binding =
     connections.data?.find((c) => c.bindingId === rule?.bindingId) ??
-    connections.data?.find((c) => c.state === 'active');
+    (connections.data?.filter((c) => c.state === 'active').length === 1
+      ? connections.data.find((c) => c.state === 'active')
+      : undefined);
   const availability = useQuery({
     queryKey: queryKeys.distribution.runtime('availability', rule?.id),
     queryFn: ({ signal }) => api.availability(rule!.id, signal),
@@ -100,12 +103,15 @@ export function DistributionGroupPage() {
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold">{create ? 'Новая группа' : group?.name}</h1>
+            <h1 className="min-w-0 flex-1 basis-full break-words text-xl font-semibold sm:basis-0 sm:text-2xl">
+              {create ? 'Новая группа' : group?.name}
+            </h1>
             {!create && (
               <div className="flex gap-2">
                 <Button
                   variant={settingsOpen ? 'secondary' : 'primary'}
                   size="sm"
+                  aria-pressed={!settingsOpen}
                   onClick={() => setSettingsOpen(false)}
                 >
                   Очередь группы
@@ -113,6 +119,7 @@ export function DistributionGroupPage() {
                 <Button
                   variant={settingsOpen ? 'primary' : 'secondary'}
                   size="sm"
+                  aria-pressed={settingsOpen}
                   onClick={() => setSettingsOpen(true)}
                 >
                   Настройки
@@ -120,7 +127,18 @@ export function DistributionGroupPage() {
               </div>
             )}
           </div>
-          {rule && <ExecutionModeNotice rule={rule} />}
+          {rule && (
+            <ExecutionModeNotice
+              rule={rule}
+              groupActive={!!group?.active}
+              timezone={settings.data?.timezone}
+            />
+          )}
+          {!create && binding?.state !== 'active' && (
+            <p role="alert" className="rounded-md bg-warning-50 p-3 text-sm">
+              Подключение amoCRM не готово. Проверьте подключение перед запуском распределения.
+            </p>
+          )}
           <div hidden={!settingsOpen}>
             {(rules.data?.items.filter((r) => r.groupId === groupId).length ?? 0) > 1 ? (
               <div role="alert" className={panelClass}>
@@ -148,8 +166,8 @@ export function DistributionGroupPage() {
                 connections={connections.data ?? []}
                 users={users.data ?? []}
                 initialTimezone={settings.data?.timezone}
+                timezoneStatus={settings.data?.timezoneStatus}
                 manage={actor.data?.role === 'owner' || actor.data?.role === 'admin'}
-                settingsLoaded={settings.isSuccess}
               />
             )}
           </div>
@@ -196,7 +214,11 @@ export function DistributionGroupPage() {
             </section>
           )}
           {!settingsOpen && rule && (
-            <DistributionObservations rule={rule} users={users.data ?? []} />
+            <DistributionObservations
+              rule={rule}
+              users={users.data ?? []}
+              timezone={settings.data?.timezone}
+            />
           )}
           {!create && !settingsOpen && (
             <DistributionQueue groupId={groupId} groups={groups.data ?? []} />
@@ -214,7 +236,7 @@ function Editor({
   users,
   initialTimezone,
   manage,
-  settingsLoaded,
+  timezoneStatus,
 }: {
   group?: Group;
   rule?: Rule;
@@ -223,10 +245,9 @@ function Editor({
   users: User[];
   initialTimezone?: string;
   manage: boolean;
-  settingsLoaded: boolean;
+  timezoneStatus?: 'confirmed' | 'cached' | 'unavailable';
 }) {
-  const [selectedBinding, setSelectedBinding] = useState(initialBinding?.bindingId ?? '');
-  const binding = connections.find((c) => c.bindingId === selectedBinding);
+  const binding = connections.find((c) => c.bindingId === initialBinding?.bindingId);
   const navigate = useNavigate();
   const client = useQueryClient();
   const [name, setName] = useState(group?.name ?? '');
@@ -235,7 +256,7 @@ function Editor({
   const [pipeline, setPipeline] = useState(rule?.pipelineId ?? '');
   const [status, setStatus] = useState(rule?.statusId ?? '');
   const [source, setSource] = useState<'legacy_stage' | 'creation' | 'digital_pipeline'>(
-    rule?.source ?? 'creation',
+    rule ? (rule.source ?? 'legacy_stage') : 'creation',
   );
   const [keep, setKeep] = useState(rule?.keepCurrentResponsible ?? true);
   const [active, setActive] = useState(!!rule?.active && !!group?.active);
@@ -248,7 +269,6 @@ function Editor({
           ? ''
           : 'observe',
   );
-  const [timezone, setTimezone] = useState(initialTimezone ?? '');
   const [groupRevision, setGroupRevision] = useState(group?.revision);
   const [ruleRevision, setRuleRevision] = useState(rule?.revision);
   const [savedGroup, setSavedGroup] = useState<Group | undefined>(group);
@@ -270,8 +290,8 @@ function Editor({
     enabled: !!binding,
     retry: 1,
   });
-  const [timezoneTouched, setTimezoneTouched] = useState(false);
-  const effectiveTimezone = timezoneTouched ? timezone : timezone || initialTimezone || '';
+  const effectiveTimezone =
+    timezoneStatus === 'confirmed' || timezoneStatus === 'cached' ? initialTimezone : undefined;
   const unmapped = members.filter(
     (id) =>
       !disabled.includes(id) &&
@@ -287,11 +307,17 @@ function Editor({
       savedSteps.current = [];
       if (!name.trim() || members.length === 0)
         throw new Error('Укажите название и добавьте сотрудников.');
-      if (!pipeline || !binding || (source !== 'creation' && !status))
+      if (
+        !binding ||
+        (source !== 'digital_pipeline' && !pipeline) ||
+        (source === 'legacy_stage' && !status)
+      )
         throw new Error(
-          source === 'creation'
-            ? 'Выберите подключение и воронку.'
-            : 'Выберите подключение, воронку и этап.',
+          source === 'digital_pipeline'
+            ? 'Нет подтверждённого подключения amoCRM.'
+            : source === 'creation'
+              ? 'Выберите воронку.'
+              : 'Выберите воронку и этап существующего правила.',
         );
       if (active && binding && binding.mappingRevision !== binding.mappingAckRevision)
         throw new Error('Сопоставления сотрудников ещё не подтверждены сервером amoCRM.');
@@ -299,12 +325,10 @@ function Editor({
         throw new Error(
           'Перед запуском сопоставьте всех включённых сотрудников с активными пользователями amoCRM.',
         );
-      if (!effectiveTimezone) throw new Error('Выберите часовой пояс компании.');
-      try {
-        new Intl.DateTimeFormat('ru', { timeZone: effectiveTimezone });
-      } catch {
-        throw new Error('Укажите действительный часовой пояс, например Europe/Moscow.');
-      }
+      if (active && !effectiveTimezone)
+        throw new Error(
+          'Часовой пояс аккаунта amoCRM не подтверждён. Повторите загрузку данных перед запуском.',
+        );
       setMessage('');
       let target = savedGroup;
       if (!target) {
@@ -345,10 +369,6 @@ function Editor({
       savedSteps.current.push('состав и настройки группы (приостановлена)');
       setSavedGroup(changed);
       setGroupRevision(changed.revision);
-      if (effectiveTimezone !== initialTimezone || !settingsLoaded) {
-        await api.timezone(effectiveTimezone);
-        savedSteps.current.push('часовой пояс компании');
-      }
       let nextRule: Rule;
       if (savedRule) {
         nextRule = await api.updateRule(savedRule.id, {
@@ -357,8 +377,8 @@ function Editor({
           active,
           keepCurrentResponsible: keep,
           source,
-          pipelineId: pipeline,
-          ...(source !== 'creation' ? { statusId: status } : {}),
+          pipelineId: source === 'digital_pipeline' ? '' : pipeline,
+          statusId: source === 'legacy_stage' ? status : '',
         });
       } else {
         nextRule = await api.createRule({
@@ -367,8 +387,8 @@ function Editor({
           bindingRevision: binding.revision,
           groupId: target.id,
           source,
-          pipelineId: pipeline,
-          ...(source !== 'creation' ? { statusId: status } : {}),
+          pipelineId: source === 'digital_pipeline' ? '' : pipeline,
+          statusId: source === 'legacy_stage' ? status : '',
           active,
           keepCurrentResponsible: keep,
         });
@@ -450,28 +470,6 @@ function Editor({
         </p>
       )}
       <fieldset disabled={!manage || submit.isPending} className="mt-5 space-y-5">
-        <label className="block text-sm">
-          Подключение amoCRM
-          <select
-            disabled={!!savedRule}
-            className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-            value={selectedBinding}
-            onChange={(e) => {
-              setSelectedBinding(e.target.value);
-              setPipeline('');
-              setStatus('');
-            }}
-          >
-            <option value="">Выберите подключение</option>
-            {connections
-              .filter((c) => c.state === 'active')
-              .map((c) => (
-                <option key={c.bindingId} value={c.bindingId}>
-                  Аккаунт {c.accountId}
-                </option>
-              ))}
-          </select>
-        </label>
         <Input
           label="Название группы"
           value={name}
@@ -479,86 +477,102 @@ function Editor({
           required
           maxLength={200}
         />
-        <label className="block text-sm">
-          Запуск распределения
-          <select
-            className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-            value={source}
-            onChange={(e) =>
-              setSource(e.target.value as 'legacy_stage' | 'creation' | 'digital_pipeline')
-            }
-          >
-            <option value="creation">При создании сделки в выбранной воронке</option>
-            <option value="digital_pipeline">По триггеру Digital Pipeline на этапе</option>
-            {source === 'legacy_stage' && (
-              <option value="legacy_stage">Существующее правило (вебхук этапа)</option>
-            )}
-          </select>
-        </label>
+        <fieldset className="space-y-2">
+          <legend className="text-xs font-semibold text-slate-700">Запуск распределения</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                ['creation', 'При создании сделки в выбранной воронке'],
+                ['digital_pipeline', 'По триггеру на этапе'],
+              ] as const
+            ).map(([value, label]) => (
+              <label
+                key={value}
+                className={`flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm ${source === value ? 'border-primary-500 bg-primary-50' : 'border-slate-200'}`}
+              >
+                <input
+                  type="radio"
+                  name="distribution-source"
+                  value={value}
+                  checked={source === value}
+                  onChange={() => {
+                    setSource(value);
+                    setStatus('');
+                    if (value === 'digital_pipeline') setPipeline('');
+                  }}
+                  className="mt-0.5 accent-primary-600"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          {source === 'legacy_stage' && (
+            <p className="text-xs text-slate-500">
+              Сохранено существующее правило. Выберите новый тип запуска для перехода.
+            </p>
+          )}
+        </fieldset>
         {source === 'legacy_stage' && (
           <p className="text-sm text-slate-500">
-            Существующее правило срабатывает по обычному вебхуку на выбранном этапе. Режимы «создание
-            сделки» и «триггер Digital Pipeline» — отдельные, выберите один из них, чтобы перевести
-            правило на новый источник запуска.
+            Существующее правило срабатывает по обычному вебхуку на выбранном этапе. Режимы
+            «создание сделки» и «триггер Digital Pipeline» — отдельные, выберите один из них, чтобы
+            перевести правило на новый источник запуска.
           </p>
         )}
         {source === 'digital_pipeline' && (
           <p className="text-sm text-slate-500">
-            Срабатывает только по аутентифицированному триггеру виджета Digital Pipeline на выбранном
-            этапе. Обычный вебхук смены этапа не запускает распределение.
+            Добавьте триггер этой группы на нужный этап в Digital Pipeline amoCRM. Место запуска
+            настраивается в amoCRM.
           </p>
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm">
-            Воронка
-            <select
-              className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-              value={pipeline}
-              onChange={(e) => {
-                setPipeline(e.target.value);
-                setStatus('');
-              }}
-            >
-              <option value="">Выберите воронку</option>
-              {!refs.data && pipeline && <option value={pipeline}>Воронка {pipeline}</option>}
-              {refs.data?.pipelines.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {source !== 'creation' && (
+        {source !== 'digital_pipeline' && (
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm">
-              Этап
+              Воронка
               <select
                 className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                value={pipeline}
+                onChange={(e) => {
+                  setPipeline(e.target.value);
+                  setStatus('');
+                }}
               >
-                <option value="">Выберите этап</option>
-                {!refs.data && status && <option value={status}>Этап {status}</option>}
-                {refs.data?.pipelines
-                  .find((p) => p.id === pipeline)
-                  ?.statuses.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
+                <option value="">Выберите воронку</option>
+                {!refs.data && pipeline && <option value={pipeline}>Воронка {pipeline}</option>}
+                {refs.data?.pipelines.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
               </select>
             </label>
-          )}
-        </div>
-        <Input
-          label="Часовой пояс компании"
-          hint="Используется всеми группами и статистикой за сегодня."
-          placeholder="Europe/Moscow"
-          value={effectiveTimezone}
-          onChange={(e) => {
-            setTimezoneTouched(true);
-            setTimezone(e.target.value);
-          }}
-        />
+            {source === 'legacy_stage' && (
+              <label className="text-sm">
+                Этап
+                <select
+                  className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">Выберите этап</option>
+                  {!refs.data && status && <option value={status}>Этап {status}</option>}
+                  {refs.data?.pipelines
+                    .find((p) => p.id === pipeline)
+                    ?.statuses.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-slate-500">
+          {effectiveTimezone
+            ? `Время аккаунта amoCRM: ${effectiveTimezone}.${timezoneStatus === 'cached' ? ' Используется последний подтверждённый часовой пояс; обновление временно недоступно.' : ''}`
+            : 'Часовой пояс аккаунта amoCRM пока не подтверждён. Запуск недоступен до проверки подключения.'}
+        </p>
         <label className="block text-sm">
           Режим правила
           <select
@@ -573,33 +587,31 @@ function Editor({
             <option value="live">Рабочий — назначение в amoCRM</option>
           </select>
         </label>
-        <p className="text-sm text-slate-500">
-          Наблюдение записывает предварительное решение, не изменяет ответственного и очередь
-          назначения. Рабочий режим начинает отдельный период: прежние наблюдения не превращаются в
-          назначения. Новые входы после границы могут ожидать возобновления при паузе. Незавершённые
-          рабочие операции нужно сначала выяснить.
+        <p className="text-xs text-slate-500">
+          Наблюдение сохраняет предложения без назначения. При сохранении группа приостанавливается
+          и возобновляется только после успешной записи настроек.
         </p>
-        <p className="text-sm text-slate-500">
-          Во время сохранения группа приостанавливается и включается после успешной записи правила.
-          При ошибке сохранения проверьте настройки перед возобновлением.
-        </p>
-        <p className="text-sm">Алгоритм: по очереди (Round-robin)</p>
-        <label className="flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            className="mt-1"
+        <div className="space-y-4 rounded-md bg-surface-muted p-4">
+          <Switch
             checked={keep}
-            onChange={(e) => setKeep(e.target.checked)}
+            onCheckedChange={setKeep}
+            label="Оставлять сделку у текущего ответственного, если он доступен"
+            aria-label="Оставлять сделку у текущего ответственного, если он доступен"
           />
-          Оставлять сделку у текущего ответственного, если он доступен
-        </label>
-        <label className="flex items-center gap-3 text-sm">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          Распределение включено
-        </label>
+          <Switch
+            checked={active}
+            onCheckedChange={setActive}
+            label="Распределение включено"
+            aria-label="Распределение включено"
+            description="Состояние изменится после сохранения настроек."
+          />
+        </div>
         <div>
           <h3 className="font-semibold">Сотрудники и порядок очереди</h3>
-          <ul className="mt-3 space-y-3">
+          <p className="mt-1 text-xs text-slate-500">
+            Сделки распределяются по кругу в указанном порядке между доступными сотрудниками.
+          </p>
+          <ul className="mt-3 space-y-2">
             {members.map((id, index) => {
               const employee = users.find((u) => u.id === id);
               return (
@@ -607,7 +619,7 @@ function Editor({
                   key={id}
                   className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 p-3"
                 >
-                  <span className="min-w-0 flex-1 text-sm">
+                  <span className="min-w-0 flex-1 basis-full break-words text-sm sm:basis-0">
                     {index + 1}. {employee ? fullName(employee) : 'Удалённый сотрудник'}
                     {unmapped.includes(id) && (
                       <span className="block text-xs text-warning-700">
@@ -615,20 +627,16 @@ function Editor({
                       </span>
                     )}
                   </span>
-                  <label className="flex items-center gap-1 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={!disabled.includes(id)}
-                      onChange={(e) =>
-                        setDisabled((current) =>
-                          e.target.checked
-                            ? current.filter((value) => value !== id)
-                            : [...current, id],
-                        )
-                      }
-                    />
-                    Включён
-                  </label>
+                  <Switch
+                    label="Участие"
+                    checked={!disabled.includes(id)}
+                    aria-label={`Участие ${employee ? fullName(employee) : id}`}
+                    onCheckedChange={(checked) =>
+                      setDisabled((current) =>
+                        checked ? current.filter((value) => value !== id) : [...current, id],
+                      )
+                    }
+                  />
                   <Button
                     type="button"
                     size="sm"
@@ -662,25 +670,13 @@ function Editor({
               );
             })}
           </ul>
-          <label className="mt-3 block text-sm">
-            Добавить сотрудника
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) setMembers((current) => [...current, e.target.value]);
-              }}
-              className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-            >
-              <option value="">Выберите сотрудника</option>
-              {users
-                .filter((u) => !members.includes(u.id))
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {fullName(u)}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <DistributionEmployeePicker
+            users={users.filter((u) => !members.includes(u.id))}
+            disabled={!manage || submit.isPending}
+            onAdd={(id) =>
+              setMembers((current) => (current.includes(id) ? current : [...current, id]))
+            }
+          />
         </div>
         <Button
           type="submit"

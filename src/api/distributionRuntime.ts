@@ -15,6 +15,8 @@ export type QueueItem = Schema['DistributionRuntimeQueueItem'] & {
   updatedAt: string;
   actions: string[];
   resultVersion: number | null;
+  waitingDeadlineAt?: string | null;
+  nextShiftAt?: string | null;
 };
 export type Summary = Schema['DistributionRuntimeSummary'];
 export type History = Schema['DistributionRuntimeHistory'] & { hasMore?: boolean };
@@ -105,12 +107,12 @@ export const distributionRuntimeApi = {
     return result;
   },
   settings: (signal?: AbortSignal) =>
-    request<{ timezone: string; revision: number }>(
-      '/distribution/settings',
-      'GET',
-      undefined,
-      signal,
-    ),
+    request<{
+      timezone: string;
+      revision: number;
+      timezoneSource?: 'amocrm' | 'legacy';
+      timezoneStatus?: 'confirmed' | 'cached' | 'unavailable';
+    }>('/distribution/settings', 'GET', undefined, signal),
   timezone: (timezone: string) => request('/distribution/settings', 'PUT', { timezone }),
   availability: (rule: string, signal?: AbortSignal) =>
     request<Availability>(
@@ -127,12 +129,12 @@ export const distributionRuntimeApi = {
   queue: (filter: QueueFilter, signal?: AbortSignal) => {
     const params = new URLSearchParams({
       tab: filter.tab,
-      limit: '25',
+      limit: '15',
       offset: String(filter.offset),
     });
     for (const key of ['groupId', 'from', 'to'] as const)
       if (filter[key]) params.set(key, filter[key]);
-    return request<{ items: QueueItem[]; hasMore: boolean }>(
+    return request<{ items: QueueItem[]; hasMore: boolean; offset: number; limit: number }>(
       `/distribution/queue?${params}`,
       'GET',
       undefined,

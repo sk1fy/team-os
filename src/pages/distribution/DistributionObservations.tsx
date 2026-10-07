@@ -7,30 +7,78 @@ import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
 import { Failure, panelClass, useVisiblePolling, dateText, reasonText } from './runtimeShared';
 
-export function ExecutionModeNotice({ rule }: { rule: Rule }) {
+export function ExecutionModeNotice({
+  rule,
+  groupActive = true,
+  timezone,
+}: {
+  rule: Rule;
+  groupActive?: boolean;
+  timezone?: string;
+}) {
+  const enabled = groupActive && rule.active;
+  const supported = rule.executionMode === 'live' || rule.executionMode === 'observe';
   return (
-    <section className={panelClass} aria-label="Режим распределения">
-      <Badge variant={rule.executionMode === 'observe' ? 'warning' : 'neutral'}>
-        {rule.executionMode === 'observe'
-          ? 'Наблюдение — без назначений'
-          : rule.executionMode === 'live'
-            ? 'Рабочий режим'
-            : 'Режим не подтверждён источником'}
+    <section
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-slate-200 bg-surface px-4 py-3"
+      aria-label="Режим распределения"
+    >
+      <Badge
+        variant={
+          !enabled
+            ? 'warning'
+            : rule.executionMode === 'observe'
+              ? 'neutral'
+              : supported
+                ? 'success'
+                : 'warning'
+        }
+      >
+        {!supported
+          ? 'Режим не подтверждён источником'
+          : !enabled
+            ? 'Распределение приостановлено'
+            : rule.executionMode === 'observe'
+              ? 'Наблюдение — без назначений'
+              : 'Распределение включено'}
       </Badge>
-      {!rule.active && <p className="mt-2 text-sm">Правило приостановлено.</p>}
-      <p className="mt-2 text-sm text-slate-500">
-        {rule.executionMode === 'observe'
-          ? 'Предварительные решения не назначают ответственного, не занимают рабочую очередь и не продвигают порядок распределения.'
-          : 'Результат назначения подтверждается отдельно. Исторические наблюдения не включаются автоматически.'}
+      <p className="text-xs text-slate-500">
+        {!supported
+          ? 'Источник не подтвердил режим. Проверьте совместимость сервисов перед запуском.'
+          : rule.executionMode === 'observe'
+            ? 'Сохраняем предложения, без назначения в amoCRM.'
+            : !enabled
+              ? 'Новые назначения приостановлены. Проверьте настройки перед возобновлением.'
+              : 'Назначаем доступным сотрудникам по очереди.'}
       </p>
-      <p className="mt-1 text-xs text-slate-500">
-        Период: {rule.executionEpoch ?? '—'} · начало рабочего периода:{' '}
-        {dateText(rule.liveStartedAt)}
-      </p>
+      <details className="text-xs text-slate-500">
+        <summary className="cursor-pointer">Детали режима</summary>
+        <p className="mt-2">
+          {rule.executionMode === 'live'
+            ? 'Рабочий режим'
+            : rule.executionMode === 'observe'
+              ? 'Наблюдение'
+              : 'Нужна совместимая версия сервера'}{' '}
+          · Период: {rule.executionEpoch ?? '—'} · начало рабочего периода:{' '}
+          {dateText(rule.liveStartedAt, timezone)}
+        </p>
+        <p className="mt-1">
+          Результат назначения показывается после подтверждения. Исторические наблюдения не
+          включаются автоматически.
+        </p>
+      </details>
     </section>
   );
 }
-export function DistributionObservations({ rule, users }: { rule: Rule; users: User[] }) {
+export function DistributionObservations({
+  rule,
+  users,
+  timezone,
+}: {
+  rule: Rule;
+  users: User[];
+  timezone?: string;
+}) {
   const [params, setParams] = useSearchParams();
   const raw = params.get('observationsOffset');
   const offset = raw === null ? 0 : Number(raw);
@@ -136,11 +184,11 @@ export function DistributionObservations({ rule, users }: { rule: Rule; users: U
                       </div>
                       <div>
                         <dt className="text-slate-500">Время наблюдения</dt>
-                        <dd>{dateText(item.checkedAt)}</dd>
+                        <dd>{dateText(item.checkedAt, timezone)}</dd>
                       </div>
                       <div>
                         <dt className="text-slate-500">Следующая смена</dt>
-                        <dd>{dateText(item.nextShiftAt)}</dd>
+                        <dd>{dateText(item.nextShiftAt, timezone)}</dd>
                       </div>
                     </dl>
                     <details className="mt-3 break-all text-xs text-slate-500">

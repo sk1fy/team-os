@@ -3712,6 +3712,12 @@ export interface components {
             algorithm: components["schemas"]["DistributionAlgorithm"];
         };
         DistributionRuntimeSettings: {
+            /** @description Источник: amocrm или legacy */
+            timezoneSource?: string;
+            /** @description Состояние: confirmed, cached или unavailable */
+            timezoneStatus?: string;
+            /** Format: date-time */
+            timezoneFetchedAt?: string;
             timezone: string;
             /** Format: int64 */
             revision: number;
@@ -3776,8 +3782,8 @@ export interface components {
             /** Format: int64 */
             bindingRevision: number;
             accountId: components["schemas"]["DistributionCRMID"];
-            pipelineId: components["schemas"]["DistributionCRMID"];
-            statusId: components["schemas"]["DistributionCRMID"];
+            pipelineId: string;
+            statusId: string;
             groupId: components["schemas"]["ID"];
             active: boolean;
             keepCurrentResponsible: boolean;
@@ -3803,8 +3809,8 @@ export interface components {
             /** Format: int64 */
             bindingRevision: number;
             groupId: components["schemas"]["ID"];
-            pipelineId: components["schemas"]["DistributionCRMID"];
-            statusId?: components["schemas"]["DistributionCRMID"];
+            pipelineId?: string;
+            statusId?: string;
             /** @default false */
             active: boolean;
             /** @default true */
@@ -3815,8 +3821,8 @@ export interface components {
             executionMode?: "live" | "observe";
             /** @enum {string} */
             source?: "legacy_stage" | "creation" | "digital_pipeline";
-            pipelineId?: components["schemas"]["DistributionCRMID"];
-            statusId?: components["schemas"]["DistributionCRMID"];
+            pipelineId?: string;
+            statusId?: string;
             /** Format: int64 */
             expectedRevision: number;
             active: boolean;
@@ -3843,6 +3849,10 @@ export interface components {
             employees: components["schemas"]["DistributionRuntimeEmployeeAvailability"][];
         };
         DistributionRuntimeQueueItem: {
+            /** Format: date-time */
+            waitingDeadlineAt?: string;
+            /** Format: date-time */
+            nextShiftAt?: string | null;
             /** Format: date-time */
             updatedAt?: string;
             actions?: ("recalculate" | "check" | "retry" | "cancel")[];
@@ -3895,6 +3905,7 @@ export interface components {
             payload: Record<string, never>;
         };
         DistributionRuntimeHistory: {
+            hasMore?: boolean;
             items: components["schemas"]["DistributionRuntimeHistoryItem"][];
             /** Format: int32 */
             limit: number;

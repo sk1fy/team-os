@@ -50,6 +50,7 @@ export const reasonLabels: Record<string, string> = {
   binding_unavailable: 'Подключение amoCRM недоступно',
   cancel_pending: 'Проверяем отмену операции',
   cancelled: 'Распределение отменено',
+  user_cancelled: 'Распределение отменено вручную',
   crm_users_unavailable: 'Не удалось проверить пользователей amoCRM',
   current_owner_kept: 'Оставлена у текущего ответственного',
   decision_expired: 'Решение устарело, требуется перерасчёт',
@@ -60,18 +61,22 @@ export const reasonLabels: Record<string, string> = {
   no_valid_members_within_horizon: 'Нет подходящих смен в ближайший период',
   observed_stage_exit: 'Сделка вышла из этапа распределения',
   operation_unavailable: 'Не удалось проверить операцию',
-  operation_unfinished: 'Операция ещё не завершена',
+  operation_unfinished: 'Проверяем назначение: подтверждение от amoCRM ещё не получено',
   outcome_unknown: 'Результат назначения уточняется',
   policy_unavailable: 'Не удалось проверить правило распределения',
   recipient_unavailable: 'Выбранный сотрудник больше недоступен',
   requires_configuration: 'Проверьте настройки распределения',
   source_changed: 'Данные сделки изменились',
-  timezone_required: 'Настройте часовой пояс компании',
+  timezone_required: 'Не удалось подтвердить часовой пояс аккаунта amoCRM',
   no_attempt: 'Назначение ещё не отправлено',
   uncertain: 'Результат назначения уточняется',
-  no_available_employee: 'Никто не доступен по графику',
-  no_available_members: 'Никто не доступен по графику',
-  waiting_for_shift: 'Ожидает начала смены',
+  no_available_employee: 'Ожидает доступного сотрудника: сейчас никто не работает по графику',
+  no_available_members: 'Ожидает доступного сотрудника: сейчас никто не работает по графику',
+  waiting_for_shift: 'Ожидает доступного сотрудника: сейчас никто не работает по графику',
+  waiting_expired: 'Истёк срок ожидания — 3 дня',
+  waiting_expired_cancel_pending:
+    'Истёк срок ожидания; проверяем результат ранее отправленного назначения',
+  waiting_timeout: 'Истёк срок ожидания — 3 дня',
   group_paused: 'Группа приостановлена',
   rule_paused: 'Правило приостановлено',
   unknown: 'Результат уточняется',
@@ -90,16 +95,16 @@ export const reasonText = (value: string) =>
   reasonLabels[value] ?? 'Требуется проверка состояния распределения';
 export function StateBadge({ state }: { state: string }) {
   const labels: Record<string, string> = {
-    checking: 'Проверяем результат',
-    uncertain: 'Результат уточняется',
-    dispatching: 'Назначается',
-    confirming: 'Ожидаем подтверждения',
+    checking: 'Ожидает',
+    uncertain: 'Ожидает',
+    dispatching: 'Ожидает',
+    confirming: 'Ожидает',
     errors: 'Требует внимания',
     waiting: 'Ожидает',
     ready: 'Ожидает',
-    assigning: 'Назначается',
-    processing: 'Назначается',
-    sent: 'Назначается',
+    assigning: 'Ожидает',
+    processing: 'Ожидает',
+    sent: 'Ожидает',
     succeeded: 'Завершено',
     confirmed: 'Завершено',
     completed: 'Завершено',
@@ -107,9 +112,10 @@ export function StateBadge({ state }: { state: string }) {
     failed: 'Ошибка',
     error: 'Ошибка',
     cancelled: 'Отменена',
-    unknown: 'Результат уточняется',
-    needs_verification: 'Результат уточняется',
+    unknown: 'Ожидает',
+    needs_verification: 'Ожидает',
     needs_configuration: 'Требуется настройка',
+    requires_configuration: 'Требуется настройка',
   };
   return (
     <Badge
@@ -121,16 +127,22 @@ export function StateBadge({ state }: { state: string }) {
             : 'neutral'
       }
     >
-      {labels[state] ?? state}
+      {labels[state] ?? 'Состояние уточняется'}
     </Badge>
   );
 }
-export const dateText = (value: string | null | undefined, timezone?: string | null) =>
-  value
-    ? new Intl.DateTimeFormat('ru-RU', {
+export const dateText = (value: string | null | undefined, timezone?: string | null) => {
+  if (!value || Number.isNaN(Date.parse(value))) return '—';
+  try {
+    return (
+      new Intl.DateTimeFormat('ru-RU', {
         dateStyle: 'short',
         timeStyle: 'short',
-        timeZone: timezone || undefined,
-      }).format(new Date(value))
-    : '—';
+        timeZone: timezone || 'UTC',
+      }).format(new Date(value)) + (timezone ? '' : ' UTC')
+    );
+  } catch {
+    return new Date(value).toISOString() + ' (часовой пояс недоступен)';
+  }
+};
 export const panelClass = 'rounded-lg border border-slate-200 bg-surface p-5 shadow-card';
