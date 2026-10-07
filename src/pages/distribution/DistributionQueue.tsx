@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { httpAuthApi as authApi, httpOrgApi as orgApi } from '@/api/http';
 import { ApiError } from '@/api/client';
@@ -9,6 +9,7 @@ import {
   type QueueItem,
 } from '@/api/distributionRuntime';
 import { Button, Modal, Input } from '@/components/ui';
+import { copyText } from '@/lib/clipboard';
 import { fullName } from '@/lib/labels';
 import {
   dateText,
@@ -18,9 +19,15 @@ import {
   StateBadge,
   useVisiblePolling,
 } from './runtimeShared';
+import {
+  accountDateTime,
+  isQueueFinished,
+  isQueueConfirmed,
+  queueDuration,
+} from './queuePresentation';
+const pageSize = 15;
 const tabs = [
   ['waiting', 'Ожидают'],
-  ['assigning', 'Назначаются'],
   ['completed', 'Завершены'],
   ['errors', 'Ошибки'],
   ['cancelled', 'Отменены'],
@@ -41,23 +48,41 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
   const restoreRef = useRef<HTMLButtonElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const poll = useVisiblePolling();
-  const filter = {
-    tab,
-    groupId: selectedGroup || undefined,
-    from: from ? new Date(from).toISOString() : undefined,
-    to: to ? new Date(to).toISOString() : undefined,
-    offset,
-  };
-  const queue = useQuery({
-    queryKey: queryKeys.distribution.runtime('queue', filter),
-    queryFn: ({ signal }) => api.queue(filter, signal),
-    ...poll,
-  });
   const summary = useQuery({
     queryKey: queryKeys.distribution.runtime('summary', selectedGroup || undefined),
     queryFn: ({ signal }) => api.summary(selectedGroup || undefined, signal),
     ...poll,
   });
+  let filterError = '';
+  let fromUTC: string | undefined;
+  let toUTC: string | undefined;
+  try {
+    if ((from || to) && !summary.data?.timezone)
+      throw new Error('Для фильтра по времени нужен подтверждённый часовой пояс аккаунта.');
+    if (from) fromUTC = accountDateTime(from, summary.data!.timezone!);
+    if (to) toUTC = accountDateTime(to, summary.data!.timezone!);
+    if (fromUTC && toUTC && fromUTC > toUTC)
+      throw new Error('Начало периода должно быть раньше его окончания.');
+  } catch (error) {
+    filterError = error instanceof Error ? error.message : 'Проверьте период.';
+  }
+  const filter = { tab, groupId: selectedGroup || undefined, from: fromUTC, to: toUTC, offset };
+  const queue = useQuery({
+    queryKey: queryKeys.distribution.runtime('queue', filter),
+    queryFn: ({ signal }) => api.queue(filter, signal),
+    enabled: !filterError,
+    ...poll,
+  });
+  useEffect(() => {
+    if (
+      queue.isSuccess &&
+      !queue.isFetching &&
+      queue.data.items.length === 0 &&
+      offset > 0 &&
+      !filterError
+    )
+      setOffset((current) => Math.max(0, current - pageSize));
+  }, [queue.isSuccess, queue.isFetching, queue.data, offset, filterError]);
   const users = useQuery({
     queryKey: queryKeys.distribution.runtime('users'),
     queryFn: orgApi.getUsers,
@@ -82,10 +107,9 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
         <Failure error={summary.error} retry={() => void summary.refetch()} />
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {[
               ['Ожидают', summary.data?.waiting],
-              ['Назначаются', summary.data?.assigning],
               ['Распределены сегодня', summary.data?.confirmedToday],
               ['Требуют внимания', summary.data?.errors],
             ].map(([label, value]) => (
@@ -181,9 +205,14 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
           }}
         />
       </div>
-      {queue.isPending && <p role="status">Загружаем очередь…</p>}
+      {filterError && (
+        <p role="alert" className="text-sm text-danger-700">
+          {filterError}
+        </p>
+      )}
+      {!filterError && queue.isPending && <p role="status">Загружаем очередь…</p>}
       {queue.isError && <Failure error={queue.error} retry={() => void queue.refetch()} />}
-      {queue.data?.items.length === 0 && !queue.isError && (
+      {!filterError && queue.data?.items.length === 0 && !queue.isError && (
         <p
           role="status"
           className="rounded-md bg-surface-muted p-6 text-center text-sm text-slate-500"
@@ -191,7 +220,7 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
           В этой части очереди пока нет сделок.
         </p>
       )}
-      {!queue.isError && (
+      {!filterError && !queue.isError && (
         <div
           role="tabpanel"
           id={`distribution-panel-${groupId ?? 'all'}`}
@@ -199,88 +228,68 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
           className="space-y-3"
         >
           {queue.data?.items.map((item) => (
-            <article key={item.id} className="rounded-lg border border-slate-200 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+            <article
+              key={item.id}
+              className="rounded-lg border border-slate-200 p-3 sm:p-4"
+              aria-label={item.leadId ? `Сделка №${item.leadId}` : 'Сделка'}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                   <button
                     onClick={(event) => {
                       restoreRef.current = event.currentTarget;
                       setSelected(item.id);
                     }}
-                    className="text-left font-semibold text-primary-700 hover:underline"
+                    className="break-words text-left text-sm font-semibold text-primary-700 hover:underline"
                   >
                     {item.leadId
-                      ? (item.leadName ?? `Сделка №${item.leadId}`)
+                      ? item.leadName
+                        ? `${item.leadName} · №${item.leadId}`
+                        : `Сделка №${item.leadId}`
                       : 'Сделка · подробности ограничены правами'}
                   </button>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {groups.find((g) => g.id === item.groupId)?.name ?? 'Группа распределения'}
-                  </p>
+                  {item.leadUrl && /^https:\/\//.test(item.leadUrl) && (
+                    <a
+                      href={item.leadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary-700 hover:underline"
+                      aria-label={`Открыть сделку ${item.leadId} в amoCRM`}
+                    >
+                      amoCRM ↗
+                    </a>
+                  )}
+                  {!groupId && (
+                    <span className="text-xs text-slate-500">
+                      {groups.find((g) => g.id === item.groupId)?.name ?? 'Группа распределения'}
+                    </span>
+                  )}
                 </div>
                 <StateBadge state={item.state} />
               </div>
-              <p className="mt-3 text-sm">{reasonText(item.reason)}</p>
-              <dl className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
-                <div>
-                  <dt>
-                    {['confirmed', 'succeeded', 'completed', 'kept'].includes(item.state)
-                      ? 'Подтверждённый ответственный'
-                      : 'Планируемый ответственный'}
-                  </dt>
-                  <dd>{employee(item.plannedEmployeeId)}</dd>
-                </div>
-                <div>
-                  <dt>
-                    {[
-                      'confirmed',
-                      'succeeded',
-                      'completed',
-                      'kept',
-                      'cancelled',
-                      'failed',
-                    ].includes(item.state)
-                      ? 'Длительность'
-                      : 'В очереди'}
-                  </dt>
-                  <dd>
-                    {Math.max(
-                      0,
-                      Math.floor(
-                        (([
-                          'confirmed',
-                          'succeeded',
-                          'completed',
-                          'kept',
-                          'cancelled',
-                          'failed',
-                        ].includes(item.state)
-                          ? Date.parse(item.updatedAt)
-                          : Date.now()) -
-                          Date.parse(item.createdAt)) /
-                          60000,
-                      ),
-                    )}{' '}
-                    мин.
-                  </dd>
-                  <dt>Поступила</dt>
-                  <dd>{dateText(item.createdAt, summary.data?.timezone)}</dd>
-                </div>
-                <div>
-                  <dt>Следующая проверка</dt>
-                  <dd>
-                    {[
-                      'confirmed',
-                      'succeeded',
-                      'completed',
-                      'kept',
-                      'cancelled',
-                      'failed',
-                    ].includes(item.state)
-                      ? '—'
-                      : dateText(item.nextAttemptAt, summary.data?.timezone)}
-                  </dd>
-                </div>
-              </dl>
+              <p className="mt-2 text-sm">{reasonText(item.reason)}</p>
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+                <span>Поступила: {dateText(item.createdAt, summary.data?.timezone)}</span>
+                <span>
+                  {isQueueFinished(item.state) ? 'Длительность' : 'В очереди'}:{' '}
+                  {queueDuration(
+                    item.createdAt,
+                    isQueueFinished(item.state) ? item.updatedAt : Date.now(),
+                  )}
+                </span>
+                {isQueueFinished(item.state) && (
+                  <span>
+                    {item.state === 'cancelled' ? 'Отменена' : 'Итог'}:{' '}
+                    {dateText(item.updatedAt, summary.data?.timezone)}
+                  </span>
+                )}
+                {isQueueConfirmed(item.state) && (
+                  <span>Ответственный: {employee(item.plannedEmployeeId)}</span>
+                )}
+              </div>
+              {!isQueueFinished(item.state) && (
+                <QueueWaitingInfo item={item} timezone={summary.data?.timezone} />
+              )}
             </article>
           ))}
         </div>
@@ -288,23 +297,29 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-slate-500">
           Последнее обновление:{' '}
-          {queue.dataUpdatedAt ? dateText(new Date(queue.dataUpdatedAt).toISOString()) : '—'}
+          {queue.dataUpdatedAt
+            ? dateText(new Date(queue.dataUpdatedAt).toISOString(), summary.data?.timezone)
+            : '—'}
           {queue.isError ? ' · данные недоступны' : ''}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500" aria-live="polite">
+            Страница {Math.floor(offset / pageSize) + 1}
+            {queue.data?.items.length ? ` · ${offset + 1}–${offset + queue.data.items.length}` : ''}
+          </span>
           <Button
             size="sm"
             variant="secondary"
-            disabled={offset === 0 || queue.isFetching}
-            onClick={() => setOffset(Math.max(0, offset - 25))}
+            disabled={!!filterError || offset === 0 || queue.isFetching}
+            onClick={() => setOffset(Math.max(0, offset - pageSize))}
           >
             Назад
           </Button>
           <Button
             size="sm"
             variant="secondary"
-            disabled={!queue.data?.hasMore || queue.isFetching}
-            onClick={() => setOffset(offset + 25)}
+            disabled={!!filterError || !queue.data?.hasMore || queue.isFetching}
+            onClick={() => setOffset(offset + pageSize)}
           >
             Далее
           </Button>
@@ -416,7 +431,10 @@ function QueueDetails({
           variables.item.id,
           'Ответ на действие не получен. Обновите состояние перед повтором; повтор отправляет тот же идентификатор запроса.',
         );
-      void detail.refetch();
+      void client.invalidateQueries({
+        queryKey: queryKeys.distribution.runtime('detail', variables.item.id),
+        exact: true,
+      });
     },
   });
   const run = (action: string) => {
@@ -451,8 +469,12 @@ function QueueDetails({
       onOpenChange={(open) => {
         if (!open) close();
       }}
-      title="История распределения"
-      description="Состояния и операции, сохранённые сервером."
+      title={
+        detail.data?.leadId
+          ? `История · ${detail.data.leadName ? `${detail.data.leadName} · №${detail.data.leadId}` : `Сделка №${detail.data.leadId}`}`
+          : 'История распределения'
+      }
+      description="История ожидания и результата распределения."
       size="lg"
       restoreFocusRef={restoreRef}
     >
@@ -464,37 +486,60 @@ function QueueDetails({
         ) : (
           detail.data && (
             <>
-              <StateBadge state={detail.data.state} />
-              <p>{reasonText(detail.data.reason)}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <StateBadge state={detail.data.state} />
+                {detail.data.leadUrl && /^https:\/\//.test(detail.data.leadUrl) && (
+                  <a
+                    href={detail.data.leadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-semibold text-primary-700"
+                  >
+                    Открыть в amoCRM ↗
+                  </a>
+                )}
+              </div>
+              <p className="text-sm">{reasonText(detail.data.reason)}</p>
+              <p className="text-xs text-slate-500">
+                Последнее изменение: {dateText(detail.data.updatedAt, timezone)}
+              </p>
+              {!isQueueFinished(detail.data.state) && (
+                <QueueWaitingInfo item={detail.data} timezone={timezone} />
+              )}
               <dl className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <dt className="text-slate-500">Текущий ответственный</dt>
-                  <dd>{employee(detail.data.currentEmployeeId)}</dd>
+                  <dt className="text-slate-500">
+                    {isQueueConfirmed(detail.data.state)
+                      ? 'Подтверждённый ответственный'
+                      : 'Текущий ответственный в amoCRM'}
+                  </dt>
+                  <dd>
+                    {employee(
+                      isQueueConfirmed(detail.data.state)
+                        ? detail.data.plannedEmployeeId
+                        : detail.data.currentEmployeeId,
+                    )}
+                  </dd>
                 </div>
-                <div>
-                  <dt className="text-slate-500">Предыдущий ответственный</dt>
-                  <dd>{employee(detail.data.previousEmployeeId)}</dd>
-                </div>
+                {isQueueConfirmed(detail.data.state) &&
+                  detail.data.currentEmployeeId &&
+                  detail.data.currentEmployeeId !== detail.data.plannedEmployeeId && (
+                    <div>
+                      <dt className="text-slate-500">Сейчас в amoCRM</dt>
+                      <dd>{employee(detail.data.currentEmployeeId)}</dd>
+                    </div>
+                  )}
+                {detail.data.previousEmployeeId && (
+                  <div>
+                    <dt className="text-slate-500">Предыдущий ответственный</dt>
+                    <dd>{employee(detail.data.previousEmployeeId)}</dd>
+                  </div>
+                )}
               </dl>
-              {detail.data.operationId && (
-                <p className="break-all text-xs text-slate-500">
-                  Операция: {detail.data.operationId} · версия результата:{' '}
-                  {detail.data.resultVersion ?? 'пока не подтверждена'}
-                </p>
+              {!detail.data.previousEmployeeId && (
+                <p className="text-xs text-slate-500">Предыдущий ответственный не зафиксирован.</p>
               )}
-              {detail.data.leadUrl && /^https:\/\//.test(detail.data.leadUrl) && (
-                <a
-                  href={detail.data.leadUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-semibold text-primary-700"
-                >
-                  Открыть в amoCRM ↗
-                </a>
-              )}
-              {!detail.data.leadUrl && (
-                <p className="text-xs text-slate-500">Ссылка на amoCRM пока недоступна.</p>
-              )}
+              <TechnicalDetails item={detail.data} />
               {canManage && heldRequest && (
                 <div className="rounded-md bg-warning-50 p-3 text-sm">
                   <p>
@@ -538,6 +583,8 @@ function QueueDetails({
               <h3 className="font-semibold">События</h3>
               {history.isError ? (
                 <Failure error={history.error} retry={() => void history.refetch()} />
+              ) : history.isPending ? (
+                <p role="status">Загружаем историю…</p>
               ) : (
                 <ol className="space-y-3">
                   {history.data?.items.map((event) => (
@@ -549,32 +596,89 @@ function QueueDetails({
                         <StateBadge state={event.state} />
                       </div>
                       <p className="mt-1 text-sm">{reasonText(event.reason)}</p>
+                      <details className="mt-1 text-xs text-slate-500">
+                        <summary className="cursor-pointer">Детали события</summary>
+                        <p className="mt-1 break-all">
+                          Событие {event.id} · состояние: {event.state} · причина: {event.reason}
+                        </p>
+                      </details>
                     </li>
                   ))}
                 </ol>
               )}
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={historyOffset === 0}
-                  onClick={() => setHistoryOffset(Math.max(0, historyOffset - 25))}
-                >
-                  Предыдущие события
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!history.data?.hasMore && history.data?.items.length !== 25}
-                  onClick={() => setHistoryOffset(historyOffset + 25)}
-                >
-                  Следующие события
-                </Button>
-              </div>
+              {(historyOffset > 0 || history.data?.hasMore) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-slate-500">
+                    Страница событий {Math.floor(historyOffset / 25) + 1}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={historyOffset === 0}
+                    onClick={() => setHistoryOffset(Math.max(0, historyOffset - 25))}
+                  >
+                    Предыдущие события
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={!history.data?.hasMore || history.isFetching}
+                    onClick={() => setHistoryOffset(historyOffset + 25)}
+                  >
+                    Следующие события
+                  </Button>
+                </div>
+              )}
             </>
           )
         )}
       </div>
     </Modal>
+  );
+}
+
+function QueueWaitingInfo({ item, timezone }: { item: QueueItem; timezone?: string | null }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+      <span>
+        Следующая смена:{' '}
+        {item.nextShiftAt ? dateText(item.nextShiftAt, timezone) : 'пока неизвестна'}
+      </span>
+      <span>
+        Срок ожидания:{' '}
+        {item.waitingDeadlineAt
+          ? dateText(item.waitingDeadlineAt, timezone)
+          : 'не подтверждён сервером'}{' '}
+        · максимум 3 дня
+      </span>
+    </div>
+  );
+}
+function TechnicalDetails({ item }: { item: QueueItem }) {
+  const [message, setMessage] = useState('');
+  const text = `Запись: ${item.id}\nОперация: ${item.operationId ?? 'не отправлена'}\nВерсия результата: ${item.resultVersion ?? 'не подтверждена'}\nСостояние: ${item.state}\nПричина: ${item.reason}`;
+  return (
+    <details className="rounded-md bg-surface-muted p-3 text-xs text-slate-500">
+      <summary className="cursor-pointer font-medium">Технические детали</summary>
+      <pre className="mt-2 whitespace-pre-wrap break-all font-mono">{text}</pre>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        className="mt-2"
+        onClick={() => {
+          void copyText(text).then((copied) =>
+            setMessage(copied ? 'Скопировано' : 'Копирование недоступно. Выделите текст вручную.'),
+          );
+        }}
+      >
+        Копировать детали
+      </Button>
+      {message && (
+        <span role="status" className="ml-2">
+          {message}
+        </span>
+      )}
+    </details>
   );
 }

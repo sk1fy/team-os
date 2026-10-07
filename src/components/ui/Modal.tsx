@@ -51,8 +51,8 @@ export function Modal({
             sizeClasses[size],
           )}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
-            <div>
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-6 py-4">
+            <div className="min-w-0 break-words">
               <Dialog.Title className="text-base font-semibold text-slate-900">
                 {title}
               </Dialog.Title>
@@ -63,13 +63,13 @@ export function Modal({
               )}
             </div>
             <Dialog.Close
-              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
               aria-label="Закрыть"
             >
               <X className="size-5" />
             </Dialog.Close>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
           {footer && (
             <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
               {footer}
