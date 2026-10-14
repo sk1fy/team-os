@@ -125,7 +125,9 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
             Сегодня — {summary.data?.timezone ?? 'часовой пояс не настроен'}. Статистика проверена:{' '}
             {dateText(summary.data?.checkedAt, summary.data?.timezone)}.{' '}
             {summary.data?.metricsAvailable === false
-              ? 'Статистика недоступна: права или источник не подтверждены.'
+              ? summary.data.metricsReason === 'permission_budget_exceeded'
+                ? 'Статистика временно недоступна: проверка доступа не завершилась вовремя.'
+                : 'Статистика недоступна: права или источник не подтверждены.'
               : 'Только подтверждённые назначения.'}
           </p>
         </>
@@ -246,7 +248,7 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
                       ? item.leadName
                         ? `${item.leadName} · №${item.leadId}`
                         : `Сделка №${item.leadId}`
-                      : 'Сделка · подробности ограничены правами'}
+                      : 'Сделка · подробности недоступны'}
                   </button>
                   {item.leadUrl && /^https:\/\//.test(item.leadUrl) && (
                     <a
