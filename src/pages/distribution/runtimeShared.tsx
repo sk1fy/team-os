@@ -86,6 +86,8 @@ export const reasonLabels: Record<string, string> = {
   keep_current: 'Оставлена у текущего ответственного',
   mapping_unavailable: 'Проверьте связь сотрудника с amoCRM',
   source_time_unknown: 'Неизвестно время события',
+  live_boundary_uncertain:
+    'Сделка поступила в момент включения распределения. Требуется проверка времени входа',
   off_shift: 'Не на смене',
   available: 'Доступен',
   disabled: 'Выключен',
