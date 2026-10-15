@@ -93,7 +93,11 @@ export function moduleForPath(pathname: string): AppModule | null {
   }
   if (pathname.startsWith('/notifications')) return 'notifications';
   if (pathname.startsWith('/settings')) return 'settings';
-  if (pathname.startsWith('/activity-control') || pathname.startsWith('/duplicate-search')) {
+  if (
+    pathname.startsWith('/task-control') ||
+    pathname.startsWith('/activity-control') ||
+    pathname.startsWith('/duplicate-search')
+  ) {
     return 'integrations';
   }
   return null;

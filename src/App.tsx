@@ -222,6 +222,12 @@ const DuplicateSearchPage = lazy(() =>
   })),
 );
 
+const TaskControlPage = lazy(() =>
+  import('@/pages/task-control/TaskControlPage').then((module) => ({
+    default: module.TaskControlPage,
+  })),
+);
+
 const academyV2 = isAcademyV2Enabled();
 
 function RedirectAcademyCourse() {
@@ -341,6 +347,14 @@ export function App() {
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/tasks" element={<TasksPage />} />
+          <Route
+            path="/task-control"
+            element={
+              <RequireIntegrationAccess>
+                <TaskControlPage />
+              </RequireIntegrationAccess>
+            }
+          />
           <Route path="/distribution" element={<DistributionPage />} />
           <Route path="/distribution/:groupId" element={<DistributionGroupPage />} />
 

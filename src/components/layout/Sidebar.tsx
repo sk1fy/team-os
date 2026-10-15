@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   Activity,
+  ListChecks,
   CalendarDays,
   GraduationCap,
   Home,
@@ -51,6 +52,7 @@ const navItems: NavItemDefinition[] = [
 ];
 
 const integrationItems: NavItemDefinition[] = [
+  { to: '/task-control', label: 'Контроль задач', icon: ListChecks },
   { to: '/activity-control', label: 'Контроль активности', icon: Activity },
   {
     to: '/duplicate-search',
