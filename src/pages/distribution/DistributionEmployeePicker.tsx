@@ -45,7 +45,10 @@ export function DistributionEmployeePicker({
         Добавить сотрудника
       </label>
       <div className="relative mt-1.5">
-        <Search aria-hidden="true" className="absolute top-3 left-3 size-4 text-slate-400" />
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-3 size-4 text-slate-400"
+        />
         <input
           id={id}
           ref={input}
@@ -60,6 +63,7 @@ export function DistributionEmployeePicker({
           placeholder="Найти сотрудника по имени"
           value={query}
           onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
             setIndex(0);
@@ -88,16 +92,19 @@ export function DistributionEmployeePicker({
               else setOpen(true);
             }
           }}
-          className="h-10 w-full rounded-md border border-slate-200 bg-surface pr-9 pl-9 text-sm focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
+          className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pr-9 pl-9 text-sm focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
         />
-        <ChevronDown aria-hidden="true" className="absolute top-3 right-3 size-4 text-slate-400" />
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 right-3 size-4 text-slate-400"
+        />
       </div>
       {open && (
         <ul
           id={`${id}-options`}
           role="listbox"
           aria-label="Доступные сотрудники"
-          className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-surface p-1 shadow-popover"
+          className="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-slate-200 bg-surface p-1 shadow-popover"
         >
           {filtered.length === 0 ? (
             <li role="presentation" className="p-3 text-sm text-slate-500">
@@ -110,9 +117,10 @@ export function DistributionEmployeePicker({
                 id={`${id}-${user.id}`}
                 role="option"
                 aria-selected={highlighted?.id === user.id}
+                onMouseEnter={() => setIndex(filtered.indexOf(user))}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => add(user.id)}
-                className={`flex cursor-pointer items-center gap-2 rounded p-2 text-sm ${highlighted?.id === user.id ? 'bg-primary-50 text-primary-700' : 'text-slate-700 hover:bg-slate-100'}`}
+                className={`flex cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1.5 text-sm ${highlighted?.id === user.id ? 'bg-slate-100 text-slate-700' : 'text-slate-700 hover:bg-slate-100'}`}
               >
                 <UserPlus className="size-4 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 break-words">{fullName(user)}</span>

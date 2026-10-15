@@ -8,7 +8,7 @@ import {
   type Group,
   type QueueItem,
 } from '@/api/distributionRuntime';
-import { Button, Modal, Input } from '@/components/ui';
+import { Button, Modal, Input, Select } from '@/components/ui';
 import { copyText } from '@/lib/clipboard';
 import { fullName } from '@/lib/labels';
 import {
@@ -168,24 +168,18 @@ export function DistributionQueue({ groups, groupId }: { groups: Group[]; groupI
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {!groupId && (
-          <label className="text-xs font-semibold">
-            Группа
-            <select
-              className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2 text-sm"
-              value={selectedGroup}
-              onChange={(e) => {
-                setGroup(e.target.value);
-                change();
-              }}
-            >
-              <option value="">Все группы</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label="Группа"
+            value={selectedGroup || 'all'}
+            onValueChange={(value) => {
+              setGroup(value === 'all' ? '' : value);
+              change();
+            }}
+            options={[
+              { value: 'all', label: 'Все группы' },
+              ...groups.map((g) => ({ value: g.id, label: g.name })),
+            ]}
+          />
         )}
         <Input
           label="С события"
