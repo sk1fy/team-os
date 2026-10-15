@@ -9,6 +9,10 @@ const groupId = '00000000-0000-4000-8000-000000000001',
   bindingId = '00000000-0000-4000-8000-000000000003',
   queueId = '00000000-0000-4000-8000-000000000004',
   employeeId = '00000000-0000-4000-8000-000000000005';
+async function chooseOption(page: Page, label: string, option: string) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
 async function fixture(
   page: Page,
   options: {
@@ -401,7 +405,9 @@ for (const width of [1440, 390])
     await page.getByRole('button', { name: 'Настройки', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Настройки распределения' })).toBeVisible();
     await expect(page.getByLabel('Оставлять сделку')).toBeChecked();
-    await expect(page.getByLabel('Режим правила')).toHaveValue('');
+    await expect(page.getByRole('combobox', { name: 'Режим правила' })).toContainText(
+      'Режим требует совместимого сервера',
+    );
     await expect(page.getByLabel('Режим правила')).toBeDisabled();
     await page.getByLabel('Название группы').fill('Новые заявки — проверено');
     await page.getByRole('button', { name: 'Сохранить настройки' }).click();
@@ -461,12 +467,37 @@ for (const width of [1440, 390])
 test('CRM permission hides details and metrics', async ({ page }) => {
   await fixture(page, { denied: true });
   await page.goto('/distribution');
-  await page.getByRole('button', { name: 'Сделка · подробности ограничены правами' }).click();
+  await page.getByRole('button', { name: 'Сделка · подробности недоступны' }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Нет прав');
   await expect(page.getByRole('button', { name: 'Проверить результат', exact: true })).toHaveCount(
     0,
   );
 });
+test('queue group select applies a group and restores all groups', async ({ page }) => {
+  await fixture(page, { mode: 'live' });
+  await page.goto('/distribution');
+  const filtered = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname.endsWith('/distribution/queue') && url.searchParams.get('groupId') === groupId
+    );
+  });
+  await chooseOption(page, 'Группа', 'Новые заявки');
+  await filtered;
+  await expect(page.getByRole('combobox', { name: 'Группа', exact: true })).toContainText(
+    'Новые заявки',
+  );
+  const response = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname.endsWith('/distribution/queue') && !url.searchParams.has('groupId');
+  });
+  await chooseOption(page, 'Группа', 'Все группы');
+  await response;
+  await expect(page.getByRole('combobox', { name: 'Группа', exact: true })).toContainText(
+    'Все группы',
+  );
+});
+
 test('source outage preserves draft', async ({ page }) => {
   const f = await fixture(page, { outage: true });
   await page.goto(`/distribution/${groupId}`);
@@ -476,7 +507,9 @@ test('source outage preserves draft', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled();
   f.setOutage(false);
   await page.getByRole('button', { name: 'Повторить загрузку', exact: true }).click();
-  await expect(page.getByLabel('Воронка')).toHaveValue('10');
+  await expect(page.getByRole('combobox', { name: 'Воронка', exact: true })).toContainText(
+    'Продажи',
+  );
   await expect(page.getByLabel('Название группы')).toHaveValue('Мой черновик');
 });
 
@@ -547,7 +580,7 @@ test('observe records separate real owner and proposal; mode transition keeps hi
   await expect(records).toContainText('предварительное решение');
   await expect(page.getByRole('button', { name: 'Сделка №987' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.getByLabel('Режим правила').selectOption('live');
+  await chooseOption(page, 'Режим правила', 'Рабочий — назначение в amoCRM');
   await page.getByRole('button', { name: 'Сохранить настройки' }).click();
   await expect(page.getByText('Настройки сохранены', { exact: true })).toBeVisible();
   const write = f.calls.find((c) => c.path.endsWith(`/rules/${ruleId}`));
@@ -598,10 +631,12 @@ test('409 keeps mode draft; unknown mode is disabled and never silently written 
   const f = await fixture(page, { mode: 'observe', modeConflict: true });
   await page.goto(`/distribution/${groupId}`);
   await page.getByRole('button', { name: 'Настройки', exact: true }).click();
-  await page.getByLabel('Режим правила').selectOption('live');
+  await chooseOption(page, 'Режим правила', 'Рабочий — назначение в amoCRM');
   await page.getByRole('button', { name: 'Сохранить настройки' }).click();
   await expect(page.getByText('Настройки изменились на сервере.', { exact: false })).toBeVisible();
-  await expect(page.getByLabel('Режим правила')).toHaveValue('live');
+  await expect(page.getByRole('combobox', { name: 'Режим правила' })).toContainText(
+    'Рабочий — назначение в amoCRM',
+  );
   expect(f.calls.filter((c) => c.path.endsWith(`/rules/${ruleId}`))).toHaveLength(1);
   await fixture(page, { mode: 'future_mode' });
   await page.reload();
@@ -702,7 +737,7 @@ for (const conflict of [false, true]) {
     await page.goto(`/distribution/${groupId}`);
     await page.getByRole('button', { name: 'Настройки', exact: true }).click();
     await expect(page.getByLabel('Распределение включено')).not.toBeChecked();
-    await page.getByLabel('Режим правила').selectOption('observe');
+    await chooseOption(page, 'Режим правила', 'Наблюдение — без назначений');
     await page.getByRole('switch', { name: 'Распределение включено', exact: true }).click();
     await page.getByRole('button', { name: 'Сохранить настройки' }).click();
     if (conflict)
@@ -855,7 +890,7 @@ test('launch types clear hidden restrictions and reload from server; employees s
   await page
     .getByRole('radio', { name: 'При создании сделки в выбранной воронке', exact: true })
     .check();
-  await page.getByLabel('Воронка').selectOption('10');
+  await chooseOption(page, 'Воронка', 'Продажи');
   await expect(page.getByLabel('Этап', { exact: true })).toHaveCount(0);
   const picker = page.getByRole('combobox', { name: 'Добавить сотрудника', exact: true });
   await picker.fill('Неизвестный');
@@ -887,7 +922,9 @@ test('launch types clear hidden restrictions and reload from server; employees s
   await expect(
     page.getByRole('radio', { name: 'При создании сделки в выбранной воронке', exact: true }),
   ).toBeChecked();
-  await expect(page.getByLabel('Воронка')).toHaveValue('10');
+  await expect(page.getByRole('combobox', { name: 'Воронка', exact: true })).toContainText(
+    'Продажи',
+  );
   await picker.click();
   await expect(page.getByText('Все доступные сотрудники уже добавлены')).toBeVisible();
 });
@@ -915,6 +952,7 @@ for (const width of [1280, 390]) {
   test(`review queue history settings and header ${width}`, async ({ page }, testInfo) => {
     await fixture(page, {
       mode: 'live',
+      source: 'legacy_stage',
       moreUsers: true,
       groupName: 'Распределение новых обращений отдела продаж и сопровождения клиентов',
     });
@@ -970,6 +1008,23 @@ for (const width of [1280, 390]) {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Сделка №987' })).toBeFocused();
     await page.getByRole('button', { name: 'Настройки', exact: true }).click();
+    for (const label of ['Воронка', 'Этап', 'Режим правила']) {
+      const select = page.getByRole('combobox', { name: label, exact: true });
+      await select.focus();
+      await select.press('ArrowDown');
+      const popup = page.getByRole('listbox');
+      await expect(popup).toBeVisible();
+      const box = await popup.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+      await page.screenshot({
+        path: reviewPath(testInfo, `select-${label}-${width}.png`),
+        animations: 'disabled',
+      });
+      await page.keyboard.press('Escape');
+      await expect(select).toBeFocused();
+    }
+
     await page.getByRole('radio', { name: 'По триггеру на этапе', exact: true }).check();
     await expect(page.getByLabel('Воронка')).toHaveCount(0);
     await page.getByRole('combobox', { name: 'Добавить сотрудника', exact: true }).fill('Борис');

@@ -10,7 +10,7 @@ import {
   type Connection,
 } from '@/api/distributionRuntime';
 import { ApiError } from '@/api/client';
-import { Button, Input, Badge, Switch } from '@/components/ui';
+import { Button, Input, Badge, Switch, Select } from '@/components/ui';
 import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
 import {
@@ -527,44 +527,40 @@ function Editor({
         )}
         {source !== 'digital_pipeline' && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm">
-              Воронка
-              <select
-                className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-                value={pipeline}
-                onChange={(e) => {
-                  setPipeline(e.target.value);
-                  setStatus('');
-                }}
-              >
-                <option value="">Выберите воронку</option>
-                {!refs.data && pipeline && <option value={pipeline}>Воронка {pipeline}</option>}
-                {refs.data?.pipelines.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Select
+              label="Воронка"
+              placeholder="Выберите воронку"
+              value={pipeline}
+              onValueChange={(value) => {
+                setPipeline(value);
+                setStatus('');
+              }}
+              disabled={!manage || submit.isPending}
+              options={
+                refs.data
+                  ? refs.data.pipelines.map((p) => ({ value: p.id, label: p.name }))
+                  : pipeline
+                    ? [{ value: pipeline, label: `Воронка ${pipeline}` }]
+                    : []
+              }
+            />
             {source === 'legacy_stage' && (
-              <label className="text-sm">
-                Этап
-                <select
-                  className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="">Выберите этап</option>
-                  {!refs.data && status && <option value={status}>Этап {status}</option>}
-                  {refs.data?.pipelines
-                    .find((p) => p.id === pipeline)
-                    ?.statuses.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              <Select
+                label="Этап"
+                placeholder="Выберите этап"
+                value={status}
+                onValueChange={setStatus}
+                disabled={!manage || submit.isPending || !pipeline}
+                options={
+                  refs.data
+                    ? (refs.data.pipelines.find((p) => p.id === pipeline)?.statuses ?? []).map(
+                        (s) => ({ value: s.id, label: s.name }),
+                      )
+                    : status
+                      ? [{ value: status, label: `Этап ${status}` }]
+                      : []
+                }
+              />
             )}
           </div>
         )}
@@ -573,20 +569,17 @@ function Editor({
             ? `Время аккаунта amoCRM: ${effectiveTimezone}.${timezoneStatus === 'cached' ? ' Используется последний подтверждённый часовой пояс; обновление временно недоступно.' : ''}`
             : 'Часовой пояс аккаунта amoCRM пока не подтверждён. Запуск недоступен до проверки подключения.'}
         </p>
-        <label className="block text-sm">
-          Режим правила
-          <select
-            disabled={!modeSupported}
-            aria-label="Режим правила"
-            className="mt-2 block w-full rounded-md border border-slate-200 bg-surface p-2"
-            value={executionMode}
-            onChange={(event) => setExecutionMode(event.target.value as 'live' | 'observe')}
-          >
-            {!modeSupported && <option value="">Режим требует совместимого сервера</option>}
-            <option value="observe">Наблюдение — без назначений</option>
-            <option value="live">Рабочий — назначение в amoCRM</option>
-          </select>
-        </label>
+        <Select
+          label="Режим правила"
+          placeholder="Режим требует совместимого сервера"
+          disabled={!manage || submit.isPending || !modeSupported}
+          value={executionMode}
+          onValueChange={(value) => setExecutionMode(value as 'live' | 'observe')}
+          options={[
+            { value: 'observe', label: 'Наблюдение — без назначений' },
+            { value: 'live', label: 'Рабочий — назначение в amoCRM' },
+          ]}
+        />
         <p className="text-xs text-slate-500">
           Наблюдение сохраняет предложения без назначения. При сохранении группа приостанавливается
           и возобновляется только после успешной записи настроек.
