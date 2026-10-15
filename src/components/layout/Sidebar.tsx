@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   Activity,
+  ListChecks,
   CalendarDays,
   GraduationCap,
   Home,
@@ -23,6 +24,7 @@ import { cn } from '@/lib/cn';
 import { useLogout } from '@/components/auth/useLogout';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
+import { taskControlApi } from '@/api/taskControl';
 import { canAccessRoute, canManageIntegrations } from '@/lib/permissions';
 import { prefetchRoute } from '@/lib/routePrefetch';
 
@@ -51,6 +53,7 @@ const navItems: NavItemDefinition[] = [
 ];
 
 const integrationItems: NavItemDefinition[] = [
+  { to: '/task-control', label: 'Контроль задач', icon: ListChecks },
   { to: '/activity-control', label: 'Контроль активности', icon: Activity },
   {
     to: '/duplicate-search',
@@ -162,7 +165,27 @@ function SidebarContent({
   const visibleNavItems = navItems.filter((item) =>
     canAccessRoute(currentUser?.role, item.to, currentUser?.sectionAccess),
   );
-  const visibleIntegrationItems = canManageIntegrations(currentUser?.role) ? integrationItems : [];
+  const integrationAccess = canManageIntegrations(currentUser?.role);
+  const { data: company } = useQuery({
+    queryKey: queryKeys.company,
+    queryFn: authApi.getCompany,
+    enabled: integrationAccess,
+  });
+  const accountId = company?.amoAccountId?.trim() ?? '';
+  const { data: taskControlInstallation } = useQuery({
+    queryKey: ['task-control', 'installation', accountId],
+    queryFn: () => taskControlApi.getTaskControlInstallation(accountId),
+    enabled: integrationAccess && !!accountId,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const visibleIntegrationItems = integrationAccess
+    ? integrationItems.map((item) =>
+        item.to === '/task-control' && taskControlInstallation?.state === 'notInstalled'
+          ? { ...item, disabled: true, description: 'Виджет не установлен' }
+          : item,
+      )
+    : [];
 
   const logoutButton = (
     <button

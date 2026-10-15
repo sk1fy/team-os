@@ -3674,6 +3674,413 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/task-control/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Подключения текущей компании */
+        get: operations["getTaskControlConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/link-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Начать подтверждение установки CRM */
+        post: operations["createTaskControlLinkIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/intents/{intentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Восстановить состояние операции переключения */
+        get: operations["getTaskControlIntent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/mode-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Подготовить явное переключение режима
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         */
+        post: operations["createTaskControlModeIntent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отозвать managed-связь без автоматического standalone */
+        post: operations["revokeTaskControlConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Свежие CRM-справочники из admin bridge виджета
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций.
+         */
+        get: operations["getTaskControlReferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Черновик со всеми правилами и архивом
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
+         */
+        get: operations["getTaskControlDraft"];
+        /**
+         * Атомарно заменить черновик по expectedRevision
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         */
+        put: operations["updateTaskControlDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Проверить правила и актуальные CRM ID без публикации
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         */
+        post: operations["validateTaskControlDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * История опубликованных версий
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
+         */
+        get: operations["getTaskControlPublications"];
+        put?: never;
+        /**
+         * Создать неизменяемую публикацию для прямого чтения виджетом
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         */
+        post: operations["publishTaskControlDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/publications/{publicationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Полная неизменяемая версия
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
+         */
+        get: operations["getTaskControlPublication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Опубликовать прежнее содержимое новой возрастающей версией
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         */
+        post: operations["rollbackTaskControlPublication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Подготовить импорт из подтверждённого полного снимка admin bridge
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         */
+        post: operations["previewTaskControlImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/imports/{importId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Результат предпросмотра импорта
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
+         */
+        get: operations["getTaskControlImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/imports/{importId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Применить проверенный импорт только к draft
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         */
+        post: operations["applyTaskControlImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Аудит текущего подключения
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций.
+         */
+        get: operations["getTaskControlHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/publications/{publicationId}/application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Опубликованная версия и подтверждение применения вкладкой
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
+         */
+        get: operations["getTaskControlApplicationStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/accounts/{accountId}/installation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Установлен ли Контроль задач на выбранном аккаунте */
+        get: operations["getTaskControlInstallation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/source-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Запросить полный CRM снимок через открытый admin виджет
+         * @description Текущий owner/admin и taskControl.manage, exact company/account/binding, свежая installed-проверка. Без доступа к другому tenant — 404.
+         */
+        post: operations["createTaskControlSourceRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/connections/{bindingId}/source-requests/{sourceRequestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Статус запроса справочников или каталога
+         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций.
+         */
+        get: operations["getTaskControlSourceRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/widget/task-control/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Короткая сессия Контроля задач без TeamOS admin прав */
+        post: operations["exchangeTaskControlRuntimeSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/widget/task-control/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Descriptor по отдельной сессии виджета */
+        get: operations["getTaskControlBootstrap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6116,6 +6523,355 @@ export interface components {
             source?: string;
             dealLimit?: number;
             unclaimedMinutes?: number;
+        };
+        /** @description Стабильный ruleUid соответствует legacy uid/rule_uid. Полный набор полей сохраняется, включая archived. Активное правило требует pipeline/status либо customers=true. Пустой customerStatuses означает все статусы покупателей. Повтор ruleUid/pipelineId запрещён. */
+        TaskControlRule: {
+            ruleUid: components["schemas"]["ID"];
+            name: string;
+            users: string[];
+            pipelines: {
+                /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+                pipelineId: string;
+                statusIds: string[];
+            }[];
+            customers: boolean;
+            customerStatuses: string[];
+            showModal: boolean;
+            denyExit: boolean;
+            checkResponsible: boolean;
+            enabled: boolean;
+            archived: boolean;
+        };
+        TaskControlScope: {
+            companyId: components["schemas"]["ID"];
+            bindingId: components["schemas"]["ID"];
+            /** Format: int64 */
+            bindingRevision: number;
+            installationId: components["schemas"]["ID"];
+            integrationId: components["schemas"]["ID"];
+            /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+            accountId: string;
+            /** @enum {string} */
+            product: "task-control";
+            /** Format: int64 */
+            modeEpoch: number;
+        };
+        TaskControlConnection: {
+            scope: components["schemas"]["TaskControlScope"];
+            /** @enum {string} */
+            state: "pending" | "active" | "revoked";
+            /** @enum {string} */
+            mode: "standalone" | "managed";
+            /** Format: date-time */
+            updatedAt: string;
+            installation: components["schemas"]["TaskControlInstallation"];
+        };
+        TaskControlIntent: {
+            id: components["schemas"]["ID"];
+            scope: components["schemas"]["TaskControlScope"];
+            /** @enum {string} */
+            state: "prepared" | "confirmed" | "completed" | "cancelled" | "expired";
+            /** @enum {string} */
+            targetMode: "standalone" | "managed";
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TaskControlLinkInput: {
+            intentId: components["schemas"]["ID"];
+            installationId: components["schemas"]["ID"];
+            integrationId: components["schemas"]["ID"];
+            /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+            accountId: string;
+            /** @description Одноразовое подписанное Core подтверждение ≤60с, не JWT amoCRM. */
+            coreAssertion: string;
+        };
+        TaskControlModeInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** @enum {string} */
+            targetMode: "standalone" | "managed";
+            publicationId: components["schemas"]["ID"];
+            /** @description Одноразовое подписанное Core подтверждение ≤60с, не JWT amoCRM. */
+            coreAssertion: string;
+        };
+        TaskControlRevokeInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** @description Одноразовое подписанное Core подтверждение ≤60с, не JWT amoCRM. */
+            coreAssertion: string;
+        };
+        TaskControlDraft: {
+            scope: components["schemas"]["TaskControlScope"];
+            /** Format: int64 */
+            revision: number;
+            /** Format: int64 */
+            schemaVersion: number;
+            checksum: string;
+            rules: components["schemas"]["TaskControlRule"][];
+            /** Format: date-time */
+            updatedAt: string;
+            updatedBy: components["schemas"]["ID"];
+        };
+        TaskControlDraftInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            /** Format: int64 */
+            expectedRevision: number;
+            rules: components["schemas"]["TaskControlRule"][];
+        };
+        TaskControlValidationIssue: {
+            path: string;
+            /** @enum {string} */
+            code: "invalid_rule" | "duplicate_uid" | "unknown_crm_id" | "inactive_user" | "unsupported_schema" | "incomplete_source" | "source_conflict";
+            message: string;
+        };
+        TaskControlValidation: {
+            valid: boolean;
+            /** Format: int64 */
+            draftRevision: number;
+            referencesRevision: string;
+            issues: components["schemas"]["TaskControlValidationIssue"][];
+        };
+        TaskControlPublication: {
+            id: components["schemas"]["ID"];
+            scope: components["schemas"]["TaskControlScope"];
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            draftRevision: number;
+            /** Format: int64 */
+            schemaVersion: number;
+            checksum: string;
+            rules: components["schemas"]["TaskControlRule"][];
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: components["schemas"]["ID"];
+            reason: string;
+            restoredFromPublicationId?: components["schemas"]["ID"];
+        };
+        TaskControlPublishInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** Format: int64 */
+            expectedDraftRevision: number;
+            expectedChecksum: string;
+            reason: string;
+        };
+        TaskControlRollbackInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** Format: int64 */
+            expectedPublishedVersion: number;
+            sourcePublicationId: components["schemas"]["ID"];
+            reason: string;
+        };
+        TaskControlReferences: {
+            scope: components["schemas"]["TaskControlScope"];
+            revision: string;
+            /** Format: date-time */
+            fetchedAt: string;
+            /** Format: date-time */
+            freshUntil: string;
+            complete: boolean;
+            users: {
+                /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+                id: string;
+                name: string;
+                active: boolean;
+            }[];
+            pipelines: {
+                /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+                id: string;
+                name: string;
+                statuses: {
+                    /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+                    id: string;
+                    name: string;
+                }[];
+            }[];
+            customersSupported: boolean;
+            customerStatuses: {
+                /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+                id: string;
+                name: string;
+            }[];
+            sourceSnapshotId: components["schemas"]["ID"];
+        };
+        TaskControlImportInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** Format: int64 */
+            expectedDraftRevision: number;
+            sourceSnapshotId: components["schemas"]["ID"];
+        };
+        TaskControlImportPreview: {
+            id: components["schemas"]["ID"];
+            scope: components["schemas"]["TaskControlScope"];
+            /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+            catalogId: string;
+            sourceChecksum: string;
+            /** Format: int64 */
+            draftRevision: number;
+            complete: boolean;
+            rules: components["schemas"]["TaskControlRule"][];
+            issues: components["schemas"]["TaskControlValidationIssue"][];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        TaskControlImportApplyInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** Format: int64 */
+            expectedDraftRevision: number;
+            expectedSourceChecksum: string;
+            verificationSnapshotId: components["schemas"]["ID"];
+        };
+        TaskControlRuntimeAck: {
+            runtimeInstanceId: components["schemas"]["ID"];
+            /** @description Положительный ID amoCRM, десятичная строка; не UUID TeamOS. */
+            actorId: string;
+            /** Format: int64 */
+            version: number;
+            payloadChecksum: string;
+            /** Format: date-time */
+            appliedAt: string;
+            /** Format: date-time */
+            receivedAt: string;
+        };
+        TaskControlAuditEntry: {
+            id: components["schemas"]["ID"];
+            scope: components["schemas"]["TaskControlScope"];
+            actorId: components["schemas"]["ID"];
+            /** @enum {string} */
+            action: "link" | "draftUpdated" | "imported" | "published" | "rollbackPublished" | "modeChanged" | "revoked";
+            /** Format: date-time */
+            createdAt: string;
+            requestId?: components["schemas"]["ID"];
+            reason: string;
+            publicationId?: components["schemas"]["ID"];
+        };
+        TaskControlHistory: {
+            items: components["schemas"]["TaskControlAuditEntry"][];
+            nextCursor?: string;
+        };
+        TaskControlPublications: {
+            items: components["schemas"]["TaskControlPublication"][];
+            nextCursor?: string;
+        };
+        /** @description Состояние из Core для проверенного аккаунта компании. installed делает блок Интеграции активным; notInstalled — неактивным; unknown/просроченный снимок — статус не подтверждён, не uninstall. Без проверки Core нельзя утверждать installed. Heartbeat и оплата не определяют установку. */
+        TaskControlInstallation: {
+            companyId: components["schemas"]["ID"];
+            accountId: string;
+            installationId?: components["schemas"]["ID"];
+            integrationId?: components["schemas"]["ID"];
+            /** @enum {string} */
+            product: "task-control";
+            /** @enum {string} */
+            state: "installed" | "notInstalled" | "unknown";
+            /** Format: int64 */
+            revision?: number;
+            /** Format: date-time */
+            checkedAt: string;
+            /** Format: date-time */
+            freshUntil: string;
+            /**
+             * Format: int64
+             * @description Поколение установки; переустановка не переиспользует старые сессии.
+             */
+            generation?: number;
+        };
+        TaskControlApplicationStatus: {
+            scope: components["schemas"]["TaskControlScope"];
+            publicationId: components["schemas"]["ID"];
+            /** Format: int64 */
+            publishedVersion: number;
+            /** @enum {string} */
+            runtimeState: "runtimeUnknown" | "appliedByRuntime";
+            lastRuntimeAck?: components["schemas"]["TaskControlRuntimeAck"];
+        };
+        TaskControlSourceRequestInput: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** @enum {string} */
+            kind: "references" | "catalog";
+            catalogId?: string;
+        };
+        TaskControlSourceRequest: {
+            id: components["schemas"]["ID"];
+            scope: components["schemas"]["TaskControlScope"];
+            /** @enum {string} */
+            kind: "references" | "catalog";
+            /** @enum {string} */
+            state: "pending" | "completed" | "failed" | "expired";
+            catalogId?: string;
+            sourceSnapshotId?: components["schemas"]["ID"];
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        TaskControlSessionInput: {
+            coreAssertion: string;
+        };
+        TaskControlSession: {
+            accessToken: string;
+            /** Format: date-time */
+            expiresAt: string;
+            scope: components["schemas"]["TaskControlScope"];
+            actorId: string;
+        };
+        TaskControlBootstrap: {
+            scope: components["schemas"]["TaskControlScope"];
+            /** @enum {string} */
+            mode: "standalone" | "managed";
+            /** @enum {string} */
+            state: "active" | "revoked";
+            minRuntimeVersion: string;
+            installation: components["schemas"]["TaskControlInstallation"];
+            publication?: components["schemas"]["TaskControlRuntimePublication"];
+        };
+        TaskControlRuntimePublication: {
+            id: components["schemas"]["ID"];
+            scope: components["schemas"]["TaskControlScope"];
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            draftRevision: number;
+            /** Format: int64 */
+            schemaVersion: number;
+            checksum: string;
+            rules: components["schemas"]["TaskControlRule"][];
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: components["schemas"]["ID"];
+            reason: string;
+            restoredFromPublicationId?: components["schemas"]["ID"];
+            runtimeRules: {
+                [key: string]: unknown;
+            }[];
         };
     };
     responses: {
@@ -11927,6 +12683,970 @@ export interface operations {
         responses: {
             204: components["responses"]["NoContent"];
             "4XX": components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlConnection"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createTaskControlLinkIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlLinkInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlIntent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intentId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlIntent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createTaskControlModeIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlModeInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlIntent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeTaskControlConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlRevokeInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlConnection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlReferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlReferences"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlDraft"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateTaskControlDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlDraftInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlDraft"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    validateTaskControlDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    expectedBindingRevision: number;
+                    /** Format: int64 */
+                    expectedModeEpoch: number;
+                    /** Format: int64 */
+                    expectedDraftRevision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlValidation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlPublications: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublications"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    publishTaskControlDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlPublishInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublication"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlPublication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                publicationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublication"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rollbackTaskControlPublication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlRollbackInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublication"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewTaskControlImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlImportInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                importId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    applyTaskControlImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                importId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlImportApplyInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlDraft"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlHistory: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlHistory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlApplicationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                publicationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlApplicationStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlInstallation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlInstallation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createTaskControlSourceRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlSourceRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlSourceRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlSourceRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                sourceRequestId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlSourceRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Контракт опубликован, обработчик ещё не реализован. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exchangeTaskControlRuntimeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlSessionInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlBootstrap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlBootstrap"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
         };
     };
