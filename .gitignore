@@ -4,6 +4,8 @@ dist-ssr
 *.local
 .DS_Store
 .tasks/
+*.zip
+Thumbs.db
 
 # Editor directories and files
 .vscode/*
