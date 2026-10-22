@@ -35,7 +35,7 @@ VITE_API_MODE_AUTH=http        # auth | org | kb | tasks | academy | notificatio
 
 ### Academy V2
 
-Единая Академия (план `teamos-academy-frontend-plan.md`) включается флагом:
+Единая Академия включается флагом:
 
 ```sh
 VITE_ACADEMY_V2=true

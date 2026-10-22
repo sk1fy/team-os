@@ -3674,6 +3674,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/task-control/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Актуальные серверные права Контроля задач
+         * @description Активный пользователь компании может узнать свои права, включая отсутствие доступа. Operations описывает права, availableOperations — реализованные операции; доступность установки и proof проверяются отдельно при действии.
+         */
+        get: operations["getTaskControlCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/task-control/connections": {
         parameters: {
             query?: never;
@@ -3762,6 +3782,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/task-control/connections/{bindingId}/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * CRM-справочники, сотрудники и оргструктура для выбора
+         * @description Полный ограниченный CRM snapshot, до 1000 сотрудников в странице. GET не ожидает CRM; cold GET ставит coalesced refresh. selectedEmployeeIds возвращаются отдельно вне фильтра/страницы, в том числе удалённые. Пустые departmentIds означают «Без отдела». Число активных сделок не вычисляется.
+         */
+        get: operations["getTaskControlReferenceSelection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/references/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Запланировать ограниченное обновление справочников */
+        post: operations["refreshTaskControlReferences"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/references/refresh/{refreshId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Состояние обновления справочников */
+        get: operations["getTaskControlReferencesRefresh"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/task-control/connections/{bindingId}/references": {
         parameters: {
             query?: never;
@@ -3770,8 +3844,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Свежие CRM-справочники из admin bridge виджета
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций.
+         * Совместимая v1-проекция серверных CRM-справочников
+         * @description Проекция общего Core provider. При отсутствии fresh снимка или unknown customers — 503. Для состояния источника, оргструктуры и выбора используйте v2. Чужой binding — 404.
          */
         get: operations["getTaskControlReferences"];
         put?: never;
@@ -3789,10 +3863,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Черновик со всеми правилами и архивом
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
-         */
+        /** Черновик со всеми правилами и архивом */
         get: operations["getTaskControlDraft"];
         /**
          * Атомарно заменить черновик по expectedRevision
@@ -3833,10 +3904,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * История опубликованных версий
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
-         */
+        /** История опубликованных версий */
         get: operations["getTaskControlPublications"];
         put?: never;
         /**
@@ -3857,10 +3925,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Полная неизменяемая версия
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
-         */
+        /** Полная неизменяемая версия */
         get: operations["getTaskControlPublication"];
         put?: never;
         post?: never;
@@ -3881,7 +3946,7 @@ export interface paths {
         put?: never;
         /**
          * Опубликовать прежнее содержимое новой возрастающей версией
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         * @description Создаёт новую возрастающую immutable публикацию из прежней версии после проверки актуальных CRM-справочников. Исходная запись не изменяется. Требует owner/admin, taskControl.manage и CAS. Для schemaVersion 2 используйте v2 rollback, который восстанавливает intent и заново разрешает динамические выборки.
          */
         post: operations["rollbackTaskControlPublication"];
         delete?: never;
@@ -3901,7 +3966,7 @@ export interface paths {
         put?: never;
         /**
          * Подготовить импорт из подтверждённого полного снимка admin bridge
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
          */
         post: operations["previewTaskControlImport"];
         delete?: never;
@@ -3919,7 +3984,7 @@ export interface paths {
         };
         /**
          * Результат предпросмотра импорта
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
          */
         get: operations["getTaskControlImport"];
         put?: never;
@@ -3941,7 +4006,7 @@ export interface paths {
         put?: never;
         /**
          * Применить проверенный импорт только к draft
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
          */
         post: operations["applyTaskControlImport"];
         delete?: never;
@@ -3959,9 +4024,29 @@ export interface paths {
         };
         /**
          * Аудит текущего подключения
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций.
+         * @description История сохранённых изменений и пересчётов. Требует taskControl.read; доступна при отключённом подключении и недоступном Core. Opaque cursor привязан к company и binding, фиксирует верхнюю границу страницы; limit 1–100.
          */
         get: operations["getTaskControlHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Аудит текущего подключения
+         * @description История сохранённых изменений и пересчётов. Требует taskControl.read; доступна при отключённом подключении и недоступном Core. Opaque cursor привязан к company и binding, фиксирует верхнюю границу страницы; limit 1–100.
+         */
+        get: operations["getTaskControlHistoryV2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3979,7 +4064,7 @@ export interface paths {
         };
         /**
          * Опубликованная версия и подтверждение применения вкладкой
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций. Полные правила доступны только текущему owner/admin с taskControl.manage.
+         * @description Диагностика наблюдавшихся экземпляров runtime с TTL, актуальностью ревизии и безопасными кодами ошибок. Отсутствие данных не означает удаление виджета или применение всеми сотрудниками.
          */
         get: operations["getTaskControlApplicationStatus"];
         put?: never;
@@ -4018,7 +4103,7 @@ export interface paths {
         put?: never;
         /**
          * Запросить полный CRM снимок через открытый admin виджет
-         * @description Текущий owner/admin и taskControl.manage, exact company/account/binding, свежая installed-проверка. Без доступа к другому tenant — 404.
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
          */
         post: operations["createTaskControlSourceRequest"];
         delete?: never;
@@ -4036,7 +4121,7 @@ export interface paths {
         };
         /**
          * Статус запроса справочников или каталога
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Чтение требует активное членство и отдельное право taskControl.read внутри Интеграций.
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
          */
         get: operations["getTaskControlSourceRequest"];
         put?: never;
@@ -4081,10 +4166,832 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/task-control/connections/{bindingId}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        /** Намерение выбора и диагностика черновика v2 */
+        get: operations["getTaskControlDraftV2"];
+        /** Сохранить намерение по CAS */
+        put: operations["updateTaskControlDraftV2"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вычислить состав без публикации */
+        post: operations["validateTaskControlDraftV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        /** История неизменяемых intent-публикаций */
+        get: operations["getTaskControlPublicationsV2"];
+        put?: never;
+        /** Опубликовать intent и первый вычисленный снимок атомарно */
+        post: operations["publishTaskControlDraftV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/publications/{publicationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                publicationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        /** Намерение опубликованной версии */
+        get: operations["getTaskControlPublicationV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/publications/{publicationId}/application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                publicationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        /** Текущая вычисленная ревизия и ACK */
+        get: operations["getTaskControlApplicationV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Явно перейти на schema v2 с новым epoch */
+        post: operations["activateTaskControlV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Создать публикацию из исторического intent с текущими источниками */
+        post: operations["rollbackTaskControlPublicationV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/runtime/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Свежая actor-проекция вычисленного runtime-снимка */
+        get: operations["getTaskControlRuntimeV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/runtime/ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Подтвердить выданную actor-проекцию */
+        post: operations["ackTaskControlRuntime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-control/runtime/telemetry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Получение, применение, heartbeat и безопасные коды ошибок runtime */
+        post: operations["recordTaskControlRuntimeTelemetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/runtime/ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Подтвердить выданную actor-проекцию */
+        post: operations["ackTaskControlRuntimeV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/mode-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Проверить материализацию */
+        post: operations["previewTaskControlModeV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/mode-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Подтвердить смену режима без потери намерения */
+        post: operations["createTaskControlModeV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Подготовить импорт из подтверждённого полного снимка admin bridge
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
+         */
+        post: operations["previewTaskControlImportV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/imports/{importId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Результат предпросмотра импорта
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
+         */
+        get: operations["getTaskControlImportV2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/task-control/connections/{bindingId}/imports/{importId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Применить проверенный импорт только к draft
+         * @description Рабочий API R04. Import сохраняет только draft, без publish и смены режима. Scope/права/CAS проверяются сервером. Применение требует сохранённый preview, новый независимый полный verification snapshot и подтверждение предупреждений сравнения источников.
+         */
+        post: operations["applyTaskControlImportV2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/widget/task-control/source-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin bridge: свежий Core adminBridge assertion, текущий scope и инициатор запроса */
+        get: operations["getTaskControlSourceRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/widget/task-control/source-requests/{sourceRequestId}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceRequestId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Admin bridge: свежий Core adminBridge assertion, текущий scope и инициатор запроса */
+        put: operations["submitTaskControlSourceResult"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/widget/task-control/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Проверить актуальный режим и scope перед автономным возвратом */
+        get: operations["getTaskControlRuntimeConnection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        TaskControlImportIssue: {
+            path: string;
+            /** @description Стабильный код проверки источника или сравнения, включая source_read_failed, invalid_source_capture, catalog_runtime_divergence, runtime_config_invalid, catalog_invalid. */
+            code: string;
+            message: string;
+        };
+        TaskControlBridgeCompleteResult: {
+            coreAssertion: string;
+            /** @enum {boolean} */
+            complete: true;
+            sourceChecksum: string;
+            /** Format: date-time */
+            fetchedAt: string;
+            payload: components["schemas"]["TaskControlBridgePayload"];
+        };
+        TaskControlBridgePartialResult: {
+            coreAssertion: string;
+            /** @enum {boolean} */
+            complete: false;
+            sourceChecksum?: string;
+            /** Format: date-time */
+            fetchedAt?: string;
+            payload: components["schemas"]["TaskControlBridgePartialPayload"];
+        };
+        TaskControlBridgePartialPayload: {
+            rules?: components["schemas"]["TaskControlRule"][];
+            raw?: {
+                [key: string]: unknown;
+            };
+            catalogId?: string;
+            fieldIds?: {
+                [key: string]: number;
+            };
+            code?: string;
+            discrepancies?: components["schemas"]["TaskControlImportIssue"][];
+            issues?: components["schemas"]["TaskControlImportIssue"][];
+        };
+        TaskControlBridgePayload: {
+            rules: components["schemas"]["TaskControlRule"][];
+            raw: {
+                [key: string]: unknown;
+            };
+            catalogId: string;
+            fieldIds?: {
+                [key: string]: number;
+            };
+            code?: string;
+            discrepancies?: components["schemas"]["TaskControlImportIssue"][];
+            issues?: components["schemas"]["TaskControlImportIssue"][];
+        };
+        /** @description Полный capture или явный failed capture. complete=false не создаёт sourceSnapshotId и не требует фиктивных правил/hash. */
+        TaskControlBridgeResult: components["schemas"]["TaskControlBridgeCompleteResult"] | components["schemas"]["TaskControlBridgePartialResult"];
+        TaskControlModePreviewInputV2: {
+            /** @enum {string} */
+            targetMode: "managed" | "standalone";
+            publicationId: components["schemas"]["ID"];
+        };
+        TaskControlModePreviewV2: {
+            scope: components["schemas"]["TaskControlScope"];
+            publicationId: components["schemas"]["ID"];
+            targetMode: string;
+            exportChecksum: string;
+            sourceRevisions: components["schemas"]["TaskControlSourceRevisionsV2"];
+            runtimeRules: {
+                [key: string]: unknown;
+            }[];
+            dynamicLoss: boolean;
+            emptyExport: boolean;
+            issues: components["schemas"]["TaskControlResolverIssueV2"][];
+            complete?: boolean;
+            /** @enum {string} */
+            projection?: "full";
+            /** Format: date-time */
+            expiresAt?: string;
+        };
+        TaskControlModeInputV2: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** @enum {string} */
+            targetMode: "managed" | "standalone";
+            publicationId: components["schemas"]["ID"];
+            coreAssertion: string;
+            exportChecksum?: string;
+            expectedSourceRevisions?: components["schemas"]["TaskControlSourceRevisionsV2"];
+            confirmDynamicLoss?: boolean;
+            confirmEmptyExport?: boolean;
+        };
+        TaskControlModeResultV2: {
+            scope: components["schemas"]["TaskControlScope"];
+            state: string;
+            targetMode: string;
+            export: components["schemas"]["TaskControlModePreviewV2"];
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        TaskControlActivationV2: {
+            scope: components["schemas"]["TaskControlScope"];
+            /** @enum {integer} */
+            runtimeSchemaVersion: 2;
+            /** @enum {string} */
+            state: "completed";
+        };
+        TaskControlAudienceAllV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "allLinked";
+        };
+        TaskControlDepartmentSelectionV2: {
+            departmentId: components["schemas"]["ID"];
+            includeDescendants: boolean;
+        };
+        TaskControlAudienceSelectedV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "selected";
+            employeeIds: components["schemas"]["ID"][];
+            departments: components["schemas"]["TaskControlDepartmentSelectionV2"][];
+        };
+        TaskControlAudienceV2: components["schemas"]["TaskControlAudienceAllV2"] | components["schemas"]["TaskControlAudienceSelectedV2"];
+        TaskControlStagesAllOpenV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "allOpen";
+        };
+        TaskControlStagesSelectedV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "selected";
+            statusIds: string[];
+        };
+        TaskControlStagesV2: components["schemas"]["TaskControlStagesAllOpenV2"] | components["schemas"]["TaskControlStagesSelectedV2"];
+        TaskControlCustomersDisabledV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "disabled";
+        };
+        TaskControlCustomersAllV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "all";
+        };
+        TaskControlCustomersSelectedV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "selected";
+            statusIds: string[];
+        };
+        TaskControlCustomersV2: components["schemas"]["TaskControlCustomersDisabledV2"] | components["schemas"]["TaskControlCustomersAllV2"] | components["schemas"]["TaskControlCustomersSelectedV2"];
+        TaskControlPipelineSelectionV2: {
+            pipelineId: string;
+            stages: components["schemas"]["TaskControlStagesV2"];
+        };
+        TaskControlLeadsDisabledV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "disabled";
+        };
+        TaskControlLeadsAllOpenV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "allOpen";
+        };
+        TaskControlLeadsSelectedV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "selected";
+            pipelines: components["schemas"]["TaskControlPipelineSelectionV2"][];
+        };
+        TaskControlLeadsV2: components["schemas"]["TaskControlLeadsDisabledV2"] | components["schemas"]["TaskControlLeadsAllOpenV2"] | components["schemas"]["TaskControlLeadsSelectedV2"];
+        TaskControlRuleV2: {
+            /** @enum {integer} */
+            schemaVersion: 2;
+            ruleUid: components["schemas"]["ID"];
+            name: string;
+            audience: components["schemas"]["TaskControlAudienceV2"];
+            leads: components["schemas"]["TaskControlLeadsV2"];
+            customers: components["schemas"]["TaskControlCustomersV2"];
+            showModal: boolean;
+            denyExit: boolean;
+            checkResponsible: boolean;
+            enabled: boolean;
+            archived: boolean;
+        };
+        TaskControlIntentDynamicV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "dynamic";
+            rule: components["schemas"]["TaskControlRuleV2"];
+        };
+        TaskControlIntentLegacyExplicitV2: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "legacyExplicit";
+            rule: components["schemas"]["TaskControlRule"];
+        };
+        TaskControlIntentRuleV2: components["schemas"]["TaskControlIntentDynamicV2"] | components["schemas"]["TaskControlIntentLegacyExplicitV2"];
+        TaskControlSourceRevisionsV2: {
+            crm: string;
+            /** Format: int64 */
+            organization: number;
+            /** Format: int64 */
+            mapping: number;
+        };
+        TaskControlResolverIssueV2: {
+            ruleUid?: components["schemas"]["ID"];
+            code: string;
+            path: string;
+            message: string;
+            blocking?: boolean;
+        };
+        TaskControlDraftV2: {
+            scope: components["schemas"]["TaskControlScope"];
+            /** Format: int64 */
+            revision: number;
+            /** @enum {integer} */
+            schemaVersion: 2;
+            intentRules: components["schemas"]["TaskControlIntentRuleV2"][];
+            checksum: string;
+            issues?: components["schemas"]["TaskControlResolverIssueV2"][];
+            /** Format: date-time */
+            updatedAt?: string;
+            updatedBy?: components["schemas"]["ID"];
+        };
+        TaskControlDraftInputV2: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            /** Format: int64 */
+            expectedRevision: number;
+            intentRules: components["schemas"]["TaskControlIntentRuleV2"][];
+        };
+        TaskControlValidateInputV2: {
+            /** Format: int64 */
+            expectedDraftRevision: number;
+        };
+        TaskControlPublishInputV2: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            /** Format: int64 */
+            expectedDraftRevision: number;
+            expectedChecksum: string;
+            reason?: string;
+            expectedSourceRevisions?: components["schemas"]["TaskControlSourceRevisionsV2"];
+        };
+        TaskControlActivationInputV2: {
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+        };
+        TaskControlValidationV2: {
+            valid: boolean;
+            intentChecksum: string;
+            sourceRevisions: components["schemas"]["TaskControlSourceRevisionsV2"];
+            issues: components["schemas"]["TaskControlResolverIssueV2"][];
+            resolvedPreview: {
+                [key: string]: unknown;
+            }[];
+        };
+        TaskControlPublicationV2: {
+            id: components["schemas"]["ID"];
+            scopeAtPublication: components["schemas"]["TaskControlScope"];
+            /** Format: int64 */
+            version: number;
+            /** @enum {integer} */
+            schemaVersion: 2;
+            /** Format: int64 */
+            draftRevision: number;
+            intentRules: components["schemas"]["TaskControlIntentRuleV2"][];
+            intentChecksum: string;
+            /** Format: date-time */
+            createdAt: string;
+            createdBy: components["schemas"]["ID"];
+            reason: string;
+            /** Format: uuid */
+            restoredFromId?: string | null;
+            initialSnapshotId?: components["schemas"]["ID"];
+            /** Format: int64 */
+            runtimeRevision?: number;
+        };
+        TaskControlPublicationsV2: {
+            items: components["schemas"]["TaskControlPublicationV2"][];
+            nextCursor?: string;
+        };
+        TaskControlRuntimeEnvelopeV2: {
+            /** @enum {integer} */
+            runtimeSchemaVersion: 2;
+            scope: components["schemas"]["TaskControlScope"];
+            actorId: string;
+            publicationId: components["schemas"]["ID"];
+            /** Format: int64 */
+            publicationVersion: number;
+            intentChecksum: string;
+            snapshotId: components["schemas"]["ID"];
+            /** Format: int64 */
+            runtimeRevision: number;
+            sourceRevisions: components["schemas"]["TaskControlSourceRevisionsV2"];
+            /** @enum {integer} */
+            resolverVersion: 1;
+            resolvedChecksum: string;
+            payloadChecksum: string;
+            runtimeRules: {
+                [key: string]: unknown;
+            }[];
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            validUntil: string;
+            minRuntimeVersion: string;
+        };
+        TaskControlRuntimeInstance: {
+            runtimeInstanceId: components["schemas"]["ID"];
+            publicationId: components["schemas"]["ID"];
+            /** Format: int64 */
+            runtimeRevision: number;
+            runtimeVersion: string;
+            /** @enum {string} */
+            state: "active" | "stale";
+            /** @enum {string} */
+            lastEvent: "received" | "applied" | "heartbeat" | "error";
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** Format: date-time */
+            leaseValidUntil: string;
+            reason?: string;
+            correlationId: components["schemas"]["ID"];
+            /** Format: date-time */
+            lastReceivedAt?: string;
+            /** Format: date-time */
+            lastAppliedAt?: string;
+            /** Format: date-time */
+            lastHeartbeatAt?: string;
+        };
+        TaskControlRuntimeAckInput: {
+            actorId: string;
+            scope: components["schemas"]["TaskControlScope"];
+            runtimeInstanceId: components["schemas"]["ID"];
+            snapshotId?: components["schemas"]["ID"];
+            publicationId: components["schemas"]["ID"];
+            /** Format: int64 */
+            publicationVersion: number;
+            /** Format: int64 */
+            runtimeRevision: number;
+            payloadChecksum: string;
+            /** Format: date-time */
+            appliedAt: string;
+            runtimeVersion: string;
+        };
+        /** @description До 8 КиБ. Поля публикации обязательны для received/applied/heartbeat; при error допускается ошибка загрузки до получения публикации. Никаких текстов ошибок, сделок или правил. Сервер проверяет scope, выданную проекцию, lease, актуальную ревизию и частоту. */
+        TaskControlRuntimeTelemetryInput: {
+            scope: components["schemas"]["TaskControlScope"];
+            actorId: string;
+            runtimeInstanceId: components["schemas"]["ID"];
+            runtimeVersion: string;
+            /** @enum {string} */
+            event: "received" | "applied" | "heartbeat" | "error";
+            eventId: components["schemas"]["ID"];
+            /** Format: date-time */
+            occurredAt: string;
+            correlationId: components["schemas"]["ID"];
+            publicationId?: components["schemas"]["ID"];
+            /** Format: int64 */
+            publicationVersion?: number;
+            /** Format: int64 */
+            runtimeRevision?: number;
+            payloadChecksum?: string;
+            snapshotId?: components["schemas"]["ID"];
+            /** @enum {string} */
+            errorCode?: "config_invalid" | "config_fetch_failed" | "lease_expired" | "scope_mismatch" | "runtime_incompatible" | "apply_failed" | "references_unavailable" | "network_unavailable";
+        };
+        TaskControlRuntimeAckInputV2: {
+            actorId: string;
+            scope: components["schemas"]["TaskControlScope"];
+            runtimeInstanceId: components["schemas"]["ID"];
+            snapshotId: components["schemas"]["ID"];
+            publicationId: components["schemas"]["ID"];
+            /** Format: int64 */
+            publicationVersion: number;
+            /** Format: int64 */
+            runtimeRevision: number;
+            payloadChecksum: string;
+            /** Format: date-time */
+            appliedAt: string;
+            runtimeVersion: string;
+        };
+        TaskControlApplicationV2: {
+            scope?: components["schemas"]["TaskControlScope"];
+            /** Format: int64 */
+            publishedVersion?: number;
+            /** Format: int64 */
+            publicationVersion?: number;
+            /** Format: date-time */
+            observedAt?: string;
+            evidenceTtlSeconds?: number;
+            retentionDays?: number;
+            /**
+             * @description Наблюдались только отправившие события экземпляры; это не мониторинг всех сотрудников или сделок.
+             * @enum {string}
+             */
+            coverage?: "observedInstancesOnly";
+            /**
+             * @description Данных браузеров недостаточно, чтобы утверждать применение во всех вкладках.
+             * @enum {boolean}
+             */
+            allInstancesApplied?: false;
+            truncated?: boolean;
+            activeInstances?: number;
+            staleInstances?: number;
+            appliedInstances?: number;
+            instances?: components["schemas"]["TaskControlRuntimeInstance"][];
+            publicationId: components["schemas"]["ID"];
+            /** Format: uuid */
+            currentSnapshotId?: string | null;
+            /** Format: int64 */
+            currentRuntimeRevision?: number | null;
+            runtimeState: string;
+            lastRuntimeAck?: {
+                [key: string]: unknown;
+            } | null;
+            issues: components["schemas"]["TaskControlResolverIssueV2"][];
+        };
+        TaskControlRollbackInputV2: {
+            reason?: string;
+            /** Format: int64 */
+            expectedBindingRevision: number;
+            /** Format: int64 */
+            expectedModeEpoch: number;
+            requestId: components["schemas"]["ID"];
+            sourcePublicationId: components["schemas"]["ID"];
+            /** Format: int64 */
+            expectedPublishedVersion: number;
+        };
         DistributionRuntimeSummary: {
             metricsReason?: string;
             timezone: string | null;
@@ -6543,6 +7450,11 @@ export interface components {
             archived: boolean;
         };
         TaskControlScope: {
+            /**
+             * Format: int64
+             * @description Поколение установки; обязательное для runtime v2.
+             */
+            generation?: number;
             companyId: components["schemas"]["ID"];
             bindingId: components["schemas"]["ID"];
             /** Format: int64 */
@@ -6555,6 +7467,18 @@ export interface components {
             product: "task-control";
             /** Format: int64 */
             modeEpoch: number;
+        };
+        TaskControlCapabilities: {
+            read: boolean;
+            manage: boolean;
+            operations: {
+                [key: string]: boolean;
+            };
+            availableOperations: string[];
+            /** @example 60 */
+            adminProofTtlSeconds: number;
+            /** @example 300 */
+            runtimeSessionTtlSeconds: number;
         };
         TaskControlConnection: {
             scope: components["schemas"]["TaskControlScope"];
@@ -6643,6 +7567,7 @@ export interface components {
             issues: components["schemas"]["TaskControlValidationIssue"][];
         };
         TaskControlPublication: {
+            restoredFromId?: components["schemas"]["ID"];
             id: components["schemas"]["ID"];
             scope: components["schemas"]["TaskControlScope"];
             /** Format: int64 */
@@ -6713,6 +7638,122 @@ export interface components {
             }[];
             sourceSnapshotId: components["schemas"]["ID"];
         };
+        CRMReferenceScope: {
+            companyId: components["schemas"]["ID"];
+            accountId: string;
+            integrationId: components["schemas"]["ID"];
+            installationId: components["schemas"]["ID"];
+            /** Format: int64 */
+            generation: number;
+            /** @enum {string} */
+            product: "task-control";
+        };
+        CRMReferenceSnapshot: {
+            /** @enum {integer} */
+            schemaVersion: 1;
+            scope: components["schemas"]["CRMReferenceScope"];
+            revision: string;
+            provenance: {
+                /** @enum {string} */
+                source: "coreAmocrm";
+                /** Format: date-time */
+                fetchedAt: string;
+                /** Format: date-time */
+                fetchStartedAt: string;
+            };
+            /** Format: date-time */
+            freshUntil: string;
+            /** @enum {boolean} */
+            complete: true;
+            users: components["schemas"]["CRMReferenceUser"][];
+            groups: {
+                id: string;
+                name: string;
+            }[];
+            pipelines: components["schemas"]["CRMReferencePipeline"][];
+            customers: components["schemas"]["CRMCustomerReferences"];
+        };
+        CRMReferenceUser: {
+            id: string;
+            name: string;
+            isActive: boolean;
+            groupId: string | null;
+        };
+        CRMReferencePipeline: {
+            id: string;
+            name: string;
+            sort: number;
+            statuses: components["schemas"]["CRMReferenceStatus"][];
+        };
+        CRMReferenceStatus: {
+            id: string;
+            name: string;
+            sort: number;
+            color: string | null;
+            /** @enum {string} */
+            kind: "open" | "won" | "lost";
+        };
+        CRMCustomerReferences: {
+            /** @enum {string} */
+            availability: "supported" | "unsupported" | "unknown";
+            statuses: {
+                id: string;
+                name: string;
+                sort: number;
+                color: string | null;
+            }[];
+            /** Format: date-time */
+            checkedAt: string;
+            errorCode: string | null;
+        };
+        TaskControlReferenceView: {
+            scope: components["schemas"]["TaskControlScope"];
+            /** @enum {string} */
+            state: "fresh" | "stale" | "refreshing" | "unavailable" | "error";
+            crm: components["schemas"]["CRMReferenceSnapshot"] | null;
+            /** Format: int64 */
+            organizationRevision: number;
+            /** Format: int64 */
+            mappingRevision: number;
+            employees: components["schemas"]["TaskControlReferenceEmployee"][];
+            selectedEmployees: components["schemas"]["TaskControlReferenceEmployee"][];
+            departments: components["schemas"]["TaskControlReferenceDepartment"][];
+            issues: components["schemas"]["TaskControlReferenceIssue"][];
+            /** @description Точное число сотрудников после фильтров до пагинации. */
+            total: number;
+            offset: number;
+            limit: number;
+        };
+        TaskControlReferenceEmployee: {
+            employeeId: components["schemas"]["ID"];
+            name: string;
+            positionName: string | null;
+            departmentIds: components["schemas"]["ID"][];
+            crmUserId: string | null;
+            eligible: boolean;
+            ineligibleReason: string | null;
+        };
+        TaskControlReferenceDepartment: {
+            id: components["schemas"]["ID"];
+            name: string;
+            /** Format: uuid */
+            parentId: string | null;
+        };
+        TaskControlReferenceIssue: {
+            path: string;
+            code: string;
+            message: string;
+        };
+        TaskControlReferenceRefresh: {
+            refreshId: components["schemas"]["ID"];
+            /** @enum {string} */
+            state: "pending" | "completed" | "failed";
+            errorCode: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt: string | null;
+        };
         TaskControlImportInput: {
             /** Format: int64 */
             expectedBindingRevision: number;
@@ -6733,9 +7774,19 @@ export interface components {
             draftRevision: number;
             complete: boolean;
             rules: components["schemas"]["TaskControlRule"][];
-            issues: components["schemas"]["TaskControlValidationIssue"][];
+            issues: components["schemas"]["TaskControlImportIssue"][];
             /** Format: date-time */
             expiresAt: string;
+            /** @enum {string} */
+            sourceKind?: "catalog" | "runtime_config";
+            sourceSnapshotId?: components["schemas"]["ID"];
+            original?: {
+                [key: string]: unknown;
+            };
+            backup?: {
+                [key: string]: unknown;
+            };
+            appliedRequestId?: components["schemas"]["ID"];
         };
         TaskControlImportApplyInput: {
             /** Format: int64 */
@@ -6747,6 +7798,8 @@ export interface components {
             expectedDraftRevision: number;
             expectedSourceChecksum: string;
             verificationSnapshotId: components["schemas"]["ID"];
+            /** @description Явно принять предупреждения сравнения источников, привязанные к preview и повторному снимку. */
+            acknowledgeDiscrepancies?: boolean;
         };
         TaskControlRuntimeAck: {
             runtimeInstanceId: components["schemas"]["ID"];
@@ -6765,12 +7818,100 @@ export interface components {
             scope: components["schemas"]["TaskControlScope"];
             actorId: components["schemas"]["ID"];
             /** @enum {string} */
-            action: "link" | "draftUpdated" | "imported" | "published" | "rollbackPublished" | "modeChanged" | "revoked";
+            action: "link" | "draftUpdated" | "imported" | "published" | "rollbackPublished" | "modeChanged" | "revoked" | "settingsChanged" | "runtimeRecomputed";
             /** Format: date-time */
             createdAt: string;
             requestId?: components["schemas"]["ID"];
             reason: string;
             publicationId?: components["schemas"]["ID"];
+            /**
+             * @description Системные события используют нулевой UUID actorId для совместимости v1; это не пользователь TeamOS.
+             * @enum {string}
+             */
+            actorType?: "user" | "system";
+            eventType?: string;
+            sequence?: string;
+            details?: components["schemas"]["TaskControlAuditDetails"];
+        };
+        TaskControlHistoryPage: {
+            items: components["schemas"]["TaskControlHistoryEvent"][];
+            nextCursor?: string;
+        };
+        TaskControlHistoryEvent: {
+            id: components["schemas"]["ID"];
+            /** @description Монотонный номер события в десятичной строке. */
+            sequence: string;
+            /** @enum {string} */
+            eventType: "connection_linked" | "connection_updated" | "draft_updated" | "import_applied" | "mode_changed" | "publication_published" | "publication_restored" | "runtime_recomputed";
+            scope: components["schemas"]["TaskControlScope"];
+            /**
+             * Format: uuid
+             * @description TeamOS actor; null для автоматического пересчёта.
+             */
+            actorId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            details: components["schemas"]["TaskControlAuditDetails"];
+        };
+        /** @description Ограниченные метаданные аудита; полные правила читаются из immutable публикаций. */
+        TaskControlAuditDetails: {
+            reason?: string | null;
+            /** Format: uuid */
+            publicationId?: string | null;
+            /** Format: uuid */
+            previousPublicationId?: string | null;
+            /** Format: uuid */
+            restoredFromId?: string | null;
+            /** Format: uuid */
+            requestId?: string | null;
+            /** Format: uuid */
+            snapshotId?: string | null;
+            /** Format: int64 */
+            version?: number | null;
+            /** Format: int64 */
+            runtimeRevision?: number | null;
+            /** Format: int64 */
+            revision?: number | null;
+            /** Format: int64 */
+            previousRevision?: number | null;
+            /** Format: int64 */
+            backupRevision?: number | null;
+            /** Format: int64 */
+            draftRevision?: number | null;
+            /** @enum {integer|null} */
+            schemaVersion?: 1 | 2 | null;
+            checksum?: string | null;
+            previousChecksum?: string | null;
+            intentChecksum?: string | null;
+            resolvedChecksum?: string | null;
+            sourceRevisions?: {
+                [key: string]: unknown;
+            } | null;
+            before?: components["schemas"]["TaskControlAuditSettings"];
+            after?: components["schemas"]["TaskControlAuditSettings"];
+            state?: string;
+            /** @enum {string} */
+            mode?: "standalone" | "managed";
+            /** @enum {integer} */
+            runtimeSchemaVersion?: 1 | 2;
+            /** Format: int64 */
+            changedRuleCount?: number;
+            ruleChanges?: {
+                uid: string;
+                /** @enum {string} */
+                change: "added" | "removed" | "changed";
+            }[];
+            diffTruncated?: boolean;
+            backfilled?: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        TaskControlAuditSettings: {
+            state: string;
+            /** @enum {string} */
+            mode: "standalone" | "managed";
+            /** @enum {integer} */
+            runtimeSchemaVersion: 1 | 2;
         };
         TaskControlHistory: {
             items: components["schemas"]["TaskControlAuditEntry"][];
@@ -6782,6 +7923,11 @@ export interface components {
         };
         /** @description Состояние из Core для проверенного аккаунта компании. installed делает блок Интеграции активным; notInstalled — неактивным; unknown/просроченный снимок — статус не подтверждён, не uninstall. Без проверки Core нельзя утверждать installed. Heartbeat и оплата не определяют установку. */
         TaskControlInstallation: {
+            /** @description Версия пакета, подтверждённая оператором для текущего поколения установки. */
+            runtimeVersion?: string;
+            runtimeCapabilities?: string[];
+            /** @description Причина состояния, включая disconnect_unverified, disconnect_confirmed, operator_uninstall, product_disabled, installation_unconfirmed, core_unavailable и registry_<status>. Неизвестный код не меняет семантику state. */
+            reasonCode?: string;
             companyId: components["schemas"]["ID"];
             accountId: string;
             installationId?: components["schemas"]["ID"];
@@ -6803,6 +7949,32 @@ export interface components {
             generation?: number;
         };
         TaskControlApplicationStatus: {
+            /** Format: uuid */
+            currentSnapshotId?: string | null;
+            /** Format: int64 */
+            currentRuntimeRevision?: number;
+            issues?: components["schemas"]["TaskControlResolverIssueV2"][];
+            /** Format: int64 */
+            publicationVersion?: number;
+            /** Format: date-time */
+            observedAt?: string;
+            evidenceTtlSeconds?: number;
+            retentionDays?: number;
+            /**
+             * @description Наблюдались только отправившие события экземпляры; это не мониторинг всех сотрудников или сделок.
+             * @enum {string}
+             */
+            coverage?: "observedInstancesOnly";
+            /**
+             * @description Данных браузеров недостаточно, чтобы утверждать применение во всех вкладках.
+             * @enum {boolean}
+             */
+            allInstancesApplied?: false;
+            truncated?: boolean;
+            activeInstances?: number;
+            staleInstances?: number;
+            appliedInstances?: number;
+            instances?: components["schemas"]["TaskControlRuntimeInstance"][];
             scope: components["schemas"]["TaskControlScope"];
             publicationId: components["schemas"]["ID"];
             /** Format: int64 */
@@ -6818,25 +7990,33 @@ export interface components {
             expectedModeEpoch: number;
             requestId: components["schemas"]["ID"];
             /** @enum {string} */
-            kind: "references" | "catalog";
+            kind: "references" | "catalog" | "runtime_config";
             catalogId?: string;
         };
         TaskControlSourceRequest: {
             id: components["schemas"]["ID"];
             scope: components["schemas"]["TaskControlScope"];
             /** @enum {string} */
-            kind: "references" | "catalog";
+            kind: "references" | "catalog" | "runtime_config";
             /** @enum {string} */
             state: "pending" | "completed" | "failed" | "expired";
             catalogId?: string;
             sourceSnapshotId?: components["schemas"]["ID"];
             /** Format: date-time */
             expiresAt: string;
+            issues?: components["schemas"]["TaskControlImportIssue"][];
+            errorCode?: string;
+            /** Format: date-time */
+            freshUntil?: string;
         };
         TaskControlSessionInput: {
+            runtimeVersion?: string;
+            capabilities?: string[];
             coreAssertion: string;
         };
         TaskControlSession: {
+            /** @enum {integer} */
+            runtimeSchemaVersion?: 1 | 2;
             accessToken: string;
             /** Format: date-time */
             expiresAt: string;
@@ -6844,6 +8024,25 @@ export interface components {
             actorId: string;
         };
         TaskControlBootstrap: {
+            publicationId?: components["schemas"]["ID"];
+            /** Format: int64 */
+            publicationVersion?: number;
+            /** Format: int64 */
+            runtimeRevision?: number;
+            payloadChecksum?: string;
+            /**
+             * @description Версия runtime-протокола; v2 использует отдельный путь и envelope.
+             * @enum {integer}
+             */
+            runtimeSchemaVersion?: 1;
+            actorId?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            /**
+             * Format: date-time
+             * @description Конец lease, максимум 5 минут от issuedAt. Retry её не продлевает.
+             */
+            validUntil?: string;
             scope: components["schemas"]["TaskControlScope"];
             /** @enum {string} */
             mode: "standalone" | "managed";
@@ -12686,6 +13885,29 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getTaskControlCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Права текущего пользователя без зависимости от роли в JWT */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlCapabilities"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
     getTaskControlConnections: {
         parameters: {
             query?: never;
@@ -12879,6 +14101,122 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getTaskControlReferenceSelection: {
+        parameters: {
+            query?: {
+                search?: string;
+                departmentId?: components["schemas"]["ID"];
+                withoutDepartment?: boolean;
+                offset?: number;
+                limit?: number;
+                selectedEmployeeIds?: components["schemas"]["ID"][];
+            };
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Данные и фактическое состояние источника */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlReferenceView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Источник временно недоступен */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshTaskControlReferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Обновление поставлено в очередь или объединено с текущим */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlReferenceRefresh"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Источник временно недоступен */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlReferencesRefresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                refreshId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Состояние обновления в текущем scope */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlReferenceRefresh"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Источник временно недоступен */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getTaskControlReferences: {
         parameters: {
             query?: never;
@@ -12906,15 +14244,6 @@ export interface operations {
             409: components["responses"]["Conflict"];
             /** @description Конфигурация превышает допустимый размер */
             413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13208,15 +14537,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             default: components["responses"]["Error"];
         };
     };
@@ -13258,15 +14578,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             default: components["responses"]["Error"];
         };
     };
@@ -13298,15 +14609,6 @@ export interface operations {
             409: components["responses"]["Conflict"];
             /** @description Конфигурация превышает допустимый размер */
             413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13356,15 +14658,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             default: components["responses"]["Error"];
         };
     };
@@ -13405,8 +14698,39 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlHistoryV2: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlHistoryPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13445,15 +14769,6 @@ export interface operations {
             409: components["responses"]["Conflict"];
             /** @description Конфигурация превышает допустимый размер */
             413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13539,15 +14854,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             default: components["responses"]["Error"];
         };
     };
@@ -13579,15 +14885,6 @@ export interface operations {
             409: components["responses"]["Conflict"];
             /** @description Конфигурация превышает допустимый размер */
             413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Контракт опубликован, обработчик ещё не реализован. */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13648,6 +14945,974 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlDraftV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlDraftV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateTaskControlDraftV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlDraftInputV2"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlDraftV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    validateTaskControlDraftV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlValidateInputV2"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlValidationV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTaskControlPublicationsV2: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublicationsV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    publishTaskControlDraftV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlPublishInputV2"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublicationV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTaskControlPublicationV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                publicationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublicationV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTaskControlApplicationV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                publicationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlApplicationV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    activateTaskControlV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlActivationInputV2"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlActivationV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rollbackTaskControlPublicationV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlRollbackInputV2"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlPublicationV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTaskControlRuntimeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlRuntimeEnvelopeV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ackTaskControlRuntime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlRuntimeAckInput"];
+            };
+        };
+        responses: {
+            /** @description Подтверждено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Превышен лимит частоты или числа экземпляров */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    recordTaskControlRuntimeTelemetry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlRuntimeTelemetryInput"];
+            };
+        };
+        responses: {
+            /** @description Подтверждено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Превышен лимит частоты или числа экземпляров */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ackTaskControlRuntimeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlRuntimeAckInputV2"];
+            };
+        };
+        responses: {
+            /** @description Подтверждено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного снимка */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Превышен лимит частоты или числа экземпляров */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    previewTaskControlModeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlModePreviewInputV2"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlModePreviewV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного экспорта */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createTaskControlModeV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlModeInputV2"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlModeResultV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Превышен размер полного экспорта */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Актуальные источники недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    previewTaskControlImportV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlImportInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlImportV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                importId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    applyTaskControlImportV2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bindingId: components["schemas"]["ID"];
+                importId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlImportApplyInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlDraftV2"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Конфигурация превышает допустимый размер */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTaskControlSourceRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlSourceRequest"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Тело источника превышает 1 МиБ */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Установка или источник временно недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    submitTaskControlSourceResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceRequestId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskControlBridgeResult"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlSourceRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Тело источника превышает 1 МиБ */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Установка или источник временно недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTaskControlRuntimeConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Текущее подключение без runtime-проекции */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskControlConnection"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Установка временно не подтверждена */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
 }

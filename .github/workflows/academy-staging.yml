@@ -2,14 +2,30 @@ name: Academy staging browser QA
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '43 3 * * 1-5'
+
+# This suite tests an existing backend; it does not deploy the application.
+# Run it manually against a configured test environment. An unconfigured cron
+# created failing GitHub deployment records on every weekday.
 
 jobs:
   browser-qa:
     runs-on: ubuntu-latest
-    environment: academy-staging
     steps:
+      - name: Validate staging configuration
+        env:
+          ACADEMY_BASE_URL: ${{ vars.ACADEMY_BASE_URL }}
+          ACADEMY_API_URL: ${{ vars.ACADEMY_API_URL }}
+          ACADEMY_OWNER_EMAIL: ${{ secrets.ACADEMY_OWNER_EMAIL }}
+          ACADEMY_OWNER_PASSWORD: ${{ secrets.ACADEMY_OWNER_PASSWORD }}
+        run: |
+          missing=0
+          for name in ACADEMY_BASE_URL ACADEMY_API_URL ACADEMY_OWNER_EMAIL ACADEMY_OWNER_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Configure $name in repository Actions settings before running QA."
+              missing=1
+            fi
+          done
+          exit "$missing"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
