@@ -1,3 +1,4 @@
+import { ProductNavigation } from '@/components/integrations/ProductNavigation';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
@@ -394,13 +395,13 @@ export function TaskControlPage() {
   const company = useQuery({ queryKey: queryKeys.company, queryFn: authApi.getCompany });
   const account = company.data?.amoAccountId?.trim() ?? '';
   const status = useQuery({
-    queryKey: ['task-control', 'installation', account],
+    queryKey: ['task-control', company.data?.id, 'installation', account],
     queryFn: () => api.getTaskControlInstallation(account),
     enabled: !!account,
     retry: false,
   });
   const connections = useQuery({
-    queryKey: ['task-control', 'connections', account],
+    queryKey: ['task-control', company.data?.id, 'connections', account],
     queryFn: () => api.getTaskControlConnections(),
     enabled: !!account,
     retry: false,
@@ -418,6 +419,12 @@ export function TaskControlPage() {
         title="Контроль задач"
         description="Правила для amoCRM. Проверка задач выполняется внутри виджета."
       />
+      <ProductNavigation />
+      {connection && (
+        <p className="text-xs text-slate-500">
+          Компания {connection.scope.companyId} · Установка {connection.scope.installationId}
+        </p>
+      )}
       <section className={box}>
         <div className="flex items-center justify-between gap-4">
           <h2 className="font-semibold">Аккаунт amoCRM {account || 'не подключён'}</h2>

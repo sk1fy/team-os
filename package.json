@@ -17,6 +17,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "preview": "vite preview",
     "e2e:distribution": "playwright test --config=playwright.distribution.config.ts",
+    "e2e:activity": "playwright test --config=playwright.activity.config.ts",
     "e2e:task-control": "playwright test --config=playwright.task-control.config.ts"
   },
   "dependencies": {

@@ -1,680 +1,628 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { ActivityOptionsEditor } from './ActivityOptionsEditor';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
-import {
-  Bot,
-  Clock3,
-  Copy,
-  ExternalLink,
-  Monitor,
-  Pencil,
-  Plus,
-  Search,
-  Settings2,
-  Trash2,
-  Users,
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ExternalLink, Monitor, Plus, Search } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { authApi } from '@/api';
 import { queryKeys } from '@/api/queryKeys';
+import { ApiError } from '@/api/client';
 import {
-  activityApi,
-  createActivityPanel,
+  activityControlApi as api,
   type ActivityPanel,
-  type ActivitySettings,
-  type ActivityTaskSettings,
-} from '@/api/rakurs/activity';
-import type { RakursContext } from '@/api/rakurs/client';
+  type ActivityPanelInput,
+  type ActivityTaskPanel,
+  type ActivityDirectory,
+  type ActivityScope,
+} from '@/api/activityControl';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { Avatar, Button, Input, Modal, Switch, Tabs } from '@/components/ui';
+import { Button, Input, Modal, Switch, Tabs } from '@/components/ui';
 import { toast } from '@/stores/toast';
-import { ActivityPanelEditor, GroupedEmployeeSelector } from './ActivityPanelEditor';
+import { ProductNavigation } from '@/components/integrations/ProductNavigation';
 
-const idOf = (value: string | number) => String(value);
-
-function panelLink(panel: ActivityPanel, baseLink: string) {
-  return panel.activePanelLink || (baseLink ? `${baseLink}?id=${panel.id}` : '');
+const emptyPanel = (): ActivityPanelInput => ({
+  name: '',
+  employeeIds: [],
+  displayWindow: { from: '09:00', to: '18:00' },
+  enabled: true,
+  options: { pipelineIds: [], operators: [], departments: [] },
+});
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Не удалось выполнить запрос';
 }
-
-function PageSkeleton() {
-  return (
-    <div
-      className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6"
-      aria-label="Загрузка контроля активности"
-    >
-      <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
-      <div className="h-10 w-72 animate-pulse rounded-lg bg-slate-100" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="h-48 animate-pulse rounded-xl bg-slate-100" />
-        <div className="h-48 animate-pulse rounded-xl bg-slate-100" />
+function Failure({ error, reload }: { error: unknown; reload?: () => void }) {
+  const location = useLocation();
+  if (error instanceof ApiError && error.status === 401)
+    return (
+      <div role="alert" className="space-y-2 rounded-lg border border-slate-200 p-4">
+        <p>Сессия истекла. Скопируйте черновик перед повторным входом.</p>
+        <Link className="text-primary-600 underline" to="/auth/login" state={{ from: location }}>
+          Войти снова
+        </Link>
       </div>
-    </div>
+    );
+  return (
+    <ErrorState
+      description={errorMessage(error)}
+      onRetry={error instanceof ApiError && error.status === 403 ? undefined : reload}
+    />
   );
 }
-
-function TelegramBadge({
-  accountId,
-  context,
-  panel,
+function Employees({
+  directory,
+  selected,
+  change,
 }: {
-  accountId: string;
-  context: RakursContext;
-  panel: ActivityPanel;
+  directory: ActivityDirectory;
+  selected: number[];
+  change: (ids: number[]) => void;
 }) {
-  const statusQuery = useQuery({
-    queryKey: queryKeys.activity.telegramStatus(accountId, panel.id),
-    queryFn: ({ signal }) => activityApi.getBotStatus(context, panel.id, signal),
-    enabled: panel.telegramBotEnabled,
-    staleTime: 60_000,
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-2 text-sm font-semibold">Сотрудники amoCRM</legend>
+      {directory.users.length === 0 ? (
+        <p className="text-sm text-slate-500">Сотрудников нет в доступном справочнике.</p>
+      ) : (
+        directory.users.map((user) => (
+          <label key={user.id} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={selected.includes(user.id)}
+              onChange={(e) =>
+                change(
+                  e.target.checked
+                    ? [...selected, user.id]
+                    : selected.filter((id) => id !== user.id),
+                )
+              }
+            />
+            {user.name}
+            <span className="text-slate-500">{user.groupName}</span>
+          </label>
+        ))
+      )}
+    </fieldset>
+  );
+}
+function PanelEditor({
+  panel,
+  directory,
+  save,
+  close,
+}: {
+  panel?: ActivityPanel;
+  directory: ActivityDirectory;
+  save: (input: ActivityPanelInput, key: string) => Promise<void>;
+  close: () => void;
+}) {
+  const [draft, setDraft] = useState<ActivityPanelInput>(() =>
+    panel
+      ? {
+          name: panel.name,
+          employeeIds: panel.employeeIds,
+          displayWindow: panel.displayWindow,
+          enabled: panel.enabled,
+          options: panel.options,
+        }
+      : emptyPanel(),
+  );
+  const [command, setCommand] = useState<{ input: ActivityPanelInput; id: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      const submitted = command ?? { input: structuredClone(draft), id: crypto.randomUUID() };
+      setCommand(submitted);
+      await save(submitted.input, submitted.id);
+      close();
+    } catch (e) {
+      if (e instanceof ApiError && e.status < 500 && e.status !== 429) setCommand(null);
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal
+      open
+      onOpenChange={(open) => {
+        if (!open && !busy) close();
+      }}
+      title={panel ? 'Настройки панели' : 'Новая панель'}
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" disabled={busy} onClick={close}>
+            Отмена
+          </Button>
+          <Button
+            disabled={busy || !draft.name.trim() || !draft.employeeIds.length}
+            onClick={() => void submit()}
+          >
+            {busy ? 'Сохранение…' : 'Сохранить'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {error != null && <Failure error={error} />}
+        {command && !busy && (
+          <p className="text-sm text-slate-600">
+            Результат отправки не подтверждён. Повтор сохранения отправит те же настройки с тем же
+            номером операции.
+          </p>
+        )}
+        <fieldset disabled={busy || command !== null} className="space-y-5">
+          <Input
+            label="Название панели"
+            value={draft.name}
+            maxLength={120}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+          <Switch
+            aria-label="Панель включена"
+            label="Панель включена"
+            checked={draft.enabled}
+            onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Начало дня"
+              type="time"
+              value={draft.displayWindow.from}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  displayWindow: { ...draft.displayWindow, from: e.target.value },
+                })
+              }
+            />
+            <Input
+              label="Конец дня"
+              type="time"
+              value={draft.displayWindow.to}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  displayWindow: { ...draft.displayWindow, to: e.target.value },
+                })
+              }
+            />
+          </div>
+          <Employees
+            directory={directory}
+            selected={draft.employeeIds}
+            change={(employeeIds) =>
+              setDraft({
+                ...draft,
+                employeeIds,
+                options: {
+                  ...draft.options,
+                  operators: draft.options.operators.filter((x) =>
+                    employeeIds.includes(x.employeeId),
+                  ),
+                },
+              })
+            }
+          />
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-semibold">Воронки</legend>
+            {directory.pipelines.map((pipeline) => (
+              <label key={pipeline.id} className="flex gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.options.pipelineIds.includes(pipeline.id)}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      options: {
+                        ...draft.options,
+                        pipelineIds: e.target.checked
+                          ? [...draft.options.pipelineIds, pipeline.id]
+                          : draft.options.pipelineIds.filter((id) => id !== pipeline.id),
+                      },
+                    })
+                  }
+                />
+                {pipeline.name}
+              </label>
+            ))}
+            <p className="text-xs text-slate-500">Без выбора учитываются все доступные воронки.</p>
+          </fieldset>
+          <ActivityOptionsEditor
+            directory={directory}
+            employees={draft.employeeIds}
+            value={draft.options}
+            change={(options) => setDraft({ ...draft, options })}
+          />
+          <p className="text-xs text-slate-500">
+            Telegram в новой Activity пока недоступен. Настройки панели общие с виджетом amoCRM.
+          </p>
+        </fieldset>
+      </div>
+    </Modal>
+  );
+}
+function priorityLabel(key: string) {
+  const labels: Record<string, string> = {
+    urgent: 'Срочные',
+    overdue: 'Просроченные',
+    overdue_no_time: 'Просроченные без времени',
+    today_no_time: 'На сегодня без времени',
+    today_timed: 'На сегодня со временем',
+    future: 'Будущие',
+  };
+  return labels[key] ?? key;
+}
+function TaskPanelEditor({
+  bindingId,
+  initial,
+  directory,
+  saved,
+}: {
+  bindingId: string;
+  initial: ActivityTaskPanel;
+  directory: ActivityDirectory;
+  saved: (value: ActivityTaskPanel) => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const value = await api.forBinding(bindingId).saveTaskPanel(draft);
+      setDraft(value);
+      saved(value);
+      toast.success('Настройки сохранены');
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <fieldset
+      disabled={busy}
+      className="max-w-2xl space-y-5 rounded-xl border border-slate-200 bg-surface p-5"
+    >
+      {error != null && <Failure error={error} />}
+      <p className="text-sm text-slate-600">
+        Панель задач сотрудников в виджете Activity. Правила продукта «Контроль задач» находятся в
+        отдельном разделе.
+      </p>
+      <Switch
+        aria-label="Панель задач включена"
+        label="Панель задач включена"
+        checked={draft.enabled}
+        onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
+        disabled={busy}
+      />
+      <Switch
+        aria-label="Учитывать будущие задачи"
+        label="Учитывать будущие задачи"
+        checked={draft.considerFutureTasks}
+        onCheckedChange={(considerFutureTasks) => setDraft({ ...draft, considerFutureTasks })}
+        disabled={busy}
+      />
+      <Switch
+        aria-label="Учитывать связанные сделки"
+        label="Учитывать связанные сделки"
+        checked={draft.includeRelatedDeals}
+        onCheckedChange={(includeRelatedDeals) => setDraft({ ...draft, includeRelatedDeals })}
+        disabled={busy}
+      />
+      <Employees
+        directory={directory}
+        selected={draft.employeeIds}
+        change={(employeeIds) => setDraft({ ...draft, employeeIds })}
+      />
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-semibold">Порядок приоритетов</legend>
+        {draft.priorityKeys.map((key, index) => (
+          <div key={key} className="flex items-center gap-2 text-sm">
+            <span>{priorityLabel(key)}</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy || index === 0}
+              onClick={() => {
+                const keys = [...draft.priorityKeys];
+                const prior = keys[index - 1];
+                if (prior !== undefined) {
+                  keys[index - 1] = key;
+                  keys[index] = prior;
+                  setDraft({ ...draft, priorityKeys: keys });
+                }
+              }}
+            >
+              Выше
+            </Button>
+          </div>
+        ))}
+      </fieldset>
+      <Button disabled={busy} onClick={() => void save()}>
+        {busy ? 'Сохранение…' : 'Сохранить настройки'}
+      </Button>
+    </fieldset>
+  );
+}
+function ConnectedActivity({ scope, bindingId }: { scope: ActivityScope; bindingId: string }) {
+  const bound = api.forBinding(bindingId);
+  const cache = useQueryClient();
+  const key = [
+    'activity-control',
+    scope.companyId,
+    scope.installationId,
+    scope.integrationId,
+    scope.accountId,
+  ];
+  const panels = useQuery({
+    queryKey: [...key, 'panels'],
+    queryFn: ({ signal }) => bound.panels(signal),
     retry: false,
   });
-
-  if (!panel.telegramBotEnabled) return null;
-
-  const connected = statusQuery.data?.alive === true;
-  const username = statusQuery.data?.bot_username?.trim().replace(/^@/, '');
-  const failed = statusQuery.isError || (statusQuery.isSuccess && !connected);
-
-  return (
-    <span
-      className={`flex items-center gap-1 rounded-full px-2 py-1 ${
-        failed
-          ? 'bg-danger-50 text-danger-700'
-          : connected
-            ? 'bg-success-50 text-success-700'
-            : 'bg-slate-100 text-slate-600'
-      }`}
-      title={failed ? 'Нет связи с Telegram-ботом' : undefined}
-    >
-      <Bot className="size-3" /> Telegram{connected && username ? ` @${username}` : ''}
-    </span>
-  );
-}
-
-function PanelList({
-  panels,
-  baseLink,
-  accountId,
-  context,
-  employees,
-  busy,
-  onCreate,
-  onEdit,
-  onDelete,
-}: {
-  panels: ActivityPanel[];
-  baseLink: string;
-  accountId: string;
-  context: RakursContext;
-  employees: Awaited<ReturnType<typeof activityApi.getEmployees>>;
-  busy: boolean;
-  onCreate: () => void;
-  onEdit: (panel: ActivityPanel) => void;
-  onDelete: (panel: ActivityPanel) => void;
-}) {
+  const directory = useQuery({
+    queryKey: [...key, 'employees'],
+    queryFn: ({ signal }) => bound.employees(signal),
+    retry: false,
+  });
+  const tasks = useQuery({
+    queryKey: [...key, 'task-panel'],
+    queryFn: ({ signal }) => bound.taskPanel(signal),
+    retry: false,
+  });
+  const [editor, setEditor] = useState<
+    { kind: 'create' } | { kind: 'edit'; panel: ActivityPanel } | null
+  >(null);
   const [search, setSearch] = useState('');
-  const employeeById = useMemo(
-    () => new Map(employees.map((employee) => [idOf(employee.id), employee])),
-    [employees],
-  );
-  const filteredPanels = panels.filter((panel) =>
-    panel.panel_name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
-
-  const copyLink = async (link: string) => {
-    if (!link) {
-      toast.error('Ссылка пока недоступна');
-      return;
-    }
+  const [share, setShare] = useState<{ panel: ActivityPanel; commandId: string } | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState<unknown>(null);
+  const [issued, setIssued] = useState<Record<string, string>>({});
+  function remember(panel: ActivityPanel) {
+    const url = panel.shareUrl;
+    if (url) setIssued((prev) => ({ ...prev, [panel.id]: url }));
+    void cache.invalidateQueries({ queryKey: [...key, 'panels'] });
+  }
+  async function rotate() {
+    if (!share) return;
+    setShareBusy(true);
+    setShareError(null);
     try {
-      await navigator.clipboard.writeText(link);
-      toast.success('Ссылка скопирована');
-    } catch {
-      toast.error('Не удалось скопировать ссылку', 'Выделите и скопируйте её вручную.');
+      remember(await bound.rotate(share.panel.id, share.commandId));
+      setShare(null);
+    } catch (e) {
+      setShareError(e);
+    } finally {
+      setShareBusy(false);
     }
-  };
-
-  return (
+  }
+  const denied = [panels.error, directory.error, tasks.error].find(
+    (error) => error instanceof ApiError && (error.status === 401 || error.status === 403),
+  );
+  if (denied) return <Failure error={denied} />;
+  const content = (
     <div className="space-y-5">
-      <div className="rounded-lg border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm text-primary-800">
-        Создайте панель, настройте сотрудников и откройте её по ссылке на отдельном мониторе или
-        рабочем столе amoCRM.
+      <div className="rounded-lg border border-primary-100 bg-primary-50/60 p-4 text-sm text-primary-800">
+        Создайте панель для отдельного монитора или рабочего стола amoCRM. Ссылка даёт доступ всем,
+        у кого она есть. Отзыв роли TeamOS не отзывает выданную ссылку.
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button onClick={onCreate} disabled={busy}>
+      <div className="flex flex-col justify-between gap-3 sm:flex-row">
+        <Button onClick={() => setEditor({ kind: 'create' })} disabled={!directory.data}>
           <Plus className="size-4" />
-          Новый дашборд
+          Новая панель
         </Button>
-        <div className="relative sm:w-72">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+        <div className="flex items-center gap-2">
+          <Search className="size-4" />
           <Input
             aria-label="Поиск панелей"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
             placeholder="Поиск по названию"
-            className="[&_input]:pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
-
-      {filteredPanels.length === 0 ? (
-        <EmptyState
-          icon={Monitor}
-          title={panels.length ? 'Панели не найдены' : 'Пока нет созданных панелей'}
-          description={
-            panels.length
-              ? 'Измените поисковый запрос.'
-              : 'Создайте первую панель контроля активности.'
-          }
-          action={
-            !panels.length ? (
-              <Button size="sm" onClick={onCreate}>
-                Создать панель
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {filteredPanels.map((panel) => {
-            const link = panelLink(panel, baseLink);
-            const knownEmployees = panel.employees
-              .map((employeeId) => employeeById.get(idOf(employeeId)))
-              .filter((employee) => Boolean(employee));
-            return (
-              <article
-                key={panel.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-card"
-              >
-                <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-semibold text-slate-900">
-                      {panel.panel_name || 'Без названия'}
-                    </h2>
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-                      <Clock3 className="size-3.5" />
-                      {panel.work_time_from}–{panel.work_time_to}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(panel)}
-                      disabled={busy}
-                      aria-label={`Настроить панель ${panel.panel_name}`}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(panel)}
-                      disabled={busy}
-                      className="text-danger-600 hover:bg-danger-50 hover:text-danger-700"
-                      aria-label={`Удалить панель ${panel.panel_name}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-4 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex -space-x-2">
-                      {knownEmployees.slice(0, 4).map((employee) => (
-                        <Avatar
-                          key={idOf(employee!.id)}
-                          name={employee!.name}
-                          src={employee!.avatar}
-                          size="sm"
-                          className="ring-2 ring-surface"
-                        />
-                      ))}
-                      {knownEmployees.length > 4 && (
-                        <span className="flex size-8 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600 ring-2 ring-surface">
-                          +{knownEmployees.length - 4}
-                        </span>
-                      )}
-                    </div>
-                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                      <Users className="size-3.5" />
-                      {panel.employees.length}
-                    </span>
-                  </div>
-                  <div className="flex min-w-0 items-center gap-2 rounded-md bg-slate-50 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-xs text-slate-600" title={link}>
-                      {link || 'Ссылка недоступна'}
-                    </span>
-                    {link && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => copyLink(link)}
-                          className="rounded p-1 text-slate-500 hover:bg-slate-200 hover:text-primary-600"
-                          aria-label="Скопировать ссылку"
-                        >
-                          <Copy className="size-4" />
-                        </button>
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded p-1 text-slate-500 hover:bg-slate-200 hover:text-primary-600"
-                          aria-label="Открыть панель"
-                        >
-                          <ExternalLink className="size-4" />
-                        </a>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
-                      {panel.pipelines.length
-                        ? `Воронок: ${panel.pipelines.length}`
-                        : 'Все воронки'}
-                    </span>
-                    <TelegramBadge accountId={accountId} context={context} panel={panel} />
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+      {panels.isPending && <p role="status">Загрузка панелей…</p>}
+      {panels.error && <Failure error={panels.error} reload={() => void panels.refetch()} />}
+      {directory.error && (
+        <Failure error={directory.error} reload={() => void directory.refetch()} />
       )}
-    </div>
-  );
-}
-
-function TaskSettings({
-  value,
-  initialValue,
-  employees,
-  busy,
-  onChange,
-  onSave,
-}: {
-  value: ActivityTaskSettings;
-  initialValue: ActivityTaskSettings;
-  employees: Awaited<ReturnType<typeof activityApi.getEmployees>>;
-  busy: boolean;
-  onChange: (value: ActivityTaskSettings) => void;
-  onSave: () => void;
-}) {
-  const dirty = JSON.stringify(value) !== JSON.stringify(initialValue);
-  const priorities = [
-    ['Срочные', 'Сегодня, задано время, дедлайн прошёл или наступит в ближайшие 10 минут.'],
-    ['Просроченные', 'Задача уже просрочена и у неё задано конкретное время.'],
-    ['Просроченные без времени', 'Задача просрочена, время выполнения не задано.'],
-    ['Сегодняшние без времени', 'Задача назначена на сегодня как задача на весь день.'],
-    ['На сегодня по времени', 'Сегодняшняя задача, до которой осталось больше 10 минут.'],
-    ...(value.consider_future_tasks
-      ? [['Будущие', 'Срок выполнения — завтра или позднее, со временем или без.']]
-      : []),
-  ];
-
-  return (
-    <div className="space-y-5">
-      <p className="max-w-3xl text-sm leading-6 text-slate-600">
-        Управляйте доступом к панели задач и правилами построения очереди. Изменения применятся
-        только после сохранения.
-      </p>
-      <div className="grid gap-5 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(26rem,1.2fr)]">
-        <section className="h-full rounded-xl border border-slate-200 bg-surface shadow-card xl:flex xl:min-h-0 xl:flex-col">
-          <header className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Панель задач</h2>
-              <p className="mt-1 text-xs text-slate-500">Показывать только выбранным сотрудникам</p>
-            </div>
-            <Switch
-              checked={value.task_panel_enabled}
-              onCheckedChange={(checked) => onChange({ ...value, task_panel_enabled: checked })}
-              aria-label="Включить панель задач"
-            />
-          </header>
-          <div className="p-4 xl:min-h-0 xl:flex-1">
-            <GroupedEmployeeSelector
-              employees={employees}
-              values={value.enabled_employees}
-              onValuesChange={(values) => onChange({ ...value, enabled_employees: values })}
-              disabled={!value.task_panel_enabled}
-              fillHeight
-            />
-          </div>
-        </section>
-
-        <section className="h-full rounded-xl border border-slate-200 bg-surface shadow-card">
-          <header className="border-b border-slate-100 p-4">
-            <h2 className="text-base font-semibold text-slate-900">Настройки очереди</h2>
-          </header>
-          <div className="space-y-5 p-4">
-            <div className="space-y-3">
-              <Switch
-                checked={value.consider_future_tasks}
-                onCheckedChange={(checked) =>
-                  onChange({ ...value, consider_future_tasks: checked })
-                }
-                disabled={!value.task_panel_enabled}
-                label="Учитывать будущие задачи"
-              />
-              <Switch
-                checked={value.include_related_deals}
-                onCheckedChange={(checked) =>
-                  onChange({ ...value, include_related_deals: checked })
-                }
-                disabled={!value.task_panel_enabled}
-                label="Включить связанные сделки"
-              />
-            </div>
-            <div className="border-t border-slate-100 pt-5">
-              <h3 className="text-sm font-semibold text-slate-900">Приоритеты задач</h3>
-              <ol className="mt-3 space-y-2">
-                {priorities.map(([title, description], index) => (
-                  <li key={title} className="flex gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
-                      {index + 1}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{title}</p>
-                      <p className="mt-0.5 text-xs leading-5 text-slate-500">{description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </div>
-        </section>
-      </div>
-      <div className="flex items-center justify-end gap-3">
-        {dirty && (
-          <span className="text-xs font-medium text-warning-700">Есть несохранённые изменения</span>
-        )}
-        <Button onClick={onSave} loading={busy} disabled={!dirty}>
-          Сохранить настройки
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-export function ActivityControlPage() {
-  useTitle('Контроль активности — TeamOS');
-  const queryClient = useQueryClient();
-  const companyQuery = useQuery({ queryKey: queryKeys.company, queryFn: authApi.getCompany });
-  const accountId = companyQuery.data?.amoAccountId?.trim() ?? '';
-  const context = useMemo<RakursContext | null>(
-    () => (accountId ? { accountId, appName: 'rkrs_activity' } : null),
-    [accountId],
-  );
-
-  const settingsQuery = useQuery({
-    queryKey: queryKeys.activity.settings(accountId),
-    queryFn: ({ signal }) => activityApi.getSettings(context!, signal),
-    enabled: Boolean(context),
-  });
-  const employeesQuery = useQuery({
-    queryKey: queryKeys.activity.employees(accountId),
-    queryFn: ({ signal }) => activityApi.getEmployees(context!, signal),
-    enabled: Boolean(context),
-  });
-  const pipelinesQuery = useQuery({
-    queryKey: queryKeys.activity.pipelines(accountId),
-    queryFn: ({ signal }) => activityApi.getPipelines(context!, signal),
-    enabled: Boolean(context),
-  });
-  const linkQuery = useQuery({
-    queryKey: queryKeys.activity.link(accountId),
-    queryFn: ({ signal }) => activityApi.getLink(context!, signal),
-    enabled: Boolean(context),
-  });
-
-  const [editor, setEditor] = useState<{ panel: ActivityPanel; isNew: boolean } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ActivityPanel | null>(null);
-  const [taskDraft, setTaskDraft] = useState<ActivityTaskSettings | null>(null);
-
-  useEffect(() => {
-    if (settingsQuery.data) {
-      setTaskDraft((current) => current ?? structuredClone(settingsQuery.data.tasks));
-    }
-  }, [settingsQuery.data]);
-
-  const persistMutation = useMutation({
-    mutationFn: (settings: ActivitySettings) => activityApi.updateSettings(context!, settings),
-    onSuccess: (settings) => {
-      queryClient.setQueryData(queryKeys.activity.settings(accountId), settings);
-    },
-  });
-
-  const currentSettings = () =>
-    queryClient.getQueryData<ActivitySettings>(queryKeys.activity.settings(accountId)) ??
-    settingsQuery.data;
-
-  const persistPanel = async (panel: ActivityPanel, successToast?: string) => {
-    const current = currentSettings();
-    if (!current) throw new Error('Настройки ещё не загружены');
-    const exists = current.panels.some((item) => item.id === panel.id);
-    const panels = exists
-      ? current.panels.map((item) => (item.id === panel.id ? panel : item))
-      : [...current.panels, panel];
-    await persistMutation.mutateAsync({ ...current, panels });
-    if (successToast) toast.success(successToast);
-  };
-
-  const savePanel = async (panel: ActivityPanel, close = true) => {
-    const isNew = !currentSettings()?.panels.some((item) => item.id === panel.id);
-    await persistPanel(panel, isNew ? 'Панель создана' : 'Панель сохранена');
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.activity.telegramStatus(accountId, panel.id),
-    });
-    if (close) setEditor(null);
-  };
-
-  const connectTelegram = async (panel: ActivityPanel) => {
-    await persistPanel(panel);
-    const result = await activityApi.discoverChatId(context!, panel.id);
-    if (!result.ok || result.chat_id === undefined) {
-      throw new Error(result.message || 'Не удалось подключить Telegram-бота');
-    }
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.activity.telegramStatus(accountId, panel.id),
-    });
-    return { chatId: String(result.chat_id), chatName: result.chat_name ?? '' };
-  };
-
-  const checkTelegram = async (panel: ActivityPanel) => {
-    const result = await activityApi.getBotStatus(context!, panel.id);
-    queryClient.setQueryData(queryKeys.activity.telegramStatus(accountId, panel.id), result);
-    return result;
-  };
-
-  const deletePanel = async () => {
-    const target = deleteTarget;
-    const current = currentSettings();
-    if (!target || !current) return;
-    try {
-      await persistMutation.mutateAsync({
-        ...current,
-        panels: current.panels.filter((panel) => panel.id !== target.id),
-      });
-      setDeleteTarget(null);
-      toast.success('Панель удалена');
-    } catch (error) {
-      toast.error('Не удалось удалить панель', error instanceof Error ? error.message : undefined);
-    }
-  };
-
-  const saveTasks = async () => {
-    const current = currentSettings();
-    if (!current || !taskDraft) return;
-    try {
-      await persistMutation.mutateAsync({ ...current, tasks: taskDraft });
-      toast.success('Настройки панели задач сохранены');
-    } catch (error) {
-      toast.error(
-        'Не удалось сохранить настройки',
-        error instanceof Error ? error.message : undefined,
-      );
-    }
-  };
-
-  if (companyQuery.isPending) return <PageSkeleton />;
-  if (companyQuery.isError) {
-    return (
-      <div className="mx-auto max-w-6xl p-4 sm:p-6">
-        <ErrorState
-          title="Не удалось загрузить компанию"
-          description="Без данных компании невозможно определить аккаунт amoCRM."
-          onRetry={() => companyQuery.refetch()}
-        />
-      </div>
-    );
-  }
-
-  if (!accountId) {
-    return (
-      <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-        <PageHeader
-          title="Контроль активности"
-          description="Дашборды активности сотрудников и очередь задач"
-        />
-        <EmptyState
-          icon={Settings2}
-          title="Не указан Account ID amoCRM"
-          description="Добавьте идентификатор аккаунта amoCRM в настройках компании, чтобы загрузить данные Rakurs."
-          action={
-            <Link
-              to="/settings"
-              className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-[13px] font-semibold text-white hover:bg-primary-700"
+      <div className="grid gap-4 lg:grid-cols-2">
+        {panels.data?.panels
+          .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+          .map((panel) => (
+            <article
+              key={panel.id}
+              className="space-y-4 rounded-xl border border-slate-200 bg-surface p-5"
             >
-              Перейти в настройки
-            </Link>
-          }
-        />
+              <div className="flex items-center gap-3">
+                <Monitor className="size-5 text-primary-600" />
+                <h2 className="font-semibold">{panel.name}</h2>
+                <span className="ml-auto text-xs text-slate-500">
+                  {panel.enabled ? 'Включена' : 'Отключена'}
+                </span>
+              </div>
+              <p className="text-sm text-slate-600">
+                Сотрудников: {panel.employeeIds.length} · {panel.displayWindow.from}–
+                {panel.displayWindow.to} · {panel.timezone}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={!directory.data}
+                  onClick={() => setEditor({ kind: 'edit', panel })}
+                >
+                  Настроить
+                </Button>
+                {issued[panel.id] && (
+                  <a
+                    className="inline-flex items-center gap-1 text-sm text-primary-600"
+                    href={issued[panel.id]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="size-4" />
+                    Открыть панель
+                  </a>
+                )}
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShare({ panel, commandId: crypto.randomUUID() });
+                    setShareError(null);
+                  }}
+                >
+                  Новая ссылка
+                </Button>
+              </div>
+              {issued[panel.id] && (
+                <Input label="Ссылка доступа" readOnly value={issued[panel.id]} />
+              )}
+              <p className="text-xs text-slate-500">
+                Ссылка показывается только после создания или замены. Сохраните её у себя.
+              </p>
+            </article>
+          ))}
       </div>
-    );
-  }
-
-  if (settingsQuery.isPending) return <PageSkeleton />;
-  if (settingsQuery.isError || !settingsQuery.data) {
-    return (
-      <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-        <PageHeader title="Контроль активности" />
-        <ErrorState
-          title="Не удалось загрузить настройки активности"
-          description={
-            settingsQuery.error instanceof Error ? settingsQuery.error.message : undefined
-          }
-          onRetry={() => settingsQuery.refetch()}
-        />
-      </div>
-    );
-  }
-
-  const employees = employeesQuery.data ?? [];
-  const pipelines = pipelinesQuery.data ?? [];
-  const settings = settingsQuery.data;
-  const busy = persistMutation.isPending;
-
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-      <PageHeader
-        title="Контроль активности"
-        description="Настройте дашборды активности сотрудников и доступ к панели задач"
-      />
-
-      {(employeesQuery.isError || pipelinesQuery.isError || linkQuery.isError) && (
-        <div className="rounded-md border border-warning-100 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          Часть справочников amoCRM не загрузилась. Можно продолжить работу, но некоторые списки
-          будут неполными.
-          <button
-            type="button"
-            className="ml-2 font-semibold underline underline-offset-2"
-            onClick={() => {
-              employeesQuery.refetch();
-              pipelinesQuery.refetch();
-              linkQuery.refetch();
-            }}
-          >
-            Повторить
-          </button>
-        </div>
+      {panels.data?.panels.length === 0 && (
+        <p className="py-8 text-center text-slate-500">Панелей пока нет. Создайте первую панель.</p>
       )}
-
+    </div>
+  );
+  return (
+    <>
+      <p className="text-xs text-slate-500">
+        Аккаунт amoCRM {scope.accountId} · Установка {scope.installationId}
+      </p>
       <Tabs
         items={[
-          {
-            value: 'panels',
-            label: 'Дашборды',
-            content: (
-              <PanelList
-                panels={settings.panels}
-                baseLink={linkQuery.data ?? ''}
-                accountId={accountId}
-                context={context!}
-                employees={employees}
-                busy={busy}
-                onCreate={() =>
-                  setEditor({ panel: createActivityPanel(linkQuery.data ?? ''), isNew: true })
-                }
-                onEdit={(panel) => setEditor({ panel, isNew: false })}
-                onDelete={setDeleteTarget}
-              />
-            ),
-          },
+          { value: 'panels', label: 'Панели активности', content },
           {
             value: 'tasks',
-            label: 'Панель задач',
-            content: taskDraft ? (
-              <TaskSettings
-                value={taskDraft}
-                initialValue={settings.tasks}
-                employees={employees}
-                busy={busy}
-                onChange={setTaskDraft}
-                onSave={saveTasks}
-              />
-            ) : null,
+            label: 'Панель задач виджета',
+            content: (
+              <div className="space-y-4">
+                {(tasks.error || directory.error) && (
+                  <Failure
+                    error={tasks.error || directory.error}
+                    reload={() => {
+                      void tasks.refetch();
+                      void directory.refetch();
+                    }}
+                  />
+                )}
+                {tasks.data && directory.data ? (
+                  <TaskPanelEditor
+                    bindingId={bindingId}
+                    key={scope.installationId}
+                    initial={tasks.data}
+                    directory={directory.data}
+                    saved={(value) => cache.setQueryData([...key, 'task-panel'], value)}
+                  />
+                ) : !tasks.error && !directory.error ? (
+                  <p role="status">Загрузка настроек…</p>
+                ) : null}
+              </div>
+            ),
           },
         ]}
       />
-
-      {editor && (
-        <ActivityPanelEditor
-          open
-          panel={editor.panel}
-          isNew={editor.isNew}
-          employees={employees}
-          pipelines={pipelines}
-          busy={busy}
-          onOpenChange={(open) => !open && setEditor(null)}
-          onSave={savePanel}
-          onConnectTelegram={connectTelegram}
-          onCheckTelegram={checkTelegram}
+      {editor && directory.data && (
+        <PanelEditor
+          key={editor.kind === 'edit' ? editor.panel.id : 'create'}
+          panel={editor.kind === 'edit' ? editor.panel : undefined}
+          directory={directory.data}
+          close={() => setEditor(null)}
+          save={async (input, commandId) => {
+            const result =
+              editor.kind === 'edit'
+                ? await bound.update(editor.panel.id, { ...input, revision: editor.panel.revision })
+                : await bound.create(input, commandId);
+            remember(result);
+            toast.success('Панель сохранена');
+          }}
         />
       )}
-
-      <Modal
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && !busy && setDeleteTarget(null)}
-        title="Удалить панель?"
-        description={`Панель «${deleteTarget?.panel_name ?? ''}» и её ссылка перестанут быть доступны.`}
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={busy}>
-              Отмена
-            </Button>
-            <Button variant="danger" onClick={deletePanel} loading={busy}>
-              Удалить
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-slate-600">Это действие нельзя отменить.</p>
-      </Modal>
+      {share && (
+        <Modal
+          open
+          title="Заменить ссылку доступа?"
+          onOpenChange={(open) => {
+            if (!open && !shareBusy) setShare(null);
+          }}
+          footer={
+            <>
+              <Button variant="secondary" disabled={shareBusy} onClick={() => setShare(null)}>
+                Отмена
+              </Button>
+              <Button disabled={shareBusy} onClick={() => void rotate()}>
+                Заменить ссылку
+              </Button>
+            </>
+          }
+        >
+          <p>
+            Старая ссылка перестанет работать. Новая будет показана один раз. После ошибки повтор
+            сохраняет ту же операцию.
+          </p>
+          {shareError != null && <Failure error={shareError} />}
+        </Modal>
+      )}
+    </>
+  );
+}
+function CompanyActivity({ companyId }: { companyId: string }) {
+  const connection = useQuery({
+    queryKey: ['activity-control', companyId, 'connection'],
+    queryFn: ({ signal }) => api.connection(signal),
+    retry: false,
+    staleTime: 0,
+  });
+  if (connection.isPending) return <p role="status">Проверка подключения Activity…</p>;
+  if (connection.error)
+    return <Failure error={connection.error} reload={() => void connection.refetch()} />;
+  if (connection.data.state !== 'configured')
+    return (
+      <div className="space-y-3 rounded-xl border border-slate-200 p-6">
+        <p>{connection.data.message}</p>
+        <Button variant="secondary" onClick={() => void connection.refetch()}>
+          Проверить подключение
+        </Button>
+      </div>
+    );
+  return (
+    <ConnectedActivity
+      key={`${companyId}:${connection.data.bindingId}`}
+      scope={connection.data.scope}
+      bindingId={connection.data.bindingId}
+    />
+  );
+}
+export function ActivityControlPage() {
+  useTitle('Контроль активности | TeamOS');
+  const company = useQuery({ queryKey: queryKeys.company, queryFn: authApi.getCompany });
+  return (
+    <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
+      <PageHeader
+        title="Контроль активности"
+        description="Общие настройки панелей Activity и виджета amoCRM"
+      />
+      <ProductNavigation />
+      {company.data ? (
+        <CompanyActivity key={company.data.id} companyId={company.data.id} />
+      ) : company.error ? (
+        <Failure error={company.error} />
+      ) : (
+        <p role="status">Загрузка компании…</p>
+      )}
+      <Link className="text-xs text-slate-500 underline" to="/legacy/ssd-activity">
+        Устаревшая версия SSD (отдельные настройки)
+      </Link>
     </div>
   );
 }
-
-export default ActivityControlPage;

@@ -21,6 +21,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e:academy
       - run: npm run e2e:task-control
+      - run: npm run e2e:activity
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
