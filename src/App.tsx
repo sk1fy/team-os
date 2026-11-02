@@ -211,6 +211,11 @@ const DistributionGroupPage = lazy(() =>
     default: module.DistributionGroupPage,
   })),
 );
+const LegacySSDActivityPage = lazy(() =>
+  import('@/pages/legacy-ssd-activity/ActivityControlPage').then((module) => ({
+    default: module.ActivityControlPage,
+  })),
+);
 const ActivityControlPage = lazy(() =>
   import('@/pages/activity-control/ActivityControlPage').then((module) => ({
     default: module.ActivityControlPage,
@@ -393,6 +398,14 @@ export function App() {
 
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route
+            path="/legacy/ssd-activity"
+            element={
+              <RequireIntegrationAccess>
+                <LegacySSDActivityPage />
+              </RequireIntegrationAccess>
+            }
+          />
           <Route
             path="/activity-control"
             element={

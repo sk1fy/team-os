@@ -1,3 +1,4 @@
+import { ProductNavigation } from '@/components/integrations/ProductNavigation';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTitle } from '@reactuses/core';
@@ -90,6 +91,25 @@ export function DistributionPage() {
           ) : undefined
         }
       />
+      <ProductNavigation />
+      {connections.data && (
+        <div className="rounded-lg border border-slate-200 p-4 text-sm">
+          <h2 className="font-semibold">Подключения amoCRM</h2>
+          {connections.data.length === 0 ? (
+            <p>
+              Нет подключённых установок. Обратитесь к администратору сервиса для подключения
+              amoCRM.
+            </p>
+          ) : (
+            connections.data.map((connection) => (
+              <p key={connection.bindingId}>
+                Аккаунт {connection.accountId} · Установка {connection.installationId} ·{' '}
+                {connection.state === 'active' ? 'Подключено' : 'Недоступно'}
+              </p>
+            ))
+          )}
+        </div>
+      )}
       {groups.isPending && <p role="status">Загружаем группы…</p>}
       {groups.isError && <Failure error={groups.error} retry={() => void groups.refetch()} />}
       {rules.isError && <Failure error={rules.error} retry={() => void rules.refetch()} />}
