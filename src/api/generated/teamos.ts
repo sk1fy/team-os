@@ -246,6 +246,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/distribution/rules/{ruleId}/observations/{observationId}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: components["schemas"]["ID"];
+                observationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        /** Получить доступных сотрудников и статус назначения */
+        get: operations["getDistributionObservationAssignment"];
+        put?: never;
+        /** Запустить ручное назначение из наблюдения */
+        post: operations["assignDistributionObservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/distribution/rules/{ruleId}/observations": {
         parameters: {
             query?: never;
@@ -5291,6 +5312,28 @@ export interface components {
             plannedResponsibleUserId: string | null;
             nextShiftAt: string | null;
         };
+        DistributionObservationAssignmentInput: {
+            requestId: components["schemas"]["ID"];
+            employeeId: components["schemas"]["ID"];
+            expectedResponsibleUserId: string;
+        };
+        DistributionObservationAssignment: {
+            requestId: components["schemas"]["ID"];
+            employeeId: components["schemas"]["ID"];
+            /** @enum {string} */
+            state: "waiting" | "dispatching" | "uncertain" | "confirmed" | "failed" | "cancelled" | "requires_configuration";
+            reason: string;
+        };
+        DistributionObservationAssignmentCandidate: {
+            employeeId: components["schemas"]["ID"];
+            crmUserId: string;
+            name: string;
+        };
+        DistributionObservationAssignmentOptions: {
+            currentResponsibleUserId: string;
+            candidates: components["schemas"]["DistributionObservationAssignmentCandidate"][];
+            assignment?: components["schemas"]["DistributionObservationAssignment"];
+        };
         DistributionRuntimeObservations: {
             hasMore?: boolean;
             /** Format: date-time */
@@ -9987,6 +10030,58 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getDistributionObservationAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: components["schemas"]["ID"];
+                observationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Параметры ручного назначения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionObservationAssignmentOptions"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    assignDistributionObservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: components["schemas"]["ID"];
+                observationId: components["schemas"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DistributionObservationAssignmentInput"];
+            };
+        };
+        responses: {
+            /** @description Состояние операции назначения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistributionObservationAssignment"];
+                };
+            };
             default: components["responses"]["Error"];
         };
     };

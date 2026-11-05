@@ -598,6 +598,47 @@ test('observe records separate real owner and proposal; mode transition keeps hi
     fullPage: true,
   });
 });
+test('observation assignment offers only current candidates and waits for CRM confirmation', async ({
+  page,
+}) => {
+  await fixture(page, { mode: 'observe' });
+  const alternativeId = '00000000-0000-4000-8000-000000000011';
+  let submitted:
+    { requestId: string; employeeId: string; expectedResponsibleUserId: string } | undefined;
+  let confirmed = false;
+  await page.route('**/rules/*/observations/*/assignment', async (route) => {
+    if (route.request().method() === 'POST') {
+      submitted = route.request().postDataJSON();
+      await route.fulfill({ json: { ...submitted, state: 'dispatching' } });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        currentResponsibleUserId: '66',
+        candidates: [
+          { employeeId, crmUserId: '55', name: 'Анна Пескова' },
+          { employeeId: alternativeId, crmUserId: '77', name: 'Никита' },
+        ],
+        assignment: submitted && { ...submitted, state: confirmed ? 'confirmed' : 'dispatching' },
+      },
+    });
+  });
+  await page.goto(`/distribution/${groupId}`);
+  const journal = page.getByRole('region', { name: 'Журнал наблюдений' });
+  await journal.getByRole('button', { name: 'Назначить', exact: true }).click();
+  const select = journal.getByRole('combobox', { name: 'Новый ответственный' });
+  await expect(select).toContainText('Анна Пескова');
+  await select.click();
+  await expect(page.getByRole('option')).toHaveCount(2);
+  await page.getByRole('option', { name: 'Никита', exact: true }).click();
+  await journal.getByRole('button', { name: 'Подтвердить назначение' }).click();
+  await expect(journal).toContainText('Назначение ожидает подтверждения amoCRM.');
+  expect(submitted).toMatchObject({ employeeId: alternativeId, expectedResponsibleUserId: '66' });
+  confirmed = true;
+  await expect(journal).toContainText('amoCRM подтвердила назначение.');
+  await expect(journal).toContainText('Анна Пескова');
+});
+
 test('night observe at390 shows wait and source failure is an error, never empty success', async ({
   page,
 }) => {

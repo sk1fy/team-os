@@ -5,6 +5,7 @@ import { queryKeys } from '@/api/queryKeys';
 import { Badge, Button } from '@/components/ui';
 import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
+import { ObservationAssignmentControl } from './ObservationAssignmentControl';
 import { Failure, panelClass, useVisiblePolling, dateText, reasonText } from './runtimeShared';
 
 export function ExecutionModeNotice({
@@ -74,10 +75,12 @@ export function DistributionObservations({
   rule,
   users,
   timezone,
+  canAssign,
 }: {
   rule: Rule;
   users: User[];
   timezone?: string;
+  canAssign: boolean;
 }) {
   const [params, setParams] = useSearchParams();
   const raw = params.get('observationsOffset');
@@ -191,6 +194,14 @@ export function DistributionObservations({
                         <dd>{dateText(item.nextShiftAt, timezone)}</dd>
                       </div>
                     </dl>
+                    {canAssign && (
+                      <ObservationAssignmentControl
+                        ruleId={rule.id}
+                        observation={item}
+                        users={users}
+                        crmUsers={refs.error ? undefined : refs.data?.users}
+                      />
+                    )}
                     <details className="mt-3 break-all text-xs text-slate-500">
                       <summary>Версии и идентификаторы</summary>
                       <p>
