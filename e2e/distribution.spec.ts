@@ -635,7 +635,7 @@ test('observation assignment offers only current candidates and waits for CRM co
   await expect(journal).toContainText('Назначение ожидает подтверждения amoCRM.');
   expect(submitted).toMatchObject({ employeeId: alternativeId, expectedResponsibleUserId: '66' });
   confirmed = true;
-  await expect(journal).toContainText('amoCRM подтвердила назначение.');
+  await expect(journal.getByRole('status')).toHaveText('Никита. amoCRM подтвердила назначение.');
   await expect(journal).toContainText('Анна Пескова');
 });
 

@@ -79,12 +79,16 @@ export function ObservationAssignmentControl({
     (candidate) => candidate.employeeId === (selection ?? observation.plannedEmployeeId),
   );
   const assignedEmployee = users.find((user) => user.id === assignment?.employeeId);
+  const assignedName =
+    candidates.find((candidate) => candidate.employeeId === assignment?.employeeId)?.name ??
+    (assignedEmployee ? fullName(assignedEmployee) : undefined);
+  const currentOwnerKnown = /^[1-9][0-9]{0,18}$/.test(data?.currentResponsibleUserId ?? '');
 
   return (
     <div className="mt-3 space-y-2 rounded-md border border-slate-200 p-3 text-sm">
       {assignment ? (
         <p role="status">
-          {assignedEmployee ? `${fullName(assignedEmployee)}. ` : ''}
+          {assignedName ? `${assignedName}. ` : ''}
           {statusLabels[assignment.state] ?? 'Статус назначения уточняется.'}
         </p>
       ) : options.isPending ? (
@@ -115,12 +119,15 @@ export function ObservationAssignmentControl({
             ) : (
               <p>Сейчас нет сотрудников, которым можно передать сделку.</p>
             )}
+            {!currentOwnerKnown && (
+              <p>Назначение недоступно, пока amoCRM не вернёт текущего ответственного.</p>
+            )}
             <Button
               size="sm"
-              disabled={submit.isPending || (!uncertain && !chosen)}
+              disabled={submit.isPending || (!uncertain && (!chosen || !currentOwnerKnown))}
               onClick={() => {
                 if (uncertain) submit.mutate(uncertain);
-                else if (chosen)
+                else if (chosen && currentOwnerKnown)
                   submit.mutate({
                     requestId: crypto.randomUUID(),
                     employeeId: chosen.employeeId,

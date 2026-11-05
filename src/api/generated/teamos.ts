@@ -10054,6 +10054,10 @@ export interface operations {
                     "application/json": components["schemas"]["DistributionObservationAssignmentOptions"];
                 };
             };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -10082,6 +10086,12 @@ export interface operations {
                     "application/json": components["schemas"]["DistributionObservationAssignment"];
                 };
             };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
