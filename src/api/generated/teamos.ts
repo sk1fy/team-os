@@ -5282,6 +5282,8 @@ export interface components {
             timezone: string;
         };
         DistributionObservation: {
+            /** @description Ручное назначение для этого входа подтверждено. */
+            completed?: boolean;
             /** Format: int64 */
             bindingRevision?: number;
             sourceOccurredAt?: string | null;
@@ -10100,6 +10102,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
+                /** @description Исключить наблюдения по входам с подтверждённым ручным назначением. */
+                hideCompleted?: boolean;
             };
             header?: never;
             path: {

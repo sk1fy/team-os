@@ -9,6 +9,8 @@ const groupId = '00000000-0000-4000-8000-000000000001',
   bindingId = '00000000-0000-4000-8000-000000000003',
   queueId = '00000000-0000-4000-8000-000000000004',
   employeeId = '00000000-0000-4000-8000-000000000005';
+const observationId = '00000000-0000-4000-8000-000000000010';
+const failedObservationId = '00000000-0000-4000-8000-000000000013';
 async function chooseOption(page: Page, label: string, option: string) {
   await page.getByRole('combobox', { name: label, exact: true }).click();
   await page.getByRole('option', { name: option, exact: true }).click();
@@ -29,6 +31,7 @@ async function fixture(
     observationOutage?: boolean;
     observationMalformed?: boolean;
     observationFuture?: boolean;
+    observationAssignmentConfirmed?: () => boolean;
     night?: boolean;
     source?: 'creation' | 'digital_pipeline' | 'legacy_stage';
     timezoneStatus?: 'confirmed' | 'cached' | 'unavailable';
@@ -191,42 +194,65 @@ async function fixture(
       } else if (options.observationOutage) {
         status = 503;
         data = { error: { message: 'Источник наблюдений недоступен', status: 503 } };
-      } else
+      } else {
+        const observation = {
+          id: observationId,
+          ruleId,
+          groupId,
+          entryId: queueId,
+          eventId: queueId,
+          executionEpoch: 1,
+          ruleRevision: 1,
+          availabilityRevision: 1,
+          observationRevision: 1,
+          checkedAt: updated,
+          crmObservedAt: updated,
+          bindingRevision: 1,
+          sourceOccurredAt: updated,
+          sourceReceivedAt: updated,
+          decisionKind: options.observationFuture
+            ? 'future_decision'
+            : options.night
+              ? 'wait'
+              : 'assign',
+          reason: options.night ? 'no_available_members' : 'decision_ready',
+          leadId: '987',
+          currentResponsibleUserId: '66',
+          plannedEmployeeId: options.night ? null : employeeId,
+          plannedResponsibleUserId: options.night ? null : '55',
+          nextShiftAt: options.night ? '2026-10-03T10:00:00Z' : null,
+        };
+        const completed = options.observationAssignmentConfirmed?.();
+        const items =
+          completed === undefined
+            ? [observation]
+            : [
+                { ...observation, completed },
+                {
+                  ...observation,
+                  id: '00000000-0000-4000-8000-000000000012',
+                  eventId: '00000000-0000-4000-8000-000000000015',
+                  completed,
+                },
+                {
+                  ...observation,
+                  id: failedObservationId,
+                  entryId: '00000000-0000-4000-8000-000000000014',
+                  leadId: '988',
+                  completed: false,
+                },
+              ];
         data = {
-          items: [
-            {
-              id: '00000000-0000-4000-8000-000000000010',
-              ruleId,
-              groupId,
-              entryId: queueId,
-              eventId: queueId,
-              executionEpoch: 1,
-              ruleRevision: 1,
-              availabilityRevision: 1,
-              observationRevision: 1,
-              checkedAt: updated,
-              crmObservedAt: updated,
-              bindingRevision: 1,
-              sourceOccurredAt: updated,
-              sourceReceivedAt: updated,
-              decisionKind: options.observationFuture
-                ? 'future_decision'
-                : options.night
-                  ? 'wait'
-                  : 'assign',
-              reason: options.night ? 'no_available_members' : 'decision_ready',
-              leadId: '987',
-              currentResponsibleUserId: '66',
-              plannedEmployeeId: options.night ? null : employeeId,
-              plannedResponsibleUserId: options.night ? null : '55',
-              nextShiftAt: options.night ? '2026-10-03T10:00:00Z' : null,
-            },
-          ],
+          items:
+            url.searchParams.get('hideCompleted') === 'true' && completed
+              ? items.filter((item) => 'completed' in item && !item.completed)
+              : items,
           limit: 25,
           offset: Number(url.searchParams.get('offset') || 0),
           hasMore: false,
           checkedAt: updated,
         };
+      }
     } else if (path.endsWith(`/rules/${ruleId}`)) {
       if (options.modeConflict && !modeConflictTriggered && body?.executionMode) {
         modeConflictTriggered = true;
@@ -601,12 +627,18 @@ test('observe records separate real owner and proposal; mode transition keeps hi
 test('observation assignment offers only current candidates and waits for CRM confirmation', async ({
   page,
 }) => {
-  await fixture(page, { mode: 'observe' });
+  let confirmed = false;
+  await fixture(page, { mode: 'observe', observationAssignmentConfirmed: () => confirmed });
   const alternativeId = '00000000-0000-4000-8000-000000000011';
   let submitted:
     { requestId: string; employeeId: string; expectedResponsibleUserId: string } | undefined;
-  let confirmed = false;
   await page.route('**/rules/*/observations/*/assignment', async (route) => {
+    if (new URL(route.request().url()).pathname.endsWith(`/${failedObservationId}/assignment`)) {
+      await route.fulfill({
+        json: { candidates: [], assignment: { employeeId, state: 'failed' } },
+      });
+      return;
+    }
     if (route.request().method() === 'POST') {
       submitted = route.request().postDataJSON();
       await route.fulfill({ json: { ...submitted, state: 'dispatching' } });
@@ -625,7 +657,11 @@ test('observation assignment offers only current candidates and waits for CRM co
   });
   await page.goto(`/distribution/${groupId}`);
   const journal = page.getByRole('region', { name: 'Журнал наблюдений' });
-  await journal.getByRole('button', { name: 'Назначить', exact: true }).click();
+  const completedEntry = journal.getByRole('listitem').filter({ hasText: 'Сделка 987' });
+  const failedEntry = journal.getByRole('listitem').filter({ hasText: 'Сделка 988' });
+  await failedEntry.getByRole('button', { name: 'Назначить', exact: true }).click();
+  await expect(failedEntry.getByRole('status')).toContainText('Назначение не выполнено');
+  await completedEntry.first().getByRole('button', { name: 'Назначить', exact: true }).click();
   const select = journal.getByRole('combobox', { name: 'Новый ответственный' });
   await expect(select).toContainText('Анна Пескова');
   await select.click();
@@ -633,9 +669,24 @@ test('observation assignment offers only current candidates and waits for CRM co
   await page.getByRole('option', { name: 'Никита', exact: true }).click();
   await journal.getByRole('button', { name: 'Подтвердить назначение' }).click();
   await expect(journal).toContainText('Назначение ожидает подтверждения amoCRM.');
+  await expect(completedEntry).toHaveCount(2);
   expect(submitted).toMatchObject({ employeeId: alternativeId, expectedResponsibleUserId: '66' });
   confirmed = true;
-  await expect(journal.getByRole('status')).toHaveText('Никита. amoCRM подтвердила назначение.');
+  await expect(completedEntry).toHaveCount(0);
+  await expect(failedEntry.getByRole('status')).toContainText('Назначение не выполнено');
+
+  const showCompleted = journal.getByRole('checkbox', { name: 'Показать завершённые' });
+  await journal.getByText('Показать завершённые', { exact: true }).click();
+  await expect(completedEntry.getByText('Назначение подтверждено')).toHaveCount(2);
+  await expect(completedEntry.getByRole('button', { name: 'Назначить', exact: true })).toHaveCount(
+    0,
+  );
+  await page.reload();
+  await expect(showCompleted).toBeChecked();
+  await expect(completedEntry).toHaveCount(2);
+  await showCompleted.press('Space');
+  await expect(completedEntry).toHaveCount(0);
+  await expect(failedEntry).toBeVisible();
 });
 
 test('night observe at390 shows wait and source failure is an error, never empty success', async ({
