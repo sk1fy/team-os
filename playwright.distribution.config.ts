@@ -19,7 +19,6 @@ export default defineConfig({
       VITE_API_URL: 'http://127.0.0.1:4174/api/v1',
       VITE_API_MODE_AUTH: 'http',
       VITE_API_MODE_ORG: 'http',
-      VITE_ENABLE_OBSERVATION_ASSIGNMENT: 'true',
     },
   },
 });

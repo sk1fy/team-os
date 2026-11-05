@@ -194,7 +194,7 @@ export function DistributionObservations({
                         <dd>{dateText(item.nextShiftAt, timezone)}</dd>
                       </div>
                     </dl>
-                    {canAssign && import.meta.env.VITE_ENABLE_OBSERVATION_ASSIGNMENT === 'true' && (
+                    {canAssign && (
                       <ObservationAssignmentControl
                         ruleId={rule.id}
                         observation={item}
