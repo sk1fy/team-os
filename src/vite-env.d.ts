@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_API_MODE_ACADEMY?: 'http' | 'mock';
   readonly VITE_API_MODE_NOTIFICATIONS?: 'http' | 'mock';
   readonly VITE_API_MODE_SCHEDULE?: 'http' | 'mock';
+  readonly VITE_ENABLE_OBSERVATION_ASSIGNMENT?: 'true' | 'false';
   readonly VITE_API_MODE_DISTRIBUTION?: 'http' | 'mock';
   readonly VITE_RAKURS_ACTIVITY_API_URL?: string;
   readonly VITE_RAKURS_DUPLICATES_API_URL?: string;

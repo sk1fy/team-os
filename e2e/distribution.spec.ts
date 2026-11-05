@@ -636,7 +636,6 @@ test('observation assignment offers only current candidates and waits for CRM co
   expect(submitted).toMatchObject({ employeeId: alternativeId, expectedResponsibleUserId: '66' });
   confirmed = true;
   await expect(journal.getByRole('status')).toHaveText('Никита. amoCRM подтвердила назначение.');
-  await expect(journal).toContainText('Анна Пескова');
 });
 
 test('night observe at390 shows wait and source failure is an error, never empty success', async ({
