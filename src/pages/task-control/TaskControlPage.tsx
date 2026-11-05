@@ -1,5 +1,5 @@
 import { ProductNavigation } from '@/components/integrations/ProductNavigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
 import { queryKeys } from '@/api/queryKeys';
@@ -8,7 +8,6 @@ import {
   type TaskControlConnection,
   type TaskControlDraft,
   type TaskControlRule,
-  type TaskControlPublication,
 } from '@/api/taskControl';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui';
@@ -171,36 +170,24 @@ function RuleEditor({
     </article>
   );
 }
-function ConnectionEditor({
-  connection,
-  refresh,
-}: {
-  connection: TaskControlConnection;
-  refresh: () => Promise<unknown>;
-}) {
+function ConnectionEditor({ connection }: { connection: TaskControlConnection }) {
   const id = connection.scope.bindingId;
   const [draft, setDraft] = useState<TaskControlDraft>();
   const [rules, setRules] = useState<TaskControlRule[]>([]);
-  const [publications, setPublications] = useState<TaskControlPublication[]>([]);
-  const [proof, setProof] = useState('');
-  const [reason, setReason] = useState('');
+  const pendingSave = useRef<{ payload: string; requestId: string } | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const dirty = !!draft && JSON.stringify(rules) !== JSON.stringify(draft.rules);
   const active = connection.installation.state === 'installed' && connection.state === 'active';
-  const fences = {
-    expectedBindingRevision: connection.scope.bindingRevision,
-    expectedModeEpoch: connection.scope.modeEpoch,
-  };
   useEffect(() => {
     let current = true;
-    Promise.all([api.getTaskControlDraft(id), api.getTaskControlPublications(id)])
-      .then(([d, p]) => {
+    api
+      .getTaskControlDraft(id)
+      .then((saved) => {
         if (current) {
-          setDraft(d);
-          setRules(d.rules);
-          setPublications(p.items);
+          setDraft(saved);
+          setRules(saved.rules);
         }
       })
       .catch((e) => {
@@ -231,19 +218,14 @@ function ConnectionEditor({
       setBusy(false);
     }
   }
-  const latest = publications[0];
   return (
     <div className="space-y-5">
       <div className={box}>
         <h2 className="text-lg font-semibold">Правила аккаунта</h2>
         <p className="text-sm text-slate-600">
-          Режим: {connection.mode === 'managed' ? 'правила из TeamOS' : 'автономный в amoCRM'}.
-          Сохранение черновика не меняет работу виджета.
+          Виджет получает сохранённые правила из Team OS при следующем обновлении.
         </p>
-        <p className="text-sm text-slate-600">
-          В первой версии укажите ID из amoCRM. Существование пользователей и этапов пока не
-          сверяется автоматически.
-        </p>
+        <p className="text-sm text-slate-600">Укажите ID пользователей и этапов из amoCRM.</p>
         {error && (
           <p role="alert" className="text-danger-700">
             {error} Если версия изменилась, сохраните введённые данные и обновите страницу.
@@ -270,122 +252,34 @@ function ConnectionEditor({
         </Button>
         <div className="flex flex-wrap items-center gap-3">
           <Button
-            disabled={!dirty}
+            disabled={!dirty && !!notice}
             onClick={() =>
               run(async () => {
                 if (!draft) return;
-                const saved = await api.updateTaskControlDraft(id, {
-                  ...fences,
+                const input = {
+                  expectedBindingRevision: draft.scope.bindingRevision,
+                  expectedModeEpoch: draft.scope.modeEpoch,
                   expectedRevision: draft.revision,
                   rules,
+                };
+                const payload = JSON.stringify(input);
+                if (pendingSave.current?.payload !== payload) {
+                  pendingSave.current = { payload, requestId: crypto.randomUUID() };
+                }
+                const saved = await api.saveTaskControlRules(id, {
+                  ...input,
+                  applyRequestId: pendingSave.current.requestId,
                 });
+                pendingSave.current = undefined;
                 setDraft(saved);
                 setRules(saved.rules);
-                setNotice('Черновик сохранён. Для применения опубликуйте его.');
+                setNotice('Правила сохранены. Виджет получит их при следующем обновлении.');
               })
             }
           >
-            Сохранить черновик
+            Сохранить правила
           </Button>
-          <span className="text-sm text-slate-500">
-            {dirty ? 'Есть несохранённые изменения' : `Черновик №${draft?.revision ?? '—'}`}
-          </span>
-        </div>
-        <div className={box}>
-          <h2 className="text-lg font-semibold">Публикация</h2>
-          <p className="text-sm">
-            {latest
-              ? `Последняя версия: ${latest.version}. ${latest.rules.length} правил.`
-              : 'Опубликованных правил пока нет.'}{' '}
-            В режиме TeamOS новая публикация применяется виджетом при следующем обновлении правил.
-          </p>
-          <label className="block text-sm">
-            Комментарий к публикации
-            <input
-              className={field}
-              maxLength={1000}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
-          <Button
-            disabled={dirty || !draft || !reason.trim()}
-            onClick={() =>
-              run(async () => {
-                if (!draft) return;
-                const p = await api.publishTaskControlDraft(id, {
-                  ...fences,
-                  requestId: crypto.randomUUID(),
-                  expectedDraftRevision: draft.revision,
-                  expectedChecksum: draft.checksum,
-                  reason: reason.trim(),
-                });
-                setPublications((rows) => [p, ...rows.filter((old) => old.id !== p.id)]);
-                setReason('');
-                setNotice(
-                  'Версия опубликована. В автономном режиме правила amoCRM остаются прежними.',
-                );
-              })
-            }
-          >
-            Опубликовать сохранённый черновик
-          </Button>
-          {!!publications.length && (
-            <details>
-              <summary className="cursor-pointer text-sm">Последние публикации</summary>
-              <ul className="mt-3 space-y-2 text-sm">
-                {publications.map((p) => (
-                  <li key={p.id}>
-                    №{p.version} · {new Date(p.createdAt).toLocaleString('ru')} · {p.reason}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
-        <div className={box}>
-          <h2 className="text-lg font-semibold">Источник правил</h2>
-          <p className="text-sm text-slate-600">
-            Получите код переключения режима в настройках виджета amoCRM. Код действует 60 секунд.
-            После включения TeamOS отметьте соответствующую настройку виджета и нажмите основную
-            кнопку «Сохранить» в amoCRM. Для возврата сначала переключите режим здесь, затем
-            выключите TeamOS в виджете.
-          </p>
-          <label className="block text-sm">
-            Одноразовый код переключения
-            <input
-              className={field}
-              type="password"
-              autoComplete="off"
-              value={proof}
-              onChange={(e) => setProof(e.target.value)}
-            />
-          </label>
-          <Button
-            disabled={!latest || !proof.trim() || dirty}
-            onClick={() =>
-              run(async () => {
-                if (!latest) return;
-                const decoded = readProof(proof, 'mode', connection.scope.accountId);
-                await api.createTaskControlModeIntent(id, {
-                  ...fences,
-                  requestId: decoded.requestId,
-                  targetMode: connection.mode === 'managed' ? 'standalone' : 'managed',
-                  publicationId: latest.id,
-                  coreAssertion: proof.trim(),
-                });
-                setProof('');
-                await refresh();
-                setNotice(
-                  'Источник правил изменён. Завершите переключение в настройках виджета amoCRM.',
-                );
-              })
-            }
-          >
-            {connection.mode === 'managed'
-              ? 'Вернуть автономный режим'
-              : 'Использовать правила TeamOS'}
-          </Button>
+          <span className="text-sm text-slate-500">{dirty && 'Есть несохранённые изменения'}</span>
         </div>
       </fieldset>
     </div>
@@ -516,7 +410,6 @@ export function TaskControlPage() {
         <ConnectionEditor
           key={connection.scope.bindingId}
           connection={{ ...connection, installation: status.data ?? connection.installation }}
-          refresh={connections.refetch}
         />
       )}
     </div>

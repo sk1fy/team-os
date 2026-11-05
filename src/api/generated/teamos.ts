@@ -3991,8 +3991,8 @@ export interface paths {
         /** Черновик со всеми правилами и архивом */
         get: operations["getTaskControlDraft"];
         /**
-         * Атомарно заменить черновик по expectedRevision
-         * @description Контракт КТ-01.02; бизнес-реализация в КТ-01.03–12. companyId только из сессии; чужой binding возвращает 404. Запись требует текущий owner/admin и taskControl.manage. requestId при наличии: одинаковое нормализованное тело возвращает сохранённый результат, другое — 409.
+         * Сохранить правила по expectedRevision
+         * @description Без applyRequestId сохраняет черновик. С applyRequestId сохраняет и применяет правила в одной транзакции. Повтор с тем же телом возвращает сохранённый результат; повтор с другим телом возвращает 409.
          */
         put: operations["updateTaskControlDraft"];
         post?: never;
@@ -4302,7 +4302,10 @@ export interface paths {
         };
         /** Намерение выбора и диагностика черновика v2 */
         get: operations["getTaskControlDraftV2"];
-        /** Сохранить намерение по CAS */
+        /**
+         * Сохранить правила по expectedRevision
+         * @description Без applyRequestId сохраняет черновик. С applyRequestId сохраняет и применяет правила в одной транзакции. Повтор с тем же телом возвращает сохранённый результат; повтор с другим телом возвращает 409.
+         */
         put: operations["updateTaskControlDraftV2"];
         post?: never;
         delete?: never;
@@ -5021,6 +5024,11 @@ export interface components {
             updatedBy?: components["schemas"]["ID"];
         };
         TaskControlDraftInputV2: {
+            /**
+             * Format: uuid
+             * @description Ключ операции сохранения. При указании правила сохраняются и применяются атомарно.
+             */
+            applyRequestId?: string;
             /** Format: int64 */
             expectedBindingRevision: number;
             /** Format: int64 */
@@ -7811,6 +7819,11 @@ export interface components {
             updatedBy: components["schemas"]["ID"];
         };
         TaskControlDraftInput: {
+            /**
+             * Format: uuid
+             * @description Ключ операции сохранения. При указании правила сохраняются и применяются атомарно.
+             */
+            applyRequestId?: string;
             /** Format: int64 */
             expectedBindingRevision: number;
             /** Format: int64 */
@@ -14859,6 +14872,15 @@ export interface operations {
             409: components["responses"]["Conflict"];
             /** @description Конфигурация превышает допустимый размер */
             413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Для применения правил требуется свежий справочник CRM (references_unavailable) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
