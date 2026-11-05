@@ -217,6 +217,12 @@ export function DistributionGroupPage() {
             <DistributionObservations
               rule={rule}
               users={users.data ?? []}
+              canAssign={Boolean(
+                group?.active &&
+                rule.active &&
+                rule.executionMode === 'observe' &&
+                (actor.data?.role === 'owner' || actor.data?.role === 'admin'),
+              )}
               timezone={settings.data?.timezone}
             />
           )}

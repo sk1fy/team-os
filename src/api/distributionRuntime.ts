@@ -7,6 +7,9 @@ export interface Group extends DealDistributionGroup {
 type Schema = components['schemas'];
 export type Rule = Schema['DistributionRuntimeRule'];
 export type DistributionObservation = Schema['DistributionObservation'];
+export type ObservationAssignment = Schema['DistributionObservationAssignment'];
+export type ObservationAssignmentOptions = Schema['DistributionObservationAssignmentOptions'];
+export type ObservationAssignmentInput = Schema['DistributionObservationAssignmentInput'];
 export type Connection = Schema['DistributionConnection'];
 export type References = Schema['DistributionReferences'];
 export type Mapping = Schema['DistributionEmployeeMapping'];
@@ -34,7 +37,19 @@ function request<T>(path: string, method = 'GET', body?: unknown, signal?: Abort
     { retryInternalRefresh: method === 'GET' },
   );
 }
+function observationAssignmentPath(ruleId: string, observationId: string) {
+  return `/distribution/rules/${encodeURIComponent(ruleId)}/observations/${encodeURIComponent(observationId)}/assignment`;
+}
 export const distributionRuntimeApi = {
+  observationAssignment: (ruleId: string, observationId: string, signal?: AbortSignal) =>
+    request<ObservationAssignmentOptions>(
+      observationAssignmentPath(ruleId, observationId),
+      'GET',
+      undefined,
+      signal,
+    ),
+  assignObservation: (ruleId: string, observationId: string, body: ObservationAssignmentInput) =>
+    request<ObservationAssignment>(observationAssignmentPath(ruleId, observationId), 'POST', body),
   groups: (signal?: AbortSignal) =>
     request<Group[]>('/distribution/groups', 'GET', undefined, signal),
   createGroup: (body: Schema['CreateDistributionGroupInput']) =>
