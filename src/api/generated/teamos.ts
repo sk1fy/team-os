@@ -3992,7 +3992,7 @@ export interface paths {
         get: operations["getTaskControlDraft"];
         /**
          * Сохранить правила по expectedRevision
-         * @description Без applyRequestId сохраняет черновик. С applyRequestId сохраняет и применяет правила в одной транзакции. Повтор с тем же телом возвращает сохранённый результат; повтор с другим телом возвращает 409.
+         * @description Без applyRequestId сохраняет черновик. С applyRequestId сохраняет и применяет правила в одной транзакции. Повтор с тем же телом возвращает сохранённый результат. Повтор с другим телом возвращает 409.
          */
         put: operations["updateTaskControlDraft"];
         post?: never;
@@ -4304,7 +4304,7 @@ export interface paths {
         get: operations["getTaskControlDraftV2"];
         /**
          * Сохранить правила по expectedRevision
-         * @description Без applyRequestId сохраняет черновик. С applyRequestId сохраняет и применяет правила в одной транзакции. Повтор с тем же телом возвращает сохранённый результат; повтор с другим телом возвращает 409.
+         * @description Без applyRequestId сохраняет черновик. С applyRequestId сохраняет и применяет правила в одной транзакции. Повтор с тем же телом возвращает сохранённый результат. Повтор с другим телом возвращает 409.
          */
         put: operations["updateTaskControlDraftV2"];
         post?: never;
