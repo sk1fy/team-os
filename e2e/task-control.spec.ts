@@ -10,8 +10,13 @@ const scope = {
   product: 'task-control',
   modeEpoch: 1,
 };
-async function fixture(page: Page, state = 'installed', conflict = false) {
+async function fixture(
+  page: Page,
+  state = 'installed',
+  failure?: 'conflict' | 'lost-response' | 'stale-references',
+) {
   const calls: { path: string; method: string }[] = [];
+  const saves: { applyRequestId: string; expectedModeEpoch: number; rules: unknown[] }[] = [];
   let draft = {
     scope,
     revision: 1,
@@ -21,8 +26,7 @@ async function fixture(page: Page, state = 'installed', conflict = false) {
     updatedAt: new Date().toISOString(),
     updatedBy: id,
   };
-  const publications: unknown[] = [];
-  await page.route('**/api/v1/**', async (route) => {
+  await page.route('**/api/v*/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     const method = route.request().method();
     calls.push({ path, method });
@@ -66,52 +70,68 @@ async function fixture(page: Page, state = 'installed', conflict = false) {
       ];
     else if (path.endsWith('/draft')) {
       if (method === 'PUT') {
-        if (conflict) {
+        const input = route.request().postDataJSON();
+        const previous =
+          failure === 'lost-response' &&
+          saves.find((save) => save.applyRequestId === input.applyRequestId);
+        saves.push(input);
+        if (failure === 'conflict') {
           status = 409;
           data = { error: { message: 'Ревизия изменилась', status } };
-        } else {
-          draft = {
-            ...draft,
-            revision: draft.revision + 1,
-            rules: route.request().postDataJSON().rules,
+        } else if (failure === 'stale-references' && saves.length === 1) {
+          status = 503;
+          data = {
+            error: { message: 'Требуется свежий справочник CRM', code: 'references_unavailable' },
           };
+        } else {
+          if (!previous) {
+            draft = {
+              ...draft,
+              scope: { ...scope, modeEpoch: 2 },
+              revision: draft.revision + 1,
+              rules: input.rules,
+            };
+          }
+          if (failure === 'lost-response' && saves.length === 1) {
+            await route.abort();
+            return;
+          }
           data = draft;
         }
       } else data = draft;
-    } else if (path.endsWith('/publications')) {
-      if (method === 'POST') {
-        data = {
-          ...draft,
-          id,
-          version: 1,
-          draftRevision: draft.revision,
-          reason: route.request().postDataJSON().reason,
-          createdAt: new Date().toISOString(),
-          createdBy: id,
-        };
-        publications.unshift(data);
-      } else data = { items: publications };
+    } else if (path.includes('/references/refresh')) {
+      data = {
+        refreshId: id,
+        state: method === 'POST' ? 'pending' : 'completed',
+        errorCode: null,
+      };
+      if (method === 'POST') status = 202;
     }
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
   });
-  return calls;
+  return { calls, saves };
 }
 for (const width of [1440, 390])
-  test(`draft and publish ${width}px`, async ({ page }, info) => {
+  test(`save applies rules ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 1000 });
-    const calls = await fixture(page);
+    const { calls, saves } = await fixture(page);
     await page.goto('/task-control');
     await expect(page.getByText('Виджет установлен', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Добавить правило', exact: true }).click();
     await page.getByLabel('Название', { exact: true }).fill('Контроль новых сделок');
     await page.getByLabel('ID пользователей amoCRM (через запятую)').fill('42, 43');
     await page.getByLabel('Проверять покупателей', { exact: true }).check();
-    await page.getByRole('button', { name: 'Сохранить черновик', exact: true }).click();
-    await expect(page.getByText('Черновик сохранён.', { exact: false })).toBeVisible();
-    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1); // auth refresh only
-    await page.getByLabel('Комментарий к публикации').fill('Первый пилот');
-    await page.getByRole('button', { name: 'Опубликовать сохранённый черновик' }).click();
-    await expect(page.getByText('Последняя версия: 1.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Публикация' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Источник правил' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Сохранить правила', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Правила сохранены.');
+    expect(saves).toHaveLength(1);
+    expect(saves[0].applyRequestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(calls.some(({ path }) => /publications|mode-intents/.test(path))).toBe(false);
+    await page.getByLabel('Название', { exact: true }).fill('Контроль повторных сделок');
+    await page.getByRole('button', { name: 'Сохранить правила', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Правила сохранены.');
+    expect(saves[1].expectedModeEpoch).toBe(2);
     await page.screenshot({ path: info.outputPath(`task-control-${width}.png`), fullPage: true });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -132,12 +152,40 @@ for (const state of ['unknown', 'notInstalled'])
     ).toBeDisabled();
   });
 test('conflict retains user edits and does not repeat writes', async ({ page }) => {
-  const calls = await fixture(page, 'installed', true);
+  const { calls } = await fixture(page, 'installed', 'conflict');
   await page.goto('/task-control');
   await page.getByRole('button', { name: 'Добавить правило', exact: true }).click();
   await page.getByLabel('Название', { exact: true }).fill('Не потерять');
-  await page.getByRole('button', { name: 'Сохранить черновик', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить правила', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Ревизия изменилась');
   await expect(page.getByLabel('Название', { exact: true })).toHaveValue('Не потерять');
   expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
+});
+
+test('a manual retry reuses the save identity after a lost response', async ({ page }) => {
+  const { saves } = await fixture(page, 'installed', 'lost-response');
+  await page.goto('/task-control');
+  await page.getByRole('button', { name: 'Добавить правило' }).click();
+  await page.getByLabel('Название', { exact: true }).fill('Сохранить один раз');
+  const save = page.getByRole('button', { name: 'Сохранить правила' });
+  await save.click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await save.click();
+  await expect(page.getByRole('status')).toContainText('Правила сохранены.');
+  expect(saves).toHaveLength(2);
+  expect(saves[0].applyRequestId).toBe(saves[1].applyRequestId);
+});
+
+test('save refreshes stale CRM references and applies the same request', async ({ page }) => {
+  const { calls, saves } = await fixture(page, 'installed', 'stale-references');
+  await page.goto('/task-control');
+  await page.getByRole('button', { name: 'Добавить правило' }).click();
+  await page.getByLabel('Название', { exact: true }).fill('Правило с актуальными данными');
+  await page.getByRole('button', { name: 'Сохранить правила' }).click();
+  await expect(page.getByRole('status')).toContainText('Правила сохранены.');
+  expect(saves).toHaveLength(2);
+  expect(saves[0].applyRequestId).toBe(saves[1].applyRequestId);
+  expect(
+    calls.filter(({ path }) => path.includes('/references/refresh')).map(({ method }) => method),
+  ).toEqual(['POST', 'GET']);
 });

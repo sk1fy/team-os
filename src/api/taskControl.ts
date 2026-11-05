@@ -1,5 +1,5 @@
 // API Контроля задач. Записи не повторяются автоматически.
-import { httpRequest, jsonBody } from './client';
+import { ApiError, httpRequest, jsonBody } from './client';
 import type { operations, components } from './generated/teamos';
 
 export type TaskControlRule = components['schemas']['TaskControlRule'];
@@ -23,7 +23,40 @@ function request<T>(path: string, method: string, body?: unknown, signal?: Abort
   );
 }
 
+type SaveRulesInput =
+  operations['updateTaskControlDraft']['requestBody']['content']['application/json'] & {
+    applyRequestId: string;
+  };
+type ReferenceRefresh = components['schemas']['TaskControlReferenceRefresh'];
+
+async function refreshReferences(bindingId: string) {
+  const path = `/api/v2/task-control/connections/${encodeURIComponent(bindingId)}/references/refresh`;
+  const timeout = AbortSignal.timeout(30_000);
+  let refresh = await request<ReferenceRefresh>(path, 'POST', undefined, timeout);
+  const statusPath = `${path}/${encodeURIComponent(refresh.refreshId)}`;
+  while (refresh.state === 'pending' && !timeout.aborted) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    refresh = await request<ReferenceRefresh>(statusPath, 'GET', undefined, timeout);
+  }
+  if (refresh.state !== 'completed') {
+    throw new Error('Не удалось обновить справочники amoCRM. Повторите сохранение.');
+  }
+}
+
+async function saveTaskControlRules(bindingId: string, body: SaveRulesInput) {
+  const path = `/task-control/connections/${encodeURIComponent(bindingId)}/draft`;
+  const save = () => request<TaskControlDraft>(path, 'PUT', body);
+  try {
+    return await save();
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.code !== 'references_unavailable') throw error;
+  }
+  await refreshReferences(bindingId);
+  return save();
+}
+
 export const taskControlApi = {
+  saveTaskControlRules,
   getTaskControlConnections: (signal?: AbortSignal) =>
     request<Result<'getTaskControlConnections'>>(
       `/task-control/connections`,
