@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { distributionRuntimeApi as api, type Rule } from '@/api/distributionRuntime';
 import { queryKeys } from '@/api/queryKeys';
-import { Badge, Button } from '@/components/ui';
+import { Badge, Button, Checkbox } from '@/components/ui';
 import type { User } from '@/types';
 import { fullName } from '@/lib/labels';
 import { ObservationAssignmentControl } from './ObservationAssignmentControl';
@@ -85,6 +85,7 @@ export function DistributionObservations({
   const [params, setParams] = useSearchParams();
   const raw = params.get('observationsOffset');
   const offset = raw === null ? 0 : Number(raw);
+  const showCompleted = params.get('showCompleted') === '1';
   const valid = Number.isSafeInteger(offset) && offset >= 0 && offset <= 100000;
   const polling = useVisiblePolling();
   const refs = useQuery({
@@ -94,8 +95,9 @@ export function DistributionObservations({
     ...polling,
   });
   const observations = useQuery({
-    queryKey: queryKeys.distribution.runtime('observations', rule.id, offset),
-    queryFn: ({ signal }) => api.observations(rule.id, offset, signal),
+    queryKey: queryKeys.distribution.runtime('observations', rule.id, showCompleted, offset),
+    queryFn: ({ signal }) =>
+      api.observations({ ruleId: rule.id, offset, hideCompleted: !showCompleted }, signal),
     enabled: valid && rule.executionMode !== undefined,
     ...polling,
   });
@@ -105,6 +107,13 @@ export function DistributionObservations({
     else changed.delete('observationsOffset');
     setParams(changed);
   };
+  const changeCompleted = (checked: boolean) => {
+    const changed = new URLSearchParams(params);
+    if (checked) changed.set('showCompleted', '1');
+    else changed.delete('showCompleted');
+    changed.delete('observationsOffset');
+    setParams(changed);
+  };
   return (
     <section className={panelClass} aria-label="Журнал наблюдений">
       <h2 className="text-lg font-semibold">Журнал наблюдений</h2>
@@ -112,6 +121,14 @@ export function DistributionObservations({
         Каждая запись — предварительное решение на указанное время. Оно не подтверждает назначение.
         Ответственный в amoCRM и предлагаемый сотрудник — разные факты.
       </p>
+      {rule.executionMode !== undefined && (
+        <Checkbox
+          className="mt-3"
+          label="Показать завершённые"
+          checked={showCompleted}
+          onCheckedChange={changeCompleted}
+        />
+      )}
       {refs.error && (
         <p className="mt-3 text-sm text-warning-700">
           Имена пользователей amoCRM не удалось проверить. Записи наблюдения доступны независимо от
@@ -136,7 +153,11 @@ export function DistributionObservations({
       ) : observations.data ? (
         <>
           {observations.data.items.length === 0 ? (
-            <p className="mt-4 text-sm">В доступной области записей наблюдения пока нет.</p>
+            <p className="mt-4 text-sm">
+              {offset > 0
+                ? 'На этой странице нет доступных записей наблюдения.'
+                : 'В доступной области записей наблюдения пока нет.'}
+            </p>
           ) : (
             <ul className="mt-4 space-y-4">
               {observations.data.items.map((item) => {
@@ -145,6 +166,7 @@ export function DistributionObservations({
                   <li key={item.id} className="rounded-lg border border-slate-200 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium">Сделка {item.leadId}</p>
+                      {item.completed && <Badge variant="success">Назначение подтверждено</Badge>}
                       <Badge variant="neutral">
                         {item.decisionKind === 'assign'
                           ? 'Предложен получатель'
@@ -194,7 +216,7 @@ export function DistributionObservations({
                         <dd>{dateText(item.nextShiftAt, timezone)}</dd>
                       </div>
                     </dl>
-                    {canAssign && (
+                    {canAssign && !item.completed && (
                       <ObservationAssignmentControl
                         ruleId={rule.id}
                         observation={item}

@@ -90,9 +90,14 @@ export const distributionRuntimeApi = {
       undefined,
       signal,
     ),
-  observations: async (ruleId: string, offset: number, signal?: AbortSignal) => {
+  observations: async (
+    { ruleId, offset, hideCompleted }: { ruleId: string; offset: number; hideCompleted: boolean },
+    signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams({ limit: '25', offset: String(offset) });
+    if (hideCompleted) params.set('hideCompleted', 'true');
     const result = await request<Schema['DistributionRuntimeObservations']>(
-      `/distribution/rules/${encodeURIComponent(ruleId)}/observations?limit=25&offset=${offset}`,
+      `/distribution/rules/${encodeURIComponent(ruleId)}/observations?${params}`,
       'GET',
       undefined,
       signal,
@@ -112,6 +117,7 @@ export const distributionRuntimeApi = {
           typeof item.leadId !== 'string' ||
           typeof item.decisionKind !== 'string' ||
           typeof item.reason !== 'string' ||
+          (item.completed !== undefined && typeof item.completed !== 'boolean') ||
           typeof item.checkedAt !== 'string' ||
           Number.isNaN(Date.parse(item.checkedAt)),
       )

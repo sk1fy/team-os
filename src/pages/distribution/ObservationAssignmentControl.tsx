@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/api/client';
 import {
   distributionRuntimeApi as api,
@@ -36,6 +36,7 @@ export function ObservationAssignmentControl({
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState<string>();
   const [uncertain, setUncertain] = useState<ObservationAssignmentInput>();
+  const queryClient = useQueryClient();
   const options = useQuery({
     queryKey: queryKeys.distribution.runtime('observation-assignment', ruleId, observation.id),
     queryFn: ({ signal }) => api.observationAssignment(ruleId, observation.id, signal),
@@ -65,6 +66,16 @@ export function ObservationAssignmentControl({
       }
     },
   });
+  const data = options.data;
+  const assignment = data?.assignment ?? submit.data;
+  const confirmed = open && assignment?.state === 'confirmed';
+  useEffect(() => {
+    if (confirmed) {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.distribution.runtime('observations', ruleId),
+      });
+    }
+  }, [confirmed, queryClient, ruleId]);
   if (!open) {
     return (
       <Button size="sm" variant="secondary" className="mt-3" onClick={() => setOpen(true)}>
@@ -72,8 +83,6 @@ export function ObservationAssignmentControl({
       </Button>
     );
   }
-  const data = options.data;
-  const assignment = data?.assignment ?? submit.data;
   const candidates = data?.candidates ?? [];
   const chosen = candidates.find(
     (candidate) => candidate.employeeId === (selection ?? observation.plannedEmployeeId),
