@@ -24,6 +24,9 @@ const loaders: Record<string, () => Promise<unknown>> = {
   '/academy/learners': () => import('@/pages/academy/AcademyPlaceholderPage'),
   '/settings': () => import('@/pages/SettingsPage'),
   '/activity-control': () => import('@/pages/activity-control/ActivityControlPage'),
+  '/task-control': () => import('@/pages/task-control/TaskControlPage'),
+  '/notifications': () => import('@/pages/NotificationsPage'),
+  '/integrations': () => import('@/pages/integrations/CatalogPage'),
   '/duplicate-search': () => import('@/pages/duplicate-search/DuplicateSearchPage'),
 };
 

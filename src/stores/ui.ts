@@ -13,13 +13,12 @@ interface UiState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
 
-  /** Десктоп: свёрнут ли сайдбар до иконок. */
-  sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
-
-  /** Мобильный: открыт ли сайдбар-оверлей. */
-  mobileSidebarOpen: boolean;
-  setMobileSidebarOpen: (open: boolean) => void;
+  /**
+   * Узкие экраны: открыта ли навигация (рейл и панель раздела выезжают слева).
+   * На широких экранах навигация видна всегда.
+   */
+  navOpen: boolean;
+  setNavOpen: (open: boolean) => void;
 
   /** Глобальный фильтр по отделу (используется списками сотрудников/задач). */
   globalDepartmentId: string | null;
@@ -32,22 +31,16 @@ export const useUiStore = create<UiState>()(
       theme: 'light',
       setTheme: (theme) => set({ theme }),
 
-      sidebarCollapsed: false,
-      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-
-      mobileSidebarOpen: false,
-      setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
+      navOpen: false,
+      setNavOpen: (open) => set({ navOpen: open }),
 
       globalDepartmentId: null,
       setGlobalDepartmentId: (id) => set({ globalDepartmentId: id }),
     }),
     {
       name: 'teamos-ui',
-      // Эфемерное состояние (мобильный сайдбар) не персистим.
-      partialize: (state) => ({
-        theme: state.theme,
-        sidebarCollapsed: state.sidebarCollapsed,
-      }),
+      // Эфемерное состояние (открытая навигация) не персистим.
+      partialize: (state) => ({ theme: state.theme }),
     },
   ),
 );

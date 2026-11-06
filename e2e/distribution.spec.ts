@@ -524,6 +524,29 @@ test('queue group select applies a group and restores all groups', async ({ page
   );
 });
 
+test('section tabs show groups, journal and amoCRM connection from the API', async ({ page }) => {
+  await fixture(page, { mode: 'observe' });
+  await page.goto('/distribution?tab=groups');
+  await expect(page.getByRole('heading', { name: 'Новые заявки', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Создать группу' })).toBeVisible();
+  await page.goto('/distribution?tab=journal');
+  await expect(page.getByRole('combobox', { name: 'Группа', exact: true })).toContainText(
+    'Новые заявки',
+  );
+  await expect(page.getByRole('region', { name: 'Журнал наблюдений' })).toContainText('Сделка 987');
+  await expect(page.getByRole('button', { name: 'Создать группу' })).toHaveCount(0);
+  await page.goto('/distribution?tab=connection');
+  await expect(page.getByRole('heading', { name: 'Аккаунт amoCRM 123' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Связь подтверждена' }).first()).toBeVisible();
+  await page.goto('/distribution?tab=groups');
+  await page.getByRole('link', { name: 'Открыть группу Новые заявки' }).click();
+  await expect(page).toHaveURL(new RegExp(`/distribution/${groupId}$`));
+  await expect(page.getByRole('link', { name: '← Все группы' })).toHaveAttribute(
+    'href',
+    '/distribution?tab=groups',
+  );
+});
+
 test('source outage preserves draft', async ({ page }) => {
   const f = await fixture(page, { outage: true });
   await page.goto(`/distribution/${groupId}`);
@@ -779,7 +802,11 @@ test('denied replay keeps original unknown action and blocks replacement request
     page.getByRole('button', { name: 'Проверить результат', exact: true }),
   ).toBeDisabled();
   await page.keyboard.press('Escape');
-  await page.getByRole('link', { name: 'Открыть группу' }).click();
+  // Группы теперь на вкладке «Группы»; переход в группу без перезагрузки — из строки очереди.
+  await page
+    .getByRole('article', { name: 'Сделка №987' })
+    .getByRole('link', { name: 'Новые заявки', exact: true })
+    .click();
   await expect(page.getByRole('link', { name: '← Все группы' })).toBeVisible();
   await page.getByRole('tab', { name: 'Ожидают', exact: true }).click();
   await page.getByRole('button', { name: 'Сделка №987' }).click();
@@ -797,7 +824,9 @@ test('denied replay keeps original unknown action and blocks replacement request
 for (const screen of ['list', 'settings']) {
   test(`revoked group access hides cached ${screen} content`, async ({ page }) => {
     await fixture(page);
-    await page.goto(screen === 'settings' ? `/distribution/${groupId}` : '/distribution');
+    await page.goto(
+      screen === 'settings' ? `/distribution/${groupId}` : '/distribution?tab=groups',
+    );
     if (screen === 'settings') {
       await page.getByRole('button', { name: 'Настройки', exact: true }).click();
       await page.getByLabel('Название группы').fill('Закрытый черновик');
@@ -1054,12 +1083,23 @@ for (const width of [1280, 390]) {
     await expect(page.getByRole('article')).toContainText('сейчас никто не работает по графику');
     await expect(page.getByRole('article')).toContainText('максимум 3 дня');
     if (width === 390) {
+      // Заголовок страницы теперь в шапке каркаса (обрезается по ширине), а полное
+      // название длинной группы на телефоне показано в контенте над навигацией группы.
+      const groupName = 'Распределение новых обращений отдела продаж и сопровождения клиентов';
       const title = await page.getByRole('heading', { level: 1 }).boundingBox();
+      const fullName = await page
+        .getByRole('main')
+        .getByText(groupName, { exact: true })
+        .boundingBox();
       const navigation = await page
         .getByRole('button', { name: 'Очередь группы', exact: true })
         .boundingBox();
-      expect(title!.width).toBeGreaterThan(width - 80);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(groupName);
+      expect(title!.x).toBeGreaterThanOrEqual(0);
+      expect(title!.x + title!.width).toBeLessThanOrEqual(width);
+      expect(fullName!.width).toBeGreaterThan(width - 80);
       expect(navigation!.y).toBeGreaterThanOrEqual(title!.y + title!.height);
+      expect(navigation!.y).toBeGreaterThanOrEqual(fullName!.y + fullName!.height);
     }
     await page.setViewportSize({ width, height: width === 390 ? 2500 : 1800 });
     await page.screenshot({

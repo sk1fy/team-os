@@ -37,7 +37,7 @@ export function NotificationsPage() {
   const hasUnread = notifications?.some((n) => !n.read) ?? false;
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="max-w-[860px] px-4 pt-5 pb-14 sm:px-6">
       <PageHeader
         title="Уведомления"
         actions={
@@ -54,7 +54,7 @@ export function NotificationsPage() {
         }
       />
 
-      <div className="mt-6 space-y-2">
+      <div className="space-y-2">
         {isPending &&
           Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-16 animate-pulse rounded-lg bg-slate-200/60" />

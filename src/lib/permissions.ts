@@ -96,7 +96,10 @@ export function moduleForPath(pathname: string): AppModule | null {
   if (
     pathname.startsWith('/task-control') ||
     pathname.startsWith('/activity-control') ||
-    pathname.startsWith('/duplicate-search')
+    pathname.startsWith('/duplicate-search') ||
+    pathname.startsWith('/legacy/ssd-activity') ||
+    pathname === '/integrations' ||
+    pathname.startsWith('/integrations/')
   ) {
     return 'integrations';
   }

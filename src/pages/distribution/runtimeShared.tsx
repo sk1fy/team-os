@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState } from 'react';
 import { ApiError } from '@/api/client';
-import { Badge, Button } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { Pill, Problem, type PillTone } from './ui';
 export const isAccessDenied = (error: unknown) =>
   error instanceof ApiError && (error.status === 401 || error.status === 403);
 export function useVisiblePolling() {
@@ -27,7 +28,14 @@ export function useVisiblePolling() {
 }
 export function Failure({ error, retry }: { error: unknown; retry: () => void }) {
   return (
-    <div role="alert" className="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm">
+    <Problem
+      role="alert"
+      action={
+        <Button variant="secondary" size="sm" onClick={retry}>
+          Повторить загрузку
+        </Button>
+      }
+    >
       <p>
         {error instanceof ApiError && error.status === 403
           ? 'Нет прав для работы с распределением. Обратитесь к администратору.'
@@ -35,10 +43,7 @@ export function Failure({ error, retry }: { error: unknown; retry: () => void })
             ? error.message
             : 'Источник данных недоступен.'}
       </p>
-      <Button variant="secondary" size="sm" className="mt-3" onClick={retry}>
-        Повторить загрузку
-      </Button>
-    </div>
+    </Problem>
   );
 }
 export const reasonLabels: Record<string, string> = {
@@ -119,19 +124,13 @@ export function StateBadge({ state }: { state: string }) {
     needs_configuration: 'Требуется настройка',
     requires_configuration: 'Требуется настройка',
   };
-  return (
-    <Badge
-      variant={
-        ['confirmed', 'completed', 'succeeded', 'kept'].includes(state)
-          ? 'success'
-          : ['failed', 'error'].includes(state)
-            ? 'danger'
-            : 'neutral'
-      }
-    >
-      {labels[state] ?? 'Состояние уточняется'}
-    </Badge>
-  );
+  return <Pill tone={stateTone(state)}>{labels[state] ?? 'Состояние уточняется'}</Pill>;
+}
+export function stateTone(state: string): PillTone {
+  if (['confirmed', 'completed', 'succeeded', 'kept'].includes(state)) return 'green';
+  if (['failed', 'error'].includes(state)) return 'red';
+  if (['needs_configuration', 'requires_configuration', 'errors'].includes(state)) return 'amber';
+  return 'neutral';
 }
 export const dateText = (value: string | null | undefined, timezone?: string | null) => {
   if (!value || Number.isNaN(Date.parse(value))) return '—';
@@ -147,4 +146,3 @@ export const dateText = (value: string | null | undefined, timezone?: string | n
     return new Date(value).toISOString() + ' (часовой пояс недоступен)';
   }
 };
-export const panelClass = 'rounded-lg border border-slate-200 bg-surface p-5 shadow-card';

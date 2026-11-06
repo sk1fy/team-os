@@ -329,8 +329,17 @@ function OnboardingChecklist({
   );
 }
 
+const todayFormatter = new Intl.DateTimeFormat('ru-RU', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
 export function DashboardPage() {
   useTitle('Главная — TeamOS');
+  const todayText = todayFormatter.format(new Date());
+  const todayCaption = todayText.charAt(0).toUpperCase() + todayText.slice(1);
   const navigate = useNavigate();
   const { data: currentUser } = useQuery({
     queryKey: queryKeys.currentUser,
@@ -460,9 +469,14 @@ export function DashboardPage() {
     courseProgress.isPending;
 
   return (
-    <div className="relative mx-auto min-h-[calc(100vh-4rem)] max-w-7xl overflow-hidden p-6">
+    <div className="relative min-h-[calc(100vh-4.75rem)] max-w-[1360px] overflow-hidden px-4 pt-5 pb-14 sm:px-6">
+      <PageHeader
+        title={currentUser ? `Добрый день, ${currentUser.firstName}!` : 'Добрый день!'}
+        description={todayCaption}
+      />
       <div inert className="pointer-events-none select-none blur-[6px]" aria-hidden="true">
         <PageHeader
+          inline
           title={currentUser ? `Добрый день, ${currentUser.firstName}!` : 'Добрый день!'}
           description="Операционная сводка: риски, задачи, команда и база знаний."
           actions={

@@ -34,6 +34,7 @@ import {
   Select,
 } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { SectionContext, SectionContextHeading } from '@/components/layout/pageChrome';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { cn } from '@/lib/cn';
 import { canManageContent } from '@/lib/permissions';
@@ -139,8 +140,8 @@ function SectionBranch({
           className={cn(
             'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
             activeSectionId === section.id && !activeArticleId
-              ? 'bg-primary-50 text-primary-800 dark:bg-primary-950 dark:text-primary-100'
-              : 'text-slate-700 hover:bg-slate-100',
+              ? 'bg-surface font-semibold text-ink shadow-[0_0_0_1px_var(--color-slate-200),0_1px_2px_rgb(0_0_0/0.05)]'
+              : 'font-medium text-slate-700 hover:bg-slate-100',
           )}
         >
           <Folder className="size-4 shrink-0 text-primary-500" />
@@ -149,7 +150,7 @@ function SectionBranch({
       </div>
 
       {open && (
-        <div className="ml-5 space-y-1 border-l border-slate-100 pl-2">
+        <div className="ml-3 space-y-0.5 border-l border-slate-200 pl-1.5">
           {sectionArticles.map((article) => (
             <button
               key={article.id}
@@ -158,7 +159,7 @@ function SectionBranch({
               className={cn(
                 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                 activeArticleId === article.id
-                  ? 'bg-primary-50 text-primary-800 dark:bg-primary-950 dark:text-primary-100'
+                  ? 'bg-surface font-semibold text-ink shadow-[0_0_0_1px_var(--color-slate-200),0_1px_2px_rgb(0_0_0/0.05)]'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
               )}
             >
@@ -807,26 +808,24 @@ export function KnowledgePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-slate-200 bg-surface px-4 py-5 sm:px-6">
-        <PageHeader
-          title="База знаний"
-          description="Статьи, разделы, регламенты для ознакомления"
-          actions={
-            canEdit ? (
-              <>
-                <Button variant="secondary" onClick={() => setSectionDialog('create')}>
-                  <FolderPlus className="size-4" />
-                  Раздел
-                </Button>
-                <Button onClick={() => setArticleDrawer('create')}>
-                  <Plus className="size-4" />
-                  Статья
-                </Button>
-              </>
-            ) : undefined
-          }
-        />
-      </div>
+      <PageHeader
+        title="База знаний"
+        description="Статьи, разделы, регламенты для ознакомления"
+        actions={
+          canEdit ? (
+            <>
+              <Button variant="secondary" onClick={() => setSectionDialog('create')}>
+                <FolderPlus className="size-4" />
+                Раздел
+              </Button>
+              <Button onClick={() => setArticleDrawer('create')}>
+                <Plus className="size-4" />
+                Статья
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
 
       {isKnowledgeLoading ? (
         <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-sm text-slate-500">
@@ -851,9 +850,10 @@ export function KnowledgePage() {
           </div>
         </div>
       ) : (
-        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="flex min-h-0 min-w-0 flex-col border-r border-slate-200 bg-surface">
-            <div className="border-b border-slate-200 p-4">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Поиск и дерево разделов — в панели раздела слева (концепт C). */}
+          <SectionContext>
+            <div className="px-0.5 pb-1">
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -866,7 +866,8 @@ export function KnowledgePage() {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            {!search.trim() && <SectionContextHeading>Разделы</SectionContextHeading>}
+            <div className="pt-1">
               {search.trim() ? (
                 <div className="space-y-1">
                   {searchResults.map((article) => (
@@ -918,9 +919,9 @@ export function KnowledgePage() {
                 </div>
               )}
             </div>
-          </aside>
+          </SectionContext>
 
-          <main className="min-h-0 min-w-0 overflow-y-auto">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             {activeArticle ? (
               <article className="mx-auto grid min-w-0 max-w-6xl grid-cols-[minmax(0,1fr)] gap-6 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
@@ -1085,7 +1086,7 @@ export function KnowledgePage() {
                 Выберите раздел или статью.
               </div>
             )}
-          </main>
+          </div>
         </div>
       )}
 
