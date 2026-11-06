@@ -39,6 +39,11 @@ import { fullName, pluralRu } from '@/lib/labels';
 import { toast } from '@/stores/toast';
 import { Avatar, Button, Drawer, Textarea } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import {
+  SectionContext,
+  SectionContextHeading,
+  SectionContextItem,
+} from '@/components/layout/pageChrome';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { EmployeeDrawer } from '@/pages/employees/EmployeeDrawer';
@@ -78,12 +83,8 @@ const blockBadges: Partial<Record<ShiftType, { label: string; className: string 
   trip: { label: '✈️ Коман.', className: 'bg-[#EDE9FE] text-[#6D28D9]' },
 };
 
-const scheduleTabs = [
-  { value: 'schedule', label: 'График', disabled: false },
-  { value: 'stats', label: 'Статистика', disabled: true },
-] as const;
-
-type ScheduleTab = (typeof scheduleTabs)[number]['value'];
+/** Вкладки раздела показывает каркас слева; «Статистика» пока в разработке. */
+type ScheduleTab = 'schedule' | 'stats';
 
 const employeeColumnWidth = 270;
 const dayColumnWidth = 44;
@@ -451,7 +452,8 @@ export function SchedulePage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [activeTab, setActiveTab] = useState<ScheduleTab>('schedule');
+  const [activeTab] = useState<ScheduleTab>('schedule');
+  const [departmentFilter, setDepartmentFilter] = useState<ID | 'all'>('all');
   const [mode, setMode] = useState<'plan' | 'edit'>('plan');
   const [brush, setBrush] = useState<ShiftType>('work');
   const [drafts, setDrafts] = useState<Map<string, Draft>>(new Map());
@@ -634,6 +636,9 @@ export function SchedulePage() {
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [departmentsQuery.data, visibleUsers.map((u) => u.id).join(','), positionById]);
+  // Фильтр по отделу — в панели раздела слева; выбранного отдела может не стать после фильтров.
+  const shownGroups =
+    departmentFilter === 'all' ? groups : groups.filter((group) => group.id === departmentFilter);
 
   // Завершение «рисования» кистью при отпускании мыши где угодно.
   // Штрих не обнуляем — клик по ячейке приходит после mouseup и должен знать, красили ли мы.
@@ -799,39 +804,52 @@ export function SchedulePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* ===== Шапка: заголовок + toolbar как в макете ===== */}
-      <div className="border-b border-slate-200 bg-surface px-6 pt-5 pb-4">
+      {/* ===== Шапка (в каркасе) + toolbar ===== */}
+      <div className="px-4 pt-5 sm:px-6">
         <PageHeader
-          title="График работы"
+          title="График"
           description="В режиме «План» изменения сохраняются сразу, в «Правке» — публикуются одним действием."
         />
-
-        <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-surface shadow-card">
-          <div className="grid items-center gap-2 px-2.5 py-2.5 lg:grid-cols-[1fr_auto_1fr]">
-            <div className="inline-flex w-fit flex-wrap justify-self-start gap-1 rounded-md bg-surface-sunken p-1">
-              {scheduleTabs.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  disabled={tab.disabled}
-                  title={tab.disabled ? 'Раздел находится в разработке' : undefined}
-                  onClick={() => !tab.disabled && setActiveTab(tab.value)}
+        <SectionContext>
+          <SectionContextHeading>Отделы</SectionContextHeading>
+          {[
+            { id: 'all' as const, name: 'Все отделы', count: visibleUsers.length },
+            ...groups.map((group) => ({
+              id: group.id,
+              name: group.name,
+              count: group.users.length,
+            })),
+          ].map((item) => (
+            <SectionContextItem
+              key={item.id}
+              active={departmentFilter === item.id}
+              count={item.count}
+              onClick={() => setDepartmentFilter(item.id)}
+              icon={
+                <span
+                  aria-hidden="true"
                   className={cn(
-                    'rounded-[9px] px-2.5 py-1.5 text-[14px] font-semibold transition-colors',
-                    tab.disabled && 'cursor-not-allowed text-slate-300',
-                    activeTab === tab.value
-                      ? 'bg-surface text-primary-600 shadow-sm'
-                      : !tab.disabled && 'cursor-pointer text-slate-500 hover:text-slate-700',
+                    'size-2 shrink-0 rounded-full',
+                    item.id === 'all' ? 'bg-slate-300' : 'bg-primary-500',
                   )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+                />
+              }
+            >
+              {item.name}
+            </SectionContextItem>
+          ))}
+          {departmentFilter !== 'all' && !groups.some((group) => group.id === departmentFilter) && (
+            <p className="px-2.5 pt-1 text-xs text-slate-500">
+              В выбранном отделе нет сотрудников с текущими фильтрами.
+            </p>
+          )}
+        </SectionContext>
 
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-2.5">
             <div
               className={cn(
-                'flex flex-wrap items-center justify-self-center gap-1',
+                'flex flex-wrap items-center gap-1',
                 activeTab !== 'schedule' && 'hidden',
               )}
             >
@@ -857,7 +875,7 @@ export function SchedulePage() {
 
             <div
               className={cn(
-                'flex flex-wrap items-center justify-self-end gap-1',
+                'flex flex-wrap items-center gap-1',
                 activeTab !== 'schedule' && 'hidden',
               )}
             >
@@ -1048,7 +1066,7 @@ export function SchedulePage() {
       </div>
 
       {/* ===== Сетка ===== */}
-      <div className="min-h-0 flex-1 p-6">
+      <div className="min-h-0 flex-1 px-4 pt-4 pb-6 sm:px-6">
         {activeTab === 'stats' ? (
           <ScheduleStatsPanel
             stats={statsUsers}
@@ -1153,7 +1171,7 @@ export function SchedulePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map((group) => (
+                  {shownGroups.map((group) => (
                     <GroupRows
                       key={group.id}
                       group={group}

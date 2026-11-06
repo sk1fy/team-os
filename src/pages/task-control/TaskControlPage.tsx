@@ -1,291 +1,17 @@
-import { ProductNavigation } from '@/components/integrations/ProductNavigation';
-import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '@/api';
 import { queryKeys } from '@/api/queryKeys';
-import {
-  taskControlApi as api,
-  type TaskControlConnection,
-  type TaskControlDraft,
-  type TaskControlRule,
-} from '@/api/taskControl';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { Button } from '@/components/ui';
-import { crmIds, newRule, readProof } from './model';
+import { taskControlApi as api, type TaskControlConnection } from '@/api/taskControl';
+import { useSectionTab } from '@/components/layout/chromeSlots';
+import { useSectionTabCount } from '@/components/layout/tabCounts';
+import { readReferences } from './model';
+import type { TaskControlState } from './shared';
+import { TaskConnectionTab } from './TaskConnectionTab';
+import { TaskRulesTab } from './TaskRulesTab';
+import { useRulesDraft } from './useRulesDraft';
 
-const field = 'w-full rounded-md border border-slate-300 bg-surface px-3 py-2 text-sm';
-const box = 'rounded-xl border border-slate-200 bg-surface p-5 space-y-4';
-const labels = {
-  customers: 'Проверять покупателей',
-  showModal: 'Показывать окно создания задачи',
-  denyExit: 'Запрещать выход без задачи',
-  checkResponsible: 'Применять только к ответственному',
-  enabled: 'Правило включено',
-  archived: 'В архиве',
-} as const;
-function IDField({
-  label,
-  ids,
-  onChange,
-}: {
-  label: string;
-  ids: string[];
-  onChange: (ids: string[]) => void;
-}) {
-  const [value, setValue] = useState(ids.join(', '));
-  const [error, setError] = useState('');
-  useEffect(() => {
-    setValue((current) => {
-      try {
-        if (JSON.stringify(crmIds(current)) === JSON.stringify(ids)) return current;
-      } catch {
-        if (ids.length === 1 && ids[0] === current) return current;
-      }
-      return ids.join(', ');
-    });
-  }, [ids]);
-  return (
-    <label className="block space-y-1 text-sm">
-      {label}
-      <input
-        className={field}
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          try {
-            const next = crmIds(e.target.value);
-            setError('');
-            onChange(next);
-          } catch (error) {
-            onChange([e.target.value]);
-            setError((error as Error).message);
-          }
-        }}
-        aria-invalid={!!error}
-      />
-      {error && <span className="text-danger-700">{error}</span>}
-    </label>
-  );
-}
-function RuleEditor({
-  rule,
-  update,
-  remove,
-}: {
-  rule: TaskControlRule;
-  update: (r: TaskControlRule) => void;
-  remove: () => void;
-}) {
-  return (
-    <article className={box}>
-      <div className="flex items-center gap-3">
-        <label className="flex-1 text-sm">
-          Название
-          <input
-            className={field}
-            value={rule.name}
-            maxLength={200}
-            onChange={(e) => update({ ...rule, name: e.target.value })}
-          />
-        </label>
-        <Button variant="ghost" onClick={remove}>
-          Удалить
-        </Button>
-      </div>
-      <IDField
-        label="ID пользователей amoCRM (через запятую)"
-        ids={rule.users}
-        onChange={(users) => update({ ...rule, users })}
-      />
-      <div className="space-y-3">
-        <p className="text-sm font-medium">Воронки и этапы сделок</p>
-        {rule.pipelines.map((p, i) => (
-          <div className="grid gap-3 sm:grid-cols-[1fr_2fr_auto]" key={i}>
-            <label className="text-sm">
-              ID воронки
-              <input
-                className={field}
-                inputMode="numeric"
-                value={p.pipelineId}
-                onChange={(e) =>
-                  update({
-                    ...rule,
-                    pipelines: rule.pipelines.map((row, j) =>
-                      j === i ? { ...row, pipelineId: e.target.value } : row,
-                    ),
-                  })
-                }
-              />
-            </label>
-            <IDField
-              label="ID этапов"
-              ids={p.statusIds}
-              onChange={(statusIds) =>
-                update({
-                  ...rule,
-                  pipelines: rule.pipelines.map((row, j) =>
-                    j === i ? { ...row, statusIds } : row,
-                  ),
-                })
-              }
-            />
-            <Button
-              variant="ghost"
-              onClick={() =>
-                update({ ...rule, pipelines: rule.pipelines.filter((_, j) => j !== i) })
-              }
-            >
-              Убрать
-            </Button>
-          </div>
-        ))}
-        <Button
-          variant="secondary"
-          onClick={() =>
-            update({ ...rule, pipelines: [...rule.pipelines, { pipelineId: '', statusIds: [] }] })
-          }
-        >
-          Добавить воронку
-        </Button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {(Object.keys(labels) as (keyof typeof labels)[]).map((key) => (
-          <label key={key} className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={rule[key]}
-              onChange={(e) => update({ ...rule, [key]: e.target.checked })}
-            />
-            {labels[key]}
-          </label>
-        ))}
-      </div>
-      {rule.customers && (
-        <IDField
-          label="ID статусов покупателей (пусто — все статусы)"
-          ids={rule.customerStatuses}
-          onChange={(customerStatuses) => update({ ...rule, customerStatuses })}
-        />
-      )}
-    </article>
-  );
-}
-function ConnectionEditor({ connection }: { connection: TaskControlConnection }) {
-  const id = connection.scope.bindingId;
-  const [draft, setDraft] = useState<TaskControlDraft>();
-  const [rules, setRules] = useState<TaskControlRule[]>([]);
-  const pendingSave = useRef<{ payload: string; requestId: string } | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const dirty = !!draft && JSON.stringify(rules) !== JSON.stringify(draft.rules);
-  const active = connection.installation.state === 'installed' && connection.state === 'active';
-  useEffect(() => {
-    let current = true;
-    api
-      .getTaskControlDraft(id)
-      .then((saved) => {
-        if (current) {
-          setDraft(saved);
-          setRules(saved.rules);
-        }
-      })
-      .catch((e) => {
-        if (current) setError(e.message);
-      });
-    return () => {
-      current = false;
-    };
-  }, [id]);
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
-  async function run(action: () => Promise<void>) {
-    setBusy(true);
-    setError('');
-    setNotice('');
-    try {
-      await action();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="space-y-5">
-      <div className={box}>
-        <h2 className="text-lg font-semibold">Правила аккаунта</h2>
-        <p className="text-sm text-slate-600">
-          Виджет получает сохранённые правила из Team OS при следующем обновлении.
-        </p>
-        <p className="text-sm text-slate-600">Укажите ID пользователей и этапов из amoCRM.</p>
-        {error && (
-          <p role="alert" className="text-danger-700">
-            {error} Если версия изменилась, сохраните введённые данные и обновите страницу.
-          </p>
-        )}
-        {notice && (
-          <p role="status" className="text-success-700">
-            {notice}
-          </p>
-        )}
-        {!draft && !error && <p>Загрузка правил…</p>}
-      </div>
-      <fieldset disabled={!active || busy || !draft} className="space-y-4 disabled:opacity-60">
-        {rules.map((rule, i) => (
-          <RuleEditor
-            key={rule.ruleUid}
-            rule={rule}
-            update={(r) => setRules((rows) => rows.map((old, j) => (i === j ? r : old)))}
-            remove={() => setRules((rows) => rows.filter((_, j) => i !== j))}
-          />
-        ))}
-        <Button variant="secondary" onClick={() => setRules((rows) => [...rows, newRule()])}>
-          Добавить правило
-        </Button>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            disabled={!dirty && !!notice}
-            onClick={() =>
-              run(async () => {
-                if (!draft) return;
-                const input = {
-                  expectedBindingRevision: draft.scope.bindingRevision,
-                  expectedModeEpoch: draft.scope.modeEpoch,
-                  expectedRevision: draft.revision,
-                  rules,
-                };
-                const payload = JSON.stringify(input);
-                if (pendingSave.current?.payload !== payload) {
-                  pendingSave.current = { payload, requestId: crypto.randomUUID() };
-                }
-                const saved = await api.saveTaskControlRules(id, {
-                  ...input,
-                  applyRequestId: pendingSave.current.requestId,
-                });
-                pendingSave.current = undefined;
-                setDraft(saved);
-                setRules(saved.rules);
-                setNotice('Правила сохранены. Виджет получит их при следующем обновлении.');
-              })
-            }
-          >
-            Сохранить правила
-          </Button>
-          <span className="text-sm text-slate-500">{dirty && 'Есть несохранённые изменения'}</span>
-        </div>
-      </fieldset>
-    </div>
-  );
-}
 export function TaskControlPage() {
+  const tab = useSectionTab(['rules', 'connection'] as const, 'rules');
   const company = useQuery({ queryKey: queryKeys.company, queryFn: authApi.getCompany });
   const account = company.data?.amoAccountId?.trim() ?? '';
   const status = useQuery({
@@ -300,118 +26,62 @@ export function TaskControlPage() {
     enabled: !!account,
     retry: false,
   });
-  const [proof, setProof] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
   const connection = connections.data?.find(
     (c) => c.scope.accountId === account && c.state === 'active',
   );
-  const installed = status.data?.state === 'installed';
+  const state: TaskControlState = {
+    company,
+    account,
+    status,
+    connections,
+    connection,
+    installed: status.data?.state === 'installed',
+  };
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
-      <PageHeader
-        title="Контроль задач"
-        description="Правила для amoCRM. Проверка задач выполняется внутри виджета."
+    <div className="max-w-[1360px] px-4 pt-5 pb-14 sm:px-6">
+      <Workspace
+        key={connection?.scope.bindingId ?? 'none'}
+        tab={tab}
+        state={state}
+        connection={
+          connection && { ...connection, installation: status.data ?? connection.installation }
+        }
       />
-      <ProductNavigation />
-      {connection && (
-        <p className="text-xs text-slate-500">
-          Компания {connection.scope.companyId} · Установка {connection.scope.installationId}
-        </p>
-      )}
-      <section className={box}>
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="font-semibold">Аккаунт amoCRM {account || 'не подключён'}</h2>
-          <Button
-            variant="secondary"
-            disabled={!account || status.isFetching}
-            onClick={() => {
-              void status.refetch();
-              void connections.refetch();
-            }}
-          >
-            Обновить статус
-          </Button>
-        </div>
-        {company.isPending ? (
-          <p>Загрузка аккаунта…</p>
-        ) : company.isError ? (
-          <p role="alert">Не удалось загрузить аккаунт.</p>
-        ) : !account ? (
-          <p>Подключите аккаунт amoCRM в настройках компании.</p>
-        ) : status.isPending ? (
-          <p>Проверяем установку…</p>
-        ) : (
-          <p className={installed ? 'text-success-700' : 'text-slate-500'}>
-            {installed
-              ? 'Виджет установлен'
-              : status.data?.state === 'notInstalled'
-                ? 'Виджет не установлен. Интеграция неактивна.'
-                : 'Статус установки неизвестен. Проверьте связь с Core и обновите статус.'}
-          </p>
-        )}
-        {(status.error || connections.error) && (
-          <p role="alert" className="text-danger-700">
-            {(status.error || connections.error)?.message}
-          </p>
-        )}
-      </section>
-      {installed && !connection && connections.isSuccess && (
-        <section className={box}>
-          <h2 className="text-lg font-semibold">Подключить правила TeamOS</h2>
-          <p className="text-sm text-slate-600">
-            В настройках «Контроля задач» в amoCRM получите код подключения и вставьте его сюда в
-            течение 60 секунд. Нужны права администратора amoCRM и TeamOS. Автономные правила при
-            подключении не меняются.
-          </p>
-          <label className="block text-sm">
-            Код подключения
-            <input
-              type="password"
-              autoComplete="off"
-              className={field}
-              value={proof}
-              onChange={(e) => setProof(e.target.value)}
-            />
-          </label>
-          {error && (
-            <p role="alert" className="text-danger-700">
-              {error}
-            </p>
-          )}
-          <Button
-            disabled={busy || !proof.trim()}
-            onClick={async () => {
-              setBusy(true);
-              setError('');
-              try {
-                const p = readProof(proof, 'link', account);
-                await api.createTaskControlLinkIntent({
-                  intentId: p.requestId,
-                  installationId: p.installationId,
-                  integrationId: p.integrationId,
-                  accountId: account,
-                  coreAssertion: proof.trim(),
-                });
-                setProof('');
-                await connections.refetch();
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Подключить
-          </Button>
-        </section>
-      )}
-      {connection && (
-        <ConnectionEditor
-          key={connection.scope.bindingId}
-          connection={{ ...connection, installation: status.data ?? connection.installation }}
-        />
-      )}
     </div>
+  );
+}
+
+/**
+ * Черновик правил живёт выше вкладок: переход на «Подключение» и обратно не теряет
+ * несохранённые правки. Новое подключение (другой bindingId) начинает с чистого состояния.
+ */
+function Workspace({
+  tab,
+  state,
+  connection,
+}: {
+  tab: 'rules' | 'connection';
+  state: TaskControlState;
+  connection: TaskControlConnection | undefined;
+}) {
+  const editor = useRulesDraft(connection);
+  useSectionTabCount('rules', editor.draft ? editor.rules.length : undefined);
+  const bindingId = connection?.scope.bindingId ?? '';
+  const references = useQuery({
+    queryKey: ['task-control', state.company.data?.id, 'references', bindingId],
+    queryFn: ({ signal }) => api.getTaskControlReferences(bindingId, signal),
+    select: readReferences,
+    enabled: !!bindingId,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+  return tab === 'connection' ? (
+    <TaskConnectionTab state={state} />
+  ) : (
+    <TaskRulesTab
+      state={state}
+      editor={editor}
+      references={{ data: references.data, loading: references.isPending && !!bindingId }}
+    />
   );
 }

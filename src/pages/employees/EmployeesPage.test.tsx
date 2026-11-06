@@ -22,8 +22,8 @@ describe('EmployeesPage', () => {
     expect(html).not.toContain('Настроить сотрудников в графике');
     expect(html).toContain('Последний вход');
     expect(html).toContain('Активен');
-    expect(html).toContain('Тариф и доступ');
-    expect(html).toContain('Оргструктура');
-    expect(html).toContain('disabled=""');
+    // Вкладки раздела (в т. ч. «Оргструктура») теперь в панели раздела каркаса,
+    // а «Тариф и доступ» — в Настройках.
+    expect(html).not.toContain('Тариф и доступ');
   });
 });

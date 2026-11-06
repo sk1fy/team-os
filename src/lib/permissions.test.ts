@@ -159,6 +159,16 @@ describe('module matrix', () => {
     expect(moduleForPath('/learn/enr-1')).toBe('academy');
     expect(moduleForPath('/activity-control')).toBe('integrations');
     expect(moduleForPath('/employees/u-1')).toBe('employees');
+    expect(moduleForPath('/integrations')).toBe('integrations');
+    expect(moduleForPath('/integrations/whatsapp')).toBe('integrations');
+    expect(moduleForPath('/integrationsx')).toBeNull();
+  });
+
+  it('каталог виджетов закрыт для сотрудника и партнёра', () => {
+    expect(canAccessRoute('owner', '/integrations')).toBe(true);
+    expect(canAccessRoute('admin', '/integrations/whatsapp')).toBe(true);
+    expect(canAccessRoute('employee', '/integrations', ['schedule', 'distribution'])).toBe(false);
+    expect(canAccessRoute('partner', '/integrations')).toBe(false);
   });
 
   it('partner не проходит canAccessRoute на сотрудников и задачи', () => {

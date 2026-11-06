@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { UserPlus } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/api/client';
 import {
@@ -79,6 +80,7 @@ export function ObservationAssignmentControl({
   if (!open) {
     return (
       <Button size="sm" variant="secondary" className="mt-3" onClick={() => setOpen(true)}>
+        <UserPlus className="size-4" aria-hidden="true" />
         Назначить
       </Button>
     );
@@ -94,20 +96,22 @@ export function ObservationAssignmentControl({
   const currentOwnerKnown = /^[1-9][0-9]{0,18}$/.test(data?.currentResponsibleUserId ?? '');
 
   return (
-    <div className="mt-3 space-y-2 rounded-md border border-slate-200 p-3 text-sm">
+    <div className="mt-3 max-w-xl space-y-2.5 rounded-[10px] border border-slate-200 bg-surface-muted p-3.5 text-sm text-ink">
       {assignment ? (
         <p role="status">
           {assignedName ? `${assignedName}. ` : ''}
           {statusLabels[assignment.state] ?? 'Статус назначения уточняется.'}
         </p>
       ) : options.isPending ? (
-        <p role="status">Проверяем доступных сотрудников…</p>
+        <p role="status" className="text-slate-500">
+          Проверяем доступных сотрудников…
+        </p>
       ) : options.error ? (
         <Failure error={options.error} retry={() => void options.refetch()} />
       ) : (
         data && (
           <>
-            <p>
+            <p className="text-slate-600 dark:text-slate-300">
               Текущий ответственный в amoCRM:{' '}
               {crmUsers?.find(({ id }) => id === data.currentResponsibleUserId)?.name ||
                 data.currentResponsibleUserId ||
@@ -129,7 +133,9 @@ export function ObservationAssignmentControl({
               <p>Сейчас нет сотрудников, которым можно передать сделку.</p>
             )}
             {!currentOwnerKnown && (
-              <p>Назначение недоступно, пока amoCRM не вернёт текущего ответственного.</p>
+              <p className="text-warning-700 dark:text-amber-300">
+                Назначение недоступно, пока amoCRM не вернёт текущего ответственного.
+              </p>
             )}
             <Button
               size="sm"
@@ -149,7 +155,11 @@ export function ObservationAssignmentControl({
           </>
         )
       )}
-      {submit.error && !assignment && <p role="alert">{submit.error.message}</p>}
+      {submit.error && !assignment && (
+        <p role="alert" className="text-danger-700 dark:text-red-300">
+          {submit.error.message}
+        </p>
+      )}
     </div>
   );
 }

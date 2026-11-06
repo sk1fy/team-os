@@ -105,7 +105,7 @@ for (const width of [1440, 390])
     const calls = await fixture(page);
     await page.goto('/activity-control');
     await expect(
-      page.getByRole('heading', { name: 'Контроль активности', exact: true }),
+      page.getByRole('heading', { name: 'Дашборды', exact: true, level: 1 }),
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Отдел продаж' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Открыть панель' })).toHaveCount(0);
@@ -120,9 +120,15 @@ for (const width of [1440, 390])
       'https://panel.example.invalid/#/view?key=issued',
     );
     await page.screenshot({ path: info.outputPath(`panels-${width}.png`), fullPage: true });
-    await page.getByRole('tab', { name: 'Панель задач виджета' }).click();
+    await page.goto('/activity-control?tab=task-panel');
+    await expect(
+      page.getByRole('heading', { name: 'Панель задач', exact: true, level: 1 }),
+    ).toBeVisible();
     await page.getByRole('switch', { name: 'Учитывать будущие задачи' }).click();
-    await page.getByRole('button', { name: 'Сохранить настройки' }).click();
+    await page
+      .getByRole('region', { name: 'Несохранённые изменения' })
+      .getByRole('button', { name: 'Сохранить', exact: true })
+      .click();
     await expect(page.getByRole('switch', { name: 'Учитывать будущие задачи' })).toBeChecked();
     expect(
       calls
@@ -146,6 +152,16 @@ test('unconfigured connection makes no settings requests', async ({ page }) => {
   const calls = await fixture(page, 'unconfigured');
   await page.goto('/activity-control');
   await expect(page.getByText('Activity ещё не подключена')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Открыть подключение' })).toHaveAttribute(
+    'href',
+    '/activity-control?tab=connection',
+  );
+  await page.goto('/activity-control?tab=connection');
+  await expect(page.getByText('Activity ещё не подключена')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Устаревшая версия SSD/ })).toHaveAttribute(
+    'href',
+    '/legacy/ssd-activity',
+  );
   expect(calls.some((c) => c.path.includes('/activity-control/panels'))).toBe(false);
 });
 
@@ -166,10 +182,12 @@ test('ambiguous creation reuses the original payload and command', async ({ page
     });
   });
   await page.goto('/activity-control');
-  await page.getByRole('button', { name: 'Новая панель', exact: true }).click();
+  await page.getByRole('button', { name: 'Новый дашборд', exact: true }).click();
   await page.getByLabel('Название панели').fill('Повтор команды');
-  await page.getByRole('checkbox', { name: 'Анна Тестовая Продажи' }).check();
+  await page.getByRole('tab', { name: 'Сотрудники' }).click();
+  await page.getByRole('checkbox', { name: 'Анна Тестовая', exact: true }).check();
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.getByRole('tab', { name: 'Общие' }).click();
   await expect(page.getByLabel('Название панели')).toBeDisabled();
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await expect(page.getByText('Источник недоступен')).toBeVisible();
@@ -196,10 +214,11 @@ test('distribution-only employee sees only allowed product links', async ({ page
     }),
   );
   await page.goto('/distribution');
-  const navigation = page.getByRole('navigation', { name: 'Продукты amoCRM' });
-  await expect(navigation.getByRole('link', { name: 'Распределение сделок' })).toBeVisible();
-  await expect(navigation.getByRole('link', { name: 'Контроль активности' })).toHaveCount(0);
-  await expect(navigation.getByRole('link', { name: 'Контроль задач' })).toHaveCount(0);
+  // Навигация по продуктам теперь в каркасе (рейл и панель раздела): ссылки на
+  // недоступные продукты не должны появляться нигде на странице.
+  await expect(page.locator('a[href^="/distribution"]').first()).toBeVisible();
+  await expect(page.locator('a[href^="/activity-control"]')).toHaveCount(0);
+  await expect(page.locator('a[href^="/task-control"]')).toHaveCount(0);
 });
 
 test('expired mutation offers the existing login route without replay', async ({ page }) => {

@@ -15,12 +15,16 @@ import {
 } from '@/lib/labels';
 import { plural } from '@/lib/format';
 import { toast } from '@/stores/toast';
-import { Avatar, Badge, Button, Modal, Select, Switch, Tabs } from '@/components/ui';
+import { Avatar, Badge, Button, Modal, Select, Switch } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import {
+  SectionContext,
+  SectionContextHeading,
+  SectionContextItem,
+} from '@/components/layout/pageChrome';
 import { AddUserModal } from './AddUserModal';
 import { EmployeeDrawer } from './EmployeeDrawer';
 import { EmployeeOpenButton } from './EmployeeOpenButton';
-import { StructurePage } from '@/pages/structure/StructurePage';
 import {
   filterEmployees,
   getUserDepartmentNames,
@@ -31,7 +35,6 @@ import {
 } from './employeeTable';
 import { createDefaultWeekTemplate } from '@/lib/schedule';
 import { canManageContent } from '@/lib/permissions';
-import { EmployeeSubscriptionCard } from './EmployeeSubscriptionCard';
 import { BASIC_INCLUDED_USERS } from './subscriptionPricing';
 import {
   canActivateEmployee,
@@ -116,7 +119,6 @@ export function EmployeesPage() {
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
   }, [location.pathname, location.search, location.state, navigate]);
 
-  const tab = 'employees';
   const search = searchParams.get('q') ?? '';
   const departmentFilter = searchParams.get('department') ?? 'all';
   const roleFilter = searchParams.get('role') ?? 'all';
@@ -249,13 +251,23 @@ export function EmployeesPage() {
     [positionsQuery.data, departmentsQuery.data],
   );
 
-  const departmentOptions = useMemo(
-    () => [
-      { value: 'all', label: 'Все отделы' },
-      ...(departmentsQuery.data ?? []).map((d) => ({ value: d.id, label: d.name })),
-    ],
-    [departmentsQuery.data],
-  );
+  const departmentFilters = useMemo(() => {
+    const users = usersQuery.data ?? [];
+    const countIn = (departmentId: string) =>
+      filterEmployees(
+        users,
+        { search: '', departmentId, role: 'all', status: 'all' },
+        lookups,
+      ).length;
+    return [
+      { value: 'all', label: 'Все отделы', count: users.length },
+      ...(departmentsQuery.data ?? []).map((d) => ({
+        value: d.id,
+        label: d.name,
+        count: countIn(d.id),
+      })),
+    ];
+  }, [usersQuery.data, departmentsQuery.data, lookups]);
 
   const processedUsers = useMemo(() => {
     const filtered = filterEmployees(
@@ -319,14 +331,6 @@ export function EmployeesPage() {
             className="h-9.5 w-full rounded-md border border-slate-200 bg-surface pl-9 pr-3 text-sm transition-colors focus:outline-2 focus:-outline-offset-1 focus:outline-primary-600"
           />
         </div>
-        <Select
-          options={departmentOptions}
-          value={departmentFilter}
-          onValueChange={(value) =>
-            updateParams({ department: value === 'all' ? null : value }, true)
-          }
-          className="sm:w-52"
-        />
         <Select
           options={roleFilterOptions}
           value={roleFilter}
@@ -532,7 +536,7 @@ export function EmployeesPage() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="max-w-[1360px] px-4 pt-5 pb-14 sm:px-6">
       <PageHeader
         title="Сотрудники"
         description={
@@ -542,27 +546,36 @@ export function EmployeesPage() {
         }
       />
 
-      <EmployeeSubscriptionCard users={usersQuery.data ?? []} />
+      <SectionContext>
+        <SectionContextHeading>Отделы</SectionContextHeading>
+        {departmentFilters.map((department) => (
+          <SectionContextItem
+            key={department.value}
+            active={departmentFilter === department.value}
+            count={usersQuery.data ? department.count : undefined}
+            onClick={() =>
+              updateParams(
+                { department: department.value === 'all' ? null : department.value },
+                true,
+              )
+            }
+            icon={
+              <span
+                aria-hidden="true"
+                className={
+                  department.value === 'all'
+                    ? 'size-2 shrink-0 rounded-full bg-slate-300'
+                    : 'size-2 shrink-0 rounded-full bg-primary-500'
+                }
+              />
+            }
+          >
+            {department.label}
+          </SectionContextItem>
+        ))}
+      </SectionContext>
 
-      <Tabs
-        value={tab}
-        onValueChange={(value) =>
-          updateParams({
-            tab: value === 'employees' ? null : value,
-            drawer: null,
-          })
-        }
-        className="mt-6"
-        items={[
-          { value: 'employees', label: 'Сотрудники', content: employeesContent },
-          {
-            value: 'structure',
-            label: 'Оргструктура',
-            content: <StructurePage embedded />,
-            disabled: true,
-          },
-        ]}
-      />
+      {employeesContent}
 
       <AddUserModal
         open={addUserOpen}

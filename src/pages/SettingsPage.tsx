@@ -16,7 +16,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { authApi } from '@/api';
+import { authApi, orgApi } from '@/api';
 import { ApiError } from '@/api/client';
 import type { Company, User } from '@/types';
 import {
@@ -32,6 +32,9 @@ import { toast } from '@/stores/toast';
 import { useUiStore, type Theme } from '@/stores/ui';
 import { Avatar, Badge, Button, Input } from '@/components/ui';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { useSectionTab } from '@/components/layout/chromeSlots';
+import { canManageAccess } from '@/lib/permissions';
+import { EmployeeSubscriptionCard } from '@/pages/employees/EmployeeSubscriptionCard';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { PHONE_ERROR, isValidPhone } from '@/lib/formValidation';
 import { registrationTokenErrorView } from '@/pages/auth/publicAuthFlow';
@@ -719,6 +722,36 @@ function MyProfileSection() {
   );
 }
 
+/** Тариф и доступ: оплата лицензии и места пользователей. */
+function PlanSection() {
+  const usersQuery = useQuery({ queryKey: queryKeys.users.all, queryFn: orgApi.getUsers });
+  if (usersQuery.isError) {
+    return (
+      <ErrorState
+        title="Не удалось загрузить сотрудников"
+        description="Без списка сотрудников нельзя посчитать занятые места."
+        onRetry={() => usersQuery.refetch()}
+      />
+    );
+  }
+  return <EmployeeSubscriptionCard users={usersQuery.data ?? []} />;
+}
+
+const settingsTabs = ['company', 'profile', 'plan', 'appearance'] as const;
+type SettingsTab = (typeof settingsTabs)[number];
+const settingsTabTitles: Record<SettingsTab, string> = {
+  company: 'Компания',
+  profile: 'Мой профиль',
+  plan: 'Тариф и доступ',
+  appearance: 'Оформление',
+};
+
+const readOnlyNotice = (
+  <div className="rounded-xl border border-slate-200 bg-surface p-5 text-sm text-slate-600 shadow-card">
+    Профиль доступен только для просмотра. Изменения вносит владелец или администратор компании.
+  </div>
+);
+
 export function SettingsPage() {
   useTitle('Настройки — TeamOS');
 
@@ -727,39 +760,34 @@ export function SettingsPage() {
 
   const previewLoading = companyQuery.isPending || userQuery.isPending;
   const readOnly = userQuery.data?.role === 'employee';
+  const requestedTab = useSectionTab(settingsTabs, 'company');
+  // «Тариф и доступ» — только владельцу и администратору.
+  const tab: SettingsTab =
+    requestedTab === 'plan' && !canManageAccess(userQuery.data?.role) ? 'company' : requestedTab;
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
+    <div className="max-w-[860px] px-4 pt-5 pb-14 sm:px-6">
       <PageHeader
-        title="Настройки"
-        description="Управляйте представлением компании и своими личными данными в одном месте."
+        title={settingsTabTitles[tab]}
+        description="Компания, личный профиль, тариф и оформление TeamOS."
       />
 
-      <div className="mt-5">
-        <SettingsPreview
-          company={companyQuery.data}
-          user={userQuery.data}
-          loading={previewLoading}
-          companyError={companyQuery.isError}
-          userError={userQuery.isError}
-          onRetryCompany={() => companyQuery.refetch()}
-          onRetryUser={() => userQuery.refetch()}
-        />
-      </div>
-
-      <div className="mt-5 space-y-5 sm:mt-6 sm:space-y-6">
-        <AppearanceSection />
-        {readOnly ? (
-          <div className="rounded-xl border border-slate-200 bg-surface p-5 text-sm text-slate-600 shadow-card">
-            Профиль доступен только для просмотра. Изменения вносит владелец или администратор
-            компании.
-          </div>
-        ) : (
-          <>
-            <CompanyProfileSection />
-            <MyProfileSection />
-          </>
+      <div className="space-y-5 sm:space-y-6">
+        {(tab === 'company' || tab === 'profile') && (
+          <SettingsPreview
+            company={companyQuery.data}
+            user={userQuery.data}
+            loading={previewLoading}
+            companyError={companyQuery.isError}
+            userError={userQuery.isError}
+            onRetryCompany={() => companyQuery.refetch()}
+            onRetryUser={() => userQuery.refetch()}
+          />
         )}
+        {tab === 'company' && (readOnly ? readOnlyNotice : <CompanyProfileSection />)}
+        {tab === 'profile' && (readOnly ? readOnlyNotice : <MyProfileSection />)}
+        {tab === 'plan' && <PlanSection />}
+        {tab === 'appearance' && <AppearanceSection />}
       </div>
     </div>
   );

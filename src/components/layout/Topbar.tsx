@@ -1,15 +1,16 @@
 import { queryKeys } from '@/api/queryKeys';
 import { lazy, Suspense, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, LogOut, Menu, Settings, UserRound } from 'lucide-react';
-import { authApi, notificationsApi } from '@/api';
+import { notificationsApi } from '@/api';
 import { isHttpApiMode } from '@/api/config';
-import type { ID } from '@/types';
+import type { ID, User } from '@/types';
 import { useUiStore } from '@/stores/ui';
 import { Avatar, Dropdown, type DropdownItem } from '@/components/ui';
 import { roleLabels } from '@/lib/labels';
 import { useLogout } from '@/components/auth/useLogout';
+import { isConnectedWidget, resolveActiveTab, type NavLocation } from './navigation';
 
 const EmployeeDrawer = lazy(() =>
   import('@/pages/employees/EmployeeDrawer').then((module) => ({
@@ -17,16 +18,45 @@ const EmployeeDrawer = lazy(() =>
   })),
 );
 
-export function Topbar() {
+/** Хлебные крошки и запасной заголовок, если страница не отрисовала `PageHeader`. */
+function useHeading(location: NavLocation) {
+  const { pathname, search } = useLocation();
+  if (location.kind === 'widget') {
+    const { widget, group } = location;
+    const tab = resolveActiveTab(widget.tabs, pathname, search);
+    return {
+      crumb: isConnectedWidget(widget) ? `${group.title} › ${widget.title}` : group.title,
+      fallback: tab?.label ?? widget.title,
+    };
+  }
+  if (location.kind === 'section') {
+    const tab = resolveActiveTab(location.section.tabs, pathname, search);
+    return { crumb: null, fallback: tab?.label ?? location.section.title };
+  }
+  return { crumb: null, fallback: '' };
+}
+
+/**
+ * Шапка: крошки, заголовок страницы (слот для `PageHeader`), действия страницы,
+ * уведомления, роль и меню профиля.
+ */
+export function Topbar({
+  location,
+  currentUser,
+  headerSlotRef,
+  actionsSlotRef,
+}: {
+  location: NavLocation;
+  currentUser: User | undefined;
+  headerSlotRef: (node: HTMLDivElement | null) => void;
+  actionsSlotRef: (node: HTMLDivElement | null) => void;
+}) {
   const navigate = useNavigate();
   const logout = useLogout();
-  const setMobileSidebarOpen = useUiStore((s) => s.setMobileSidebarOpen);
+  const navOpen = useUiStore((s) => s.navOpen);
+  const setNavOpen = useUiStore((s) => s.setNavOpen);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<ID | null>(null);
-
-  const { data: currentUser } = useQuery({
-    queryKey: queryKeys.currentUser,
-    queryFn: authApi.getCurrentUser,
-  });
+  const { crumb, fallback } = useHeading(location);
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: queryKeys.notifications.unreadCount,
@@ -67,26 +97,39 @@ export function Topbar() {
     : [];
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-surface px-4">
+    <header className="z-30 flex min-h-[76px] shrink-0 flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-slate-200 bg-surface px-6 py-3 max-md:min-h-16 max-md:px-4">
       <button
-        id="mobile-sidebar-trigger"
+        id="nav-trigger"
         type="button"
-        onClick={() => setMobileSidebarOpen(true)}
-        className="rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden"
-        aria-label="Открыть меню"
+        onClick={() => setNavOpen(!navOpen)}
+        className="flex size-9.5 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100 lg:hidden"
+        aria-label="Открыть навигацию"
+        aria-expanded={navOpen}
+        aria-controls="app-navigation"
       >
-        <Menu className="size-5" />
+        <Menu className="size-4.5" />
       </button>
 
-      <div className="flex-1" />
+      <div className="min-w-0 flex-1">
+        {crumb && <div className="mb-0.5 truncate text-xs font-medium text-slate-500">{crumb}</div>}
+        <div ref={headerSlotRef} className="peer min-w-0" />
+        <h1 className="hidden truncate text-[21px] leading-tight font-bold tracking-[-0.4px] text-ink peer-empty:block max-md:text-[19px]">
+          {fallback}
+        </h1>
+      </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div
+        ref={actionsSlotRef}
+        className="flex items-center gap-2 empty:hidden max-md:order-last max-md:w-full max-md:pb-1"
+      />
+
+      <div className="ml-auto flex shrink-0 items-center gap-2.5">
         <button
           onClick={() => navigate('/notifications')}
           className="relative flex size-9.5 items-center justify-center rounded-md border border-slate-200 bg-surface text-slate-500 transition-colors hover:border-primary-200 hover:text-primary-600"
-          aria-label="Уведомления"
+          aria-label={unreadCount > 0 ? `Уведомления: ${unreadCount} новых` : 'Уведомления'}
         >
-          <Bell className="size-4.5" />
+          <Bell className="size-4" />
           {unreadCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border-2 border-surface bg-danger-600 px-1 text-[10px] font-bold text-white">
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -95,8 +138,8 @@ export function Topbar() {
         </button>
 
         {currentUser && (
-          <div className="hidden items-center gap-2 rounded-md bg-primary-50 px-3 py-2 text-[13px] font-medium text-slate-700 dark:bg-primary-900 dark:text-primary-200 md:flex">
-            <span className="size-[7px] rounded-full bg-primary-600 dark:bg-primary-400" />
+          <div className="hidden items-center gap-2 rounded-md bg-slate-100 px-3 py-2 text-[13px] font-semibold text-slate-700 md:flex">
+            <span className="size-1.5 rounded-full bg-primary-600 dark:bg-primary-400" />
             {roleLabels[currentUser.role]}
           </div>
         )}
@@ -105,7 +148,7 @@ export function Topbar() {
           <Dropdown
             trigger={
               <button
-                className="ml-1 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                className="rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
                 aria-label="Меню профиля"
               >
                 <Avatar name={fullName} src={currentUser.avatarUrl} size="sm" />

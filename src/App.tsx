@@ -227,6 +227,17 @@ const DuplicateSearchPage = lazy(() =>
   })),
 );
 
+const CatalogPage = lazy(() =>
+  import('@/pages/integrations/CatalogPage').then((module) => ({
+    default: module.CatalogPage,
+  })),
+);
+const WidgetInfoPage = lazy(() =>
+  import('@/pages/integrations/WidgetInfoPage').then((module) => ({
+    default: module.WidgetInfoPage,
+  })),
+);
+
 const TaskControlPage = lazy(() =>
   import('@/pages/task-control/TaskControlPage').then((module) => ({
     default: module.TaskControlPage,
@@ -411,6 +422,22 @@ export function App() {
             element={
               <RequireIntegrationAccess>
                 <ActivityControlPage />
+              </RequireIntegrationAccess>
+            }
+          />
+          <Route
+            path="/integrations"
+            element={
+              <RequireIntegrationAccess>
+                <CatalogPage />
+              </RequireIntegrationAccess>
+            }
+          />
+          <Route
+            path="/integrations/:widgetId"
+            element={
+              <RequireIntegrationAccess>
+                <WidgetInfoPage />
               </RequireIntegrationAccess>
             }
           />
