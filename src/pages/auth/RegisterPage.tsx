@@ -4,7 +4,7 @@ import { useTitle } from '@reactuses/core';
 import { Copy, RefreshCw } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
-import { ApiError } from '@/api/client';
+import { ApiError, assertCurrentSession } from '@/api/client';
 import type { CompanyRegistrationTokenValidation, RegistrationLoginReservation } from '@/types';
 import { EMAIL_ERROR, isValidEmail } from '@/lib/formValidation';
 import { copyText } from '@/lib/clipboard';
@@ -145,6 +145,7 @@ export function RegisterPage() {
         ...(token ? { registrationToken: token } : {}),
         loginReservationToken: loginReservation.reservationToken,
       });
+      assertCurrentSession(session);
       setRegistrationToken('');
       setValidatedToken('');
       setTokenValidation(undefined);

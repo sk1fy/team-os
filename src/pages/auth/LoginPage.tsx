@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Button, Input } from '@/components/ui';
 import { authApi } from '@/api';
-import { ApiError } from '@/api/client';
+import { ApiError, assertCurrentSession } from '@/api/client';
 import { resolvePostLoginPath } from '@/lib/permissions';
 
 export function LoginPage() {
@@ -37,6 +37,7 @@ export function LoginPage() {
         login,
         password: String(form.get('password') ?? ''),
       });
+      assertCurrentSession(session);
       queryClient.setQueryData(queryKeys.currentUser, session.user);
       const from = (
         location.state as {

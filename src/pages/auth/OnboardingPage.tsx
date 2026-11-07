@@ -4,12 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { Copy, RefreshCw } from 'lucide-react';
 import { authApi } from '@/api';
-import { ApiError } from '@/api/client';
+import { ApiError, assertCurrentSession, captureAuthEpoch, assertAuthEpoch } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Input } from '@/components/ui';
 import { copyText } from '@/lib/clipboard';
 import { safeHomePath } from '@/lib/permissions';
-import { useAuthStore } from '@/stores/auth';
 import type { BootstrapActivation, OnboardingState, User } from '@/types';
 import { PublicAuthError } from './PublicAuthError';
 import {
@@ -44,6 +43,7 @@ export function OnboardingPage() {
   const [activation, setActivation] = useState<BootstrapActivation>();
   const [onboarding, setOnboarding] = useState<OnboardingState>();
   const [activatedUser, setActivatedUser] = useState<User>();
+  const activatedEpoch = useRef<string | null>(null);
   const [error, setError] = useState<PublicAuthErrorView>();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -79,12 +79,15 @@ export function OnboardingPage() {
   }, [attempt, token]);
 
   const finishOnboarding = async (fallbackUser: User) => {
+    const epoch = activatedEpoch.current ?? captureAuthEpoch();
+    assertAuthEpoch(epoch);
     queryClient.removeQueries({ queryKey: queryKeys.onboarding.all });
     queryClient.setQueryData(queryKeys.currentUser, fallbackUser);
     const [userResult, companyResult] = await Promise.allSettled([
       authApi.getCurrentUser(),
       authApi.getCompany(),
     ]);
+    assertAuthEpoch(epoch);
     const currentUser = userResult.status === 'fulfilled' ? userResult.value : fallbackUser;
     queryClient.setQueryData(queryKeys.currentUser, currentUser);
     if (companyResult.status === 'fulfilled') {
@@ -105,8 +108,8 @@ export function OnboardingPage() {
     setSubmitting(true);
     try {
       const session = await authApi.completeBootstrapActivation(token, { password });
-      useAuthStore.getState().setAccessToken(session.accessToken);
-      useAuthStore.getState().setInitialized(true);
+      assertCurrentSession(session);
+      activatedEpoch.current = captureAuthEpoch();
       queryClient.clear();
       queryClient.setQueryData(queryKeys.currentUser, session.user);
       queryClient.removeQueries({ queryKey: queryKeys.onboarding.all });
@@ -137,7 +140,9 @@ export function OnboardingPage() {
     setReissuing(true);
     setCopyStatus(undefined);
     try {
+      if (activatedEpoch.current) assertAuthEpoch(activatedEpoch.current);
       const next = await authApi.reissueOnboardingActivation();
+      if (activatedEpoch.current) assertAuthEpoch(activatedEpoch.current);
       setOnboarding(next);
       if (next.completed && activatedUser) await finishOnboarding(activatedUser);
     } catch (caught) {

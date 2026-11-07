@@ -18,7 +18,8 @@
     "preview": "vite preview",
     "e2e:distribution": "playwright test --config=playwright.distribution.config.ts",
     "e2e:activity": "playwright test --config=playwright.activity.config.ts",
-    "e2e:task-control": "playwright test --config=playwright.task-control.config.ts"
+    "e2e:task-control": "playwright test --config=playwright.task-control.config.ts",
+    "e2e:auth": "playwright test --config=playwright.auth.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

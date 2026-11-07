@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { authApi } from '@/api';
-import { ApiError } from '@/api/client';
+import { ApiError, assertCurrentSession } from '@/api/client';
 import { Button, Input } from '@/components/ui';
 import { toast } from '@/stores/toast';
 import { safeHomePath } from '@/lib/permissions';
@@ -42,6 +42,7 @@ export function InvitePage() {
         lastName: String(form.get('lastName') ?? ''),
         password: String(form.get('password') ?? ''),
       });
+      assertCurrentSession(session);
       toast.success('Добро пожаловать в команду!');
       navigate(safeHomePath(session.user.role, session.user.sectionAccess), { replace: true });
     } catch (caught) {

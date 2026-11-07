@@ -1,6 +1,18 @@
 import { test, expect, type Page } from '@playwright/test';
+import type { User } from '../src/types';
 const id = '10000000-0000-4000-8000-000000000001';
 async function fixture(page: Page, state = 'configured', conflict = false) {
+  const user = {
+    id,
+    firstName: 'Анна',
+    lastName: 'Тестовая',
+    email: 'test@example.invalid',
+    role: 'owner',
+    status: 'active',
+    positionIds: [],
+    departmentIds: [],
+    createdAt: '2026-11-07T00:00:00Z',
+  } satisfies User;
   const calls: {
     path: string;
     method: string;
@@ -42,18 +54,8 @@ async function fixture(page: Page, state = 'configured', conflict = false) {
     });
     let data: unknown = [];
     let status = 200;
-    if (path.endsWith('/auth/refresh')) data = { accessToken: 'fixture' };
-    else if (path.endsWith('/auth/me'))
-      data = {
-        id,
-        firstName: 'Анна',
-        lastName: 'Тестовая',
-        email: 'test@example.invalid',
-        role: 'owner',
-        status: 'active',
-        positionIds: [],
-        departmentIds: [],
-      };
+    if (path.endsWith('/auth/refresh')) data = { accessToken: 'fixture', sessionId: id, user };
+    else if (path.endsWith('/auth/me')) data = user;
     else if (path.endsWith('/distribution/rules')) data = { items: [] };
     else if (path.includes('/distribution/queue'))
       data = { items: [], total: 0, limit: 15, offset: 0, hasMore: false };
