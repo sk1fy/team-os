@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/api';
+import { refreshSession } from '@/api/client';
 import { isHttpApiMode } from '@/api/config';
 import { queryKeys } from '@/api/queryKeys';
 import { safeHomePath } from '@/lib/permissions';
@@ -20,12 +21,28 @@ export function AuthCheckingScreen() {
   );
 }
 
+export function AuthUnavailableScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <main
+      className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-page text-sm"
+      role="alert"
+    >
+      <p>Не удалось проверить доступ. Проверьте соединение и попробуйте ещё раз.</p>
+      <button type="button" onClick={onRetry}>
+        Повторить
+      </button>
+    </main>
+  );
+}
+
 export function AuthBootstrap({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const initialized = useAuthStore((state) => state.initialized);
   const setInitialized = useAuthStore((state) => state.setInitialized);
   const queryClient = useQueryClient();
   const startedRef = useRef(false);
+  const [unavailable, setUnavailable] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const isPublicTokenRoute =
     pathname === '/onboarding' || pathname === '/register-company' || pathname === '/auth/amocrm';
 
@@ -37,14 +54,28 @@ export function AuthBootstrap({ children }: { children: ReactNode }) {
       setInitialized(true);
       return;
     }
-    void restoreAuthenticatedSession(authApi.refresh, () =>
+    void restoreAuthenticatedSession(refreshSession, () =>
       queryClient.fetchQuery({
         queryKey: queryKeys.currentUser,
         queryFn: authApi.getCurrentUser,
       }),
-    ).finally(() => setInitialized(true));
-  }, [initialized, isPublicTokenRoute, queryClient, setInitialized]);
+    ).then((outcome) => {
+      if (outcome.kind === 'unavailable') setUnavailable(true);
+      else setInitialized(true);
+    });
+  }, [initialized, isPublicTokenRoute, queryClient, setInitialized, attempt]);
 
+  if (unavailable && !isPublicTokenRoute) {
+    return (
+      <AuthUnavailableScreen
+        onRetry={() => {
+          startedRef.current = false;
+          setUnavailable(false);
+          setAttempt((value) => value + 1);
+        }}
+      />
+    );
+  }
   if (isHttpApiMode('auth') && !initialized && !isPublicTokenRoute) {
     return <AuthCheckingScreen />;
   }

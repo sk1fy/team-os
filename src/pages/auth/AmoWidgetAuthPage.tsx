@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { CheckCircle2, Copy } from 'lucide-react';
 import { authApi } from '@/api';
-import { ApiError } from '@/api/client';
+import { ApiError, assertCurrentSession } from '@/api/client';
 import { queryKeys } from '@/api/queryKeys';
 import { Button, Input } from '@/components/ui';
 import { copyText } from '@/lib/clipboard';
@@ -60,6 +60,7 @@ export function AmoWidgetAuthPage() {
         sessionToken: continuationToken.value,
         password,
       });
+      assertCurrentSession(session);
       queryClient.clear();
       queryClient.setQueryData(queryKeys.currentUser, session.user);
       navigate('/employees', { replace: true });

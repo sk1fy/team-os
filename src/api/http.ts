@@ -1,5 +1,13 @@
-import { httpRequest, jsonBody, refreshAccessToken, type AuthSession } from './client';
 import { useAuthStore } from '@/stores/auth';
+import {
+  httpRequest,
+  jsonBody,
+  refreshAccessToken,
+  refreshSession,
+  establishSession,
+  logoutSession,
+  type AuthSession,
+} from './client';
 import type {
   Acknowledgement,
   AmoWidgetContinuation,
@@ -52,12 +60,6 @@ function publicRequest<T>(path: string, method = 'GET', body?: unknown): Promise
     { method, body: body === undefined ? undefined : jsonBody(body) },
     { skipAuthRefresh: true },
   );
-}
-
-function rememberSession(session: AuthSession<User>): AuthSession<User> {
-  useAuthStore.getState().setAccessToken(session.accessToken);
-  useAuthStore.getState().setInitialized(true);
-  return session;
 }
 
 interface WireBootstrapUser extends Omit<BootstrapUser, 'id'> {
@@ -113,19 +115,26 @@ export const httpAuthApi = {
     phone?: string;
   }): Promise<User> => request('/auth/me', 'PATCH', input),
   login: async (input: { login: string; password: string }): Promise<AuthSession<User>> =>
-    rememberSession(await publicRequest('/api/v2/auth/login', 'POST', input)),
+    establishSession(() => publicRequest<AuthSession<User>>('/api/v2/auth/login', 'POST', input)),
   loginWithAccessLink: async (token: string): Promise<AuthSession<User>> =>
-    rememberSession(await publicRequest(`/auth/access-link/${id(token)}`, 'POST')),
+    establishSession(() =>
+      publicRequest<AuthSession<User>>(`/auth/access-link/${id(token)}`, 'POST'),
+    ),
   impersonateUser: async (userId: ID): Promise<AuthSession<User>> =>
-    rememberSession(await request('/auth/impersonate', 'POST', { userId })),
-  refresh: async (): Promise<boolean> => refreshAccessToken<User>(),
-  logout: async (): Promise<void> => {
-    try {
-      await httpRequest<void>('/auth/logout', { method: 'POST' }, { skipAuthRefresh: true });
-    } finally {
-      useAuthStore.getState().clear();
-    }
-  },
+    establishSession(() =>
+      httpRequest<AuthSession<User>>(
+        '/auth/impersonate',
+        {
+          method: 'POST',
+          body: jsonBody({ userId }),
+          headers: { Authorization: `Bearer ${useAuthStore.getState().accessToken ?? ''}` },
+        },
+        { authMode: 'none' },
+      ),
+    ),
+  refresh: async (): Promise<boolean> => refreshAccessToken(),
+  refreshSession,
+  logout: logoutSession,
   register: async (input: {
     companyName: string;
     email: string;
@@ -135,17 +144,21 @@ export const httpAuthApi = {
     registrationToken?: string;
     loginReservationToken?: string;
   }): Promise<AuthSession<User>> =>
-    rememberSession(await publicRequest('/auth/register', 'POST', input)),
+    establishSession(() => publicRequest<AuthSession<User>>('/auth/register', 'POST', input)),
   completeAmoWidgetContinuation: async (input: {
     sessionToken: string;
     password: string;
   }): Promise<AuthSession<User>> =>
-    rememberSession(await publicRequest('/auth/amocrm/complete', 'POST', input)),
+    establishSession(() =>
+      publicRequest<AuthSession<User>>('/auth/amocrm/complete', 'POST', input),
+    ),
   acceptInvite: async (
     token: string,
     input: { email?: string; firstName: string; lastName: string; password: string },
   ): Promise<AuthSession<User>> =>
-    rememberSession(await publicRequest(`/auth/invites/${id(token)}/accept`, 'POST', input)),
+    establishSession(() =>
+      publicRequest<AuthSession<User>>(`/auth/invites/${id(token)}/accept`, 'POST', input),
+    ),
   getBootstrapActivation: async (token: string): Promise<BootstrapActivation> => {
     const activation = await publicRequest<WireBootstrapActivation>(`/auth/bootstrap/${id(token)}`);
     return { ...activation, user: normalizeBootstrapUser(activation.user) };
@@ -154,11 +167,12 @@ export const httpAuthApi = {
     token: string,
     input: { password: string },
   ): Promise<BootstrapAuthSession> => {
-    const response = await publicRequest<
-      Omit<BootstrapAuthSession, 'onboarding'> & { onboarding: WireOnboardingState }
-    >(`/auth/bootstrap/${id(token)}/complete`, 'POST', input);
-    const session = rememberSession(response);
-    return { ...session, onboarding: normalizeOnboarding(response.onboarding) };
+    return establishSession(async () => {
+      const response = await publicRequest<
+        Omit<BootstrapAuthSession, 'onboarding'> & { onboarding: WireOnboardingState }
+      >(`/auth/bootstrap/${id(token)}/complete`, 'POST', input);
+      return { ...response, onboarding: normalizeOnboarding(response.onboarding) };
+    });
   },
   getOnboardingStatus: async (): Promise<OnboardingState> =>
     normalizeOnboarding(await request<WireOnboardingState>('/company/onboarding')),

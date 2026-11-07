@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTitle } from '@reactuses/core';
 import { LoaderCircle } from 'lucide-react';
 import { authApi } from '@/api';
+import { assertCurrentSession } from '@/api/client';
 import { createAccessLinkLoginDeduplicator } from './accessLinkLogin';
 import { getAccessLinkDestination } from './accessLinkNavigation';
 
@@ -26,6 +27,7 @@ export function AccessLinkPage() {
     void loginWithAccessLinkOnce(token)
       .then((session) => {
         if (!active) return;
+        assertCurrentSession(session);
         queryClient.setQueryData(queryKeys.currentUser, session.user);
         const destination = getAccessLinkDestination(session);
         navigate(destination.pathname, {

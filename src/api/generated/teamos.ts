@@ -5817,6 +5817,8 @@ export interface components {
             expiresAt?: components["schemas"]["ISODateTime"];
         };
         AuthResponse: {
+            /** @description Nonsecret refresh routing context, a session family UUID or legacy. */
+            sessionId?: string;
             /** @description JWT access-токен со сроком жизни 15 минут. */
             accessToken: string;
             user: components["schemas"]["User"];
@@ -5828,6 +5830,8 @@ export interface components {
          */
         EntryContext: "company_created";
         BootstrapAuthResponse: {
+            /** @description Nonsecret session family UUID. */
+            sessionId?: string;
             /** @description JWT access-токен со сроком жизни 15 минут. */
             accessToken: string;
             user: components["schemas"]["User"];
@@ -9527,6 +9531,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Captured nonsecret session family UUID or legacy. Routes only the matching HttpOnly cookie and never grants authority. */
+        AuthSessionRouting: string;
         Id: components["schemas"]["ID"];
         InviteToken: string;
         AccessLinkToken: string;
@@ -9563,8 +9569,11 @@ export interface components {
     };
     requestBodies: never;
     headers: {
-        /** @description HttpOnly refresh-cookie. На login/register/accept/refresh содержит ротированный
-         *     токен; на logout истекает немедленно. В production добавляется `Secure`.
+        /** @description HttpOnly refresh-cookie. Explicit session creation writes teamos_session and
+         *     teamos_refresh_UUID. Refresh writes only its captured family cookie, or
+         *     teamos_refresh in legacy mode, and never writes the selector. Successful
+         *     logout expires only that operation's cookie. Failed logout and refresh never
+         *     delete cookies. The selector is never cleared by logout. Secure in production.
          *      */
         RefreshCookie: string;
         /** @description Отдельная HttpOnly-cookie внешнего ученика, ограниченная публичной Академией. */
@@ -10536,7 +10545,10 @@ export interface operations {
     refresh: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Captured nonsecret session family UUID or legacy. Routes only the matching HttpOnly cookie and never grants authority. */
+                "X-Teamos-Session"?: components["parameters"]["AuthSessionRouting"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -10550,7 +10562,10 @@ export interface operations {
     logout: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Captured nonsecret session family UUID or legacy. Routes only the matching HttpOnly cookie and never grants authority. */
+                "X-Teamos-Session"?: components["parameters"]["AuthSessionRouting"];
+            };
             path?: never;
             cookie?: never;
         };

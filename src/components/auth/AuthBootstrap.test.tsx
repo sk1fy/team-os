@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { AuthCheckingScreen } from './AuthBootstrap';
+import { AuthCheckingScreen, AuthUnavailableScreen } from './AuthBootstrap';
 import { restoreAuthenticatedSession } from './sessionBootstrap';
 
 describe('auth bootstrap', () => {
@@ -33,5 +33,18 @@ describe('auth bootstrap', () => {
     await restoreAuthenticatedSession(async () => false, loadCurrentUser);
 
     expect(loadCurrentUser).not.toHaveBeenCalled();
+  });
+  it('keeps temporary bootstrap failure separate from sign-out', async () => {
+    const loadCurrentUser = vi.fn();
+    const { ApiError } = await import('@/api/client');
+    const result = await restoreAuthenticatedSession(
+      async () => ({ kind: 'unavailable', error: new ApiError('Временно недоступно', 503) }),
+      loadCurrentUser,
+    );
+    expect(result.kind).toBe('unavailable');
+    expect(loadCurrentUser).not.toHaveBeenCalled();
+    const markup = renderToStaticMarkup(<AuthUnavailableScreen onRetry={() => undefined} />);
+    expect(markup).toContain('Повторить');
+    expect(markup).toContain('role="alert"');
   });
 });

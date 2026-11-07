@@ -1,3 +1,4 @@
+import { assertCurrentSession } from '@/api/client';
 import {
   useEffect,
   useMemo,
@@ -400,6 +401,7 @@ export function EmployeeDrawer({ userId, onClose }: { userId: ID | null; onClose
       return authApi.impersonateUser(user.id);
     },
     onSuccess: (session) => {
+      assertCurrentSession(session);
       queryClient.clear();
       queryClient.setQueryData(queryKeys.currentUser, session.user);
       toast.success(`Вы вошли как ${fullName(session.user)}`);
