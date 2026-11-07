@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import type { User } from '../src/types';
 const id = '10000000-0000-4000-8000-000000000001';
 const scope = {
   companyId: id,
@@ -44,6 +45,17 @@ async function fixture(
   failure?: 'conflict' | 'lost-response' | 'stale-references',
   options: { references?: unknown; linked?: boolean; history?: unknown } = {},
 ) {
+  const user = {
+    id,
+    firstName: 'Анна',
+    lastName: 'Тестовая',
+    email: 'test@example.invalid',
+    role: 'owner',
+    status: 'active',
+    positionIds: [],
+    departmentIds: [],
+    createdAt: '2026-11-07T00:00:00Z',
+  } satisfies User;
   const calls: { path: string; method: string }[] = [];
   const saves: { applyRequestId: string; expectedModeEpoch: number; rules: unknown[] }[] = [];
   let draft = {
@@ -73,17 +85,8 @@ async function fixture(
       checkedAt: new Date().toISOString(),
       freshUntil: new Date(Date.now() + 300000).toISOString(),
     };
-    if (path.endsWith('/auth/refresh')) data = { accessToken: 'fixture' };
-    else if (path.endsWith('/auth/me'))
-      data = {
-        id,
-        firstName: 'Анна',
-        lastName: 'Тестовая',
-        email: 'test@example.invalid',
-        role: 'owner',
-        status: 'active',
-        departmentIds: [],
-      };
+    if (path.endsWith('/auth/refresh')) data = { accessToken: 'fixture', sessionId: id, user };
+    else if (path.endsWith('/auth/me')) data = user;
     else if (path.endsWith('/company'))
       data = { id, name: 'Тестовая компания', amoAccountId: '123' };
     else if (path.endsWith('/installation')) data = installation;

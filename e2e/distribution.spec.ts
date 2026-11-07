@@ -70,7 +70,9 @@ async function fixture(
     status: 'active',
     email: 'test@example.invalid',
     sectionAccess: ['distribution', 'schedule'],
+    positionIds: [],
     departmentIds: [],
+    createdAt: '2026-11-07T00:00:00Z',
   };
   const group = () => ({
     id: groupId,
@@ -151,7 +153,8 @@ async function fixture(
     calls.push({ path, method: req.method(), body });
     let data: any = {};
     let status = 200;
-    if (path.endsWith('/auth/refresh')) data = { accessToken: 'fixture-only' };
+    if (path.endsWith('/auth/refresh'))
+      data = { accessToken: 'fixture-only', sessionId: bindingId, user };
     else if (path.endsWith('/auth/me')) data = user;
     else if (path.endsWith('/company')) data = { id: groupId, name: 'Тестовая компания' };
     else if (path.endsWith('/users'))
