@@ -677,7 +677,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Проверить наличие amoCRM Account ID в TeamOS */
+        /**
+         * Проверить наличие amoCRM Account ID в TeamOS
+         * @description Только справочная проверка. Не доказывает личность пользователя, не выдаёт
+         *     challenge; adminSelfLoginEligible всегда false. Для входа используйте Core.
+         *
+         */
         get: operations["checkAmoAccount"];
         put?: never;
         post?: never;
@@ -699,8 +704,8 @@ export interface paths {
         /**
          * Подготовить создание компании или вход из виджета amoCRM
          * @deprecated
-         * @description Прежний сценарий с X-Auth-Token отключён. Виджет использует одноразовые
-         *     browser challenge для `/admin-self-login` и `/company-bootstrap`.
+         * @description Прежний сценарий отключён. Новый вход выполняется через Core и одноразовый
+         *     `/api/v1/auth/amocrm/entry-exchange`; browser challenge больше не выдаётся.
          *
          */
         post: operations["exchangeAmoWidgetSession"];
@@ -743,10 +748,10 @@ export interface paths {
         put?: never;
         /**
          * Самостоятельный вход администратора amoCRM по browser assertion
-         * @description Challenge подтверждает только ранее найденную привязку аккаунта и не
-         *     является доказательством личности или прав amoCRM. Список users —
-         *     осознанно доверяемое клиентское утверждение и используется только после
-         *     обязательного принудительного импорта сотрудников.
+         * @deprecated
+         * @description Необратимо отключён: всегда 403 AMO_BROWSER_ENTRY_DISABLED, включая запросы
+         *     со старым challenge. Данные браузера не подтверждают пользователя или права.
+         *     Новый вход выполняется через Core и `/api/v1/auth/amocrm/entry-exchange`.
          *
          */
         post: operations["amoAdminSelfLogin"];
@@ -767,10 +772,10 @@ export interface paths {
         put?: never;
         /**
          * Создать компанию TeamOS из виджета amoCRM
-         * @description Одноразовый browser challenge привязывает запрос к Account ID amoCRM.
-         *     Список пользователей является browser assertion; роли вычисляются сервером:
-         *     инициатор становится владельцем, остальные администраторы — администраторами,
-         *     остальные пользователи — сотрудниками.
+         * @deprecated
+         * @description Необратимо отключён: всегда 403 AMO_BROWSER_ENTRY_DISABLED, включая запросы
+         *     со старым challenge. Данные браузера не подтверждают пользователя или права.
+         *     Новый вход выполняется через Core и `/api/v1/auth/amocrm/entry-exchange`.
          *
          */
         post: operations["bootstrapAmoCompany"];
@@ -5959,7 +5964,7 @@ export interface components {
         };
         AmoAccountAvailabilityResponse: {
             exists: boolean;
-            /** @description Сервер подтвердил активную компанию, совпадающую активную интеграцию amoCRM и готовность принудительного импорта для самостоятельного входа администратора. */
+            /** @description Всегда false. Прежний вход по browser assertion отключён. Наличие аккаунта не доказывает личность пользователя. */
             adminSelfLoginEligible: boolean;
             challengeToken?: string;
             /** @constant */
