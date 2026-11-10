@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/provisioning/amocrm/company-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вход администратора через виджет amoCRM */
+        post: operations["getAmoEntryCompanyStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/provisioning/amocrm/widget-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вход администратора через виджет amoCRM */
+        post: operations["provisionAmoWidgetEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/amocrm/entry-exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Вход администратора через виджет amoCRM */
+        post: operations["exchangeAmoCompanyEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activity-control/connection": {
         parameters: {
             query?: never;
@@ -4654,6 +4705,39 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AmoEntryCompanyStatusInput: {
+            accountId: string;
+        };
+        AmoEntryCompanyStatus: {
+            /** @enum {string} */
+            state: "absent" | "present" | "blocked";
+            /** Format: uuid */
+            companyId?: string;
+        };
+        AmoWidgetEntryInput: {
+            accountId: string;
+            actorId: string;
+            /** Format: uuid */
+            integrationId: string;
+            /** Format: uuid */
+            installationId: string;
+            /** @enum {string} */
+            intent: "create" | "enter";
+            name: string;
+            email: string;
+        };
+        AmoWidgetEntry: {
+            /** Format: uuid */
+            companyId: string;
+            /** Format: uuid */
+            userId: string;
+            code: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AmoEntryExchangeInput: {
+            code: string;
+        };
         ActivityWindow: {
             from: string;
             to: string;
@@ -9585,6 +9669,82 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAmoEntryCompanyStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmoEntryCompanyStatusInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmoEntryCompanyStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    provisionAmoWidgetEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmoWidgetEntryInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AmoWidgetEntry"];
+                };
+            };
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    exchangeAmoCompanyEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmoEntryExchangeInput"];
+            };
+        };
+        responses: {
+            /** @description Результат */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getActivityConnection: {
         parameters: {
             query?: never;

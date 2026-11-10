@@ -8,7 +8,7 @@ async function control(request: APIRequestContext, value: unknown) {
 }
 async function requests(request: APIRequestContext) {
   return (await request.get(controlUrl)).json() as Promise<
-    Array<{ path: string; sessionId: string }>
+    Array<{ path: string; sessionId: string | null }>
   >;
 }
 async function open(page: Page, suffix = '') {
@@ -75,16 +75,18 @@ test('two explicit logins serialize until the first complete body and late login
     .toBe(1);
   expect((await requests(request)).filter((r) => r.path === '/auth/login')).toHaveLength(1);
   const out = second.evaluate(() => window.authFixture.api.logout());
+  await second.waitForFunction(() => localStorage.getItem('teamos.auth.logout') !== null);
   await control(request, { release: 'entry' });
-  await first;
-  await other;
+  expect(await first).toBe('Сессия изменилась. Повторите действие.');
+  expect(await other).toBe('Сессия изменилась. Повторите действие.');
   await out;
   expect(await page.evaluate(() => window.authFixture.store.getState().accessToken)).toBeNull();
-  expect(
-    (await requests(request))
-      .filter((r) => r.path === '/auth/logout')
-      .some((r) => r.sessionId === family),
-  ).toBe(true);
+  // An unknown family uses the cookie selector; parsing the late body may add a targeted revoke.
+  const selectors = (await requests(request))
+    .filter((r) => r.path === '/auth/logout')
+    .map((r) => r.sessionId);
+  expect([[null], [null, family]]).toContainEqual(selectors);
+  expect((await requests(request)).filter((r) => r.path === '/auth/login')).toHaveLength(1);
 });
 
 test('lost refresh response remains retryable and recovers without signing out', async ({

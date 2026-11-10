@@ -190,6 +190,9 @@ const LoginPage = lazy(() =>
 const RegisterPage = lazy(() =>
   import('@/pages/auth/RegisterPage').then((module) => ({ default: module.RegisterPage })),
 );
+const AmoCompanyEntryPage = lazy(() =>
+  import('@/pages/auth/AmoCompanyEntryPage').then((module) => ({ default: module.AmoCompanyEntryPage })),
+);
 const AmoWidgetAuthPage = lazy(() =>
   import('@/pages/auth/AmoWidgetAuthPage').then((module) => ({
     default: module.AmoWidgetAuthPage,
@@ -530,6 +533,7 @@ export function App() {
           />
           <Route path="register" element={<Navigate to="/auth/login" replace />} />
           <Route path="amocrm" element={<AmoWidgetAuthPage />} />
+          <Route path="amo" element={<AmoCompanyEntryPage />} />
           <Route path="create-company" element={<Navigate to="/auth/register" replace />} />
           <Route path="invite/:token" element={<InvitePage />} />
         </Route>
