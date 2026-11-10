@@ -23,6 +23,7 @@ jobs:
       - run: npm run e2e:task-control
       - run: npm run e2e:activity
       - run: npm run e2e:auth
+      - run: npx playwright test --config=playwright.company-entry.config.ts
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
