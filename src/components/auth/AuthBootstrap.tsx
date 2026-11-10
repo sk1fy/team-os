@@ -44,7 +44,10 @@ export function AuthBootstrap({ children }: { children: ReactNode }) {
   const [unavailable, setUnavailable] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const isPublicTokenRoute =
-    pathname === '/onboarding' || pathname === '/register-company' || pathname === '/auth/amocrm';
+    pathname === '/onboarding' ||
+    pathname === '/register-company' ||
+    pathname === '/auth/amocrm' ||
+    pathname === '/auth/amo';
 
   useEffect(() => {
     if (isPublicTokenRoute || initialized) return;
